@@ -1,0 +1,114 @@
+name: Build Togetherly unsigned IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Togetherly API URL embedded in the app"
+        required: true
+        default: "http://192.168.1.16:4000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    name: Build unsigned iPhone IPA
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: "1"
+      EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Show toolchain
+        run: |
+          node --version
+          npm --version
+          xcodebuild -version
+          ruby --version
+          pod --version
+          echo "API URL: $EXPO_PUBLIC_API_URL"
+
+      - name: Validate Expo project
+        run: npx expo-doctor
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
+      - name: Build unsigned device app and package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          WORKSPACE="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          if [ -z "$WORKSPACE" ]; then
+            echo "No Xcode workspace found under ios/."
+            exit 1
+          fi
+
+          SCHEME="$(xcodebuild -list -workspace "$WORKSPACE" -json | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("workspace",{}).get("schemes",[]); print(s[0] if s else "")')"
+          if [ -z "$SCHEME" ]; then
+            echo "No shared Xcode scheme found."
+            exit 1
+          fi
+
+          echo "Workspace: $WORKSPACE"
+          echo "Scheme: $SCHEME"
+
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$PWD/ios/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+
+          APP_PATH="$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "Release .app was not produced."
+            exit 1
+          fi
+
+          rm -rf ipa-output
+          mkdir -p ipa-output/Payload
+          cp -R "$APP_PATH" ipa-output/Payload/
+
+          (
+            cd ipa-output
+            /usr/bin/zip -qry "Togetherly-v1.11-unsigned.ipa" Payload
+          )
+
+          test -s ipa-output/Togetherly-v1.11-unsigned.ipa
+          echo "IPA created: ipa-output/Togetherly-v1.11-unsigned.ipa"
+          ls -lh ipa-output/Togetherly-v1.11-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Togetherly-v1.11-unsigned-IPA
+          path: ipa-output/Togetherly-v1.11-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,18 @@
+Togetherly v1.9 — Polished Home
+
+This overlay is intended to be copied over an existing v1.8 project.
+It intentionally does not include the root Expo package.json or node_modules,
+so it will not replace the SDK57 or SDK54 dependency tree.
+
+Highlights:
+- calmer, more useful Home screen
+- compact expandable Text/Draw scratchpad
+- participant-coloured long-distance clocks without redundant name labels
+- smarter, cleaner Today rows and contextual Quick Actions
+- Photos now contains All Photos + Albums in one screen
+- old Albums deep link redirects safely into Photos > Albums
+- broad user-facing copy cleanup to remove implementation/meta commentary
+
+No new database migration.
+No new client dependency beyond react-native-svg already introduced in v1.7.
+Latest migration remains 010_everyday_ease.sql.

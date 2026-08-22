@@ -1,0 +1,8 @@
+Togetherly v1.11 IPA Build Kit
+
+Adds only build/deployment tooling:
+- .github/workflows/build-ios-unsigned.yml
+- scripts/prepare-ipa-build.ps1
+- IPA_BUILD_README.md
+
+It does not replace package.json, app source, server source, migrations, or dependencies.

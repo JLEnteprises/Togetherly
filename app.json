@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Togetherly",
+    "slug": "togetherly",
+    "version": "1.9.0",
+    "orientation": "portrait",
+    "scheme": "togetherly",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.togetherly",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Togetherly connects to your development computer while you test the app on your local network.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.example.togetherly",
+      "adaptiveIcon": {
+        "backgroundColor": "#0D0C11"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Togetherly uses your photo library only when you choose a profile or memory photo."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
