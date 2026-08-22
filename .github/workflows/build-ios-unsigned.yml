@@ -1,4 +1,4 @@
-name: Build Togetherly unsigned IPA
+﻿name: Build Togetherly unsigned IPA
 
 on:
   workflow_dispatch:
@@ -59,19 +59,29 @@ jobs:
           set -euo pipefail
 
           WORKSPACE="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          APP_PROJECT="$(find ios -maxdepth 1 -name '*.xcodeproj' ! -name 'Pods.xcodeproj' -print -quit)"
+
           if [ -z "$WORKSPACE" ]; then
             echo "No Xcode workspace found under ios/."
             exit 1
           fi
+          if [ -z "$APP_PROJECT" ]; then
+            echo "No application Xcode project found under ios/."
+            exit 1
+          fi
 
-          SCHEME="$(xcodebuild -list -workspace "$WORKSPACE" -json | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("workspace",{}).get("schemes",[]); print(s[0] if s else "")')"
+          PROJECT_NAME="$(basename "$APP_PROJECT" .xcodeproj)"
+          SCHEME="$(xcodebuild -list -project "$APP_PROJECT" -json | python3 -c 'import json,sys; name=sys.argv[1]; d=json.load(sys.stdin); schemes=d.get("project",{}).get("schemes",[]); print(name if name in schemes else (schemes[0] if schemes else ""))' "$PROJECT_NAME")"
+
           if [ -z "$SCHEME" ]; then
-            echo "No shared Xcode scheme found."
+            echo "No application Xcode scheme found."
+            xcodebuild -list -project "$APP_PROJECT"
             exit 1
           fi
 
           echo "Workspace: $WORKSPACE"
-          echo "Scheme: $SCHEME"
+          echo "Application project: $APP_PROJECT"
+          echo "Application scheme: $SCHEME"
 
           xcodebuild \
             -workspace "$WORKSPACE" \
@@ -86,11 +96,20 @@ jobs:
             DEVELOPMENT_TEAM="" \
             build
 
-          APP_PATH="$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          PRODUCTS="$PWD/ios/build/Build/Products/Release-iphoneos"
+          APP_PATH="$(find "$PRODUCTS" -maxdepth 2 -type d -name "${SCHEME}.app" -print -quit)"
+
           if [ -z "$APP_PATH" ]; then
-            echo "Release .app was not produced."
+            APP_PATH="$(find "$PRODUCTS" -maxdepth 2 -type d -name '*.app' -print -quit)"
+          fi
+
+          if [ -z "$APP_PATH" ]; then
+            echo "Xcode succeeded but no application bundle was found. Products were:"
+            find "$PRODUCTS" -maxdepth 2 -print || true
             exit 1
           fi
+
+          echo "Application bundle: $APP_PATH"
 
           rm -rf ipa-output
           mkdir -p ipa-output/Payload
