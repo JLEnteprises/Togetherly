@@ -45,7 +45,7 @@ export default function MoodScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Relationship" title="Mood check-in" subtitle="Share how you feel and what you need." />
+      <BackHeader eyebrow="Together" title="Mood check-in" subtitle="Share how you feel and what you need." />
       <Card participantColor={myColor} style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xxl }}>
         <AppText variant="caption" style={{ color: participantPalettes[myColor].accent }}>{profile!.display_name.toUpperCase()}</AppText>
         <AppText variant="section">How are you feeling?</AppText>

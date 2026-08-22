@@ -11,6 +11,7 @@ import { registerPreferenceRoutes } from './routes/preferences.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
 import { registerAvailabilityRoutes } from './routes/availability.js';
 import { registerGameRoutes } from './routes/games.js';
+import { registerLocationRoutes } from './routes/location.js';
 import { RealtimeHub } from './realtime/hub.js';
 
 export async function buildApp() {
@@ -30,5 +31,6 @@ export async function buildApp() {
   await registerNotificationRoutes(app);
   await registerAvailabilityRoutes(app, realtime);
   await registerGameRoutes(app, realtime);
+  await registerLocationRoutes(app, realtime);
   return app;
 }

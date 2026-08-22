@@ -138,6 +138,11 @@ export function getStoredSession() {
   return session;
 }
 
+export async function ensureStoredSession(): Promise<AuthSession | null> {
+  if (session) return session;
+  return initializeStoredSession();
+}
+
 export function subscribeToStoredSession(listener: (next: AuthSession | null) => void) {
   sessionListeners.add(listener);
   return () => sessionListeners.delete(listener);

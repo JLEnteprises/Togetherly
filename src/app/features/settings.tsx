@@ -32,7 +32,7 @@ export default function SettingsScreen() {
           <AppText variant="caption" tone="secondary">ACCESSIBILITY & FEEDBACK</AppText>
           <ToggleRow label="Reduced motion" subtitle="Keep transitions and motion calmer throughout the app." value={userPreferences.reduced_motion} onChange={(value) => change({ reducedMotion: value })} />
           <ToggleRow label="Haptics" subtitle="Allow subtle tactile feedback on supported phones." value={userPreferences.haptics} onChange={(value) => change({ haptics: value })} />
-          <ToggleRow label="High contrast" subtitle="Increase secondary text and border contrast while keeping the purple/green identity system." value={userPreferences.high_contrast} onChange={(value) => change({ highContrast: value })} />
+          <ToggleRow label="High contrast" subtitle="Make text and borders easier to see." value={userPreferences.high_contrast} onChange={(value) => change({ highContrast: value })} />
         </Card>
       </View>
     </AppScreen>

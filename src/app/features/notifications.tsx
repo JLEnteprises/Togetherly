@@ -84,7 +84,7 @@ export default function NotificationsScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="More" title="Notifications" subtitle="Updates from your shared space." />
+      <BackHeader eyebrow="Settings" title="Notifications" subtitle="Updates from your shared space." />
 
       <View style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>

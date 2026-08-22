@@ -10,10 +10,10 @@ import { useHomeLayout, type HomeCardKey } from '@/hooks/useHomeLayout';
 import { useAppTheme } from '@/theme/useAppTheme';
 
 const labels: Record<HomeCardKey, { title: string; body: string }> = {
-  today: { title: 'Today', body: 'Next event, tasks, Daily Question and mood in one compact card.' },
-  scratchpad: { title: 'Scratchpad', body: 'A small shared text-or-drawing space for whatever you both need in front of you.' },
-  distance: { title: 'Long distance', body: 'Local times, next countdown and shared free-time overlap. Only appears in long-distance mode.' },
-  quickActions: { title: 'Quick actions', body: 'Shortcuts to Play, Date ideas, Tasks and Memories.' },
+  today: { title: 'Today', body: 'Events, tasks, question and check-in.' },
+  scratchpad: { title: 'Scratchpad', body: 'Shared text or drawing.' },
+  distance: { title: 'Long distance', body: 'Local times, countdown and shared free time.' },
+  quickActions: { title: 'Quick actions', body: 'Play, Date ideas, Tasks and Memories.' },
 };
 
 export default function HomeLayoutScreen() {

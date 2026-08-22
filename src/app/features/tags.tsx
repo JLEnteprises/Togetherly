@@ -66,21 +66,21 @@ export default function TagsScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="More" title="Tags" subtitle="Labels for plans, memories and more." />
+      <BackHeader eyebrow="Plan" title="Tags" subtitle="Labels for plans, memories and more." />
       <CollapsibleComposer title={editingId ? 'Edit tag' : 'Our tags'} subtitle={`${tags.length} reusable labels`} open={composerOpen} actionLabel="New tag" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}>
           <View style={{ width: 90 }}><FormField label="ICON" value={icon} onChangeText={setIcon} maxLength={8} placeholder="🌿" /></View>
           <View style={{ flex: 1 }}><FormField label="NAME" value={name} onChangeText={setName} placeholder="Outdoors" /></View>
         </View>
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}><AppButton compact variant="secondary" label={drawingOpen ? 'Close drawing' : iconDrawing?.strokes.length ? 'Edit drawn icon' : 'Draw icon'} onPress={() => setDrawingOpen((value) => !value)} />{iconDrawing?.strokes.length ? <View style={{ width: 36, height: 36, borderRadius: 9, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' }}><DrawnIcon strokes={iconDrawing.strokes} size={24} /></View> : null}{iconDrawing?.strokes.length ? <AppButton compact variant="ghost" label="Remove drawing" onPress={() => setIconDrawing(null)} /> : null}</View>
-        {drawingOpen ? <View style={{ gap: theme.spacing.sm, alignSelf: 'flex-start', width: 190, maxWidth: '100%' }}><DrawingCanvas strokes={iconDrawing?.strokes ?? []} editable onStroke={addIconStroke} height={190} /><View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><AppButton compact variant="ghost" label="Undo" disabled={!iconDrawing?.strokes.length} onPress={undoIconStroke} /><AppButton compact variant="ghost" label="Clear" disabled={!iconDrawing?.strokes.length} onPress={() => setIconDrawing(null)} /></View><AppText variant="bodySmall" tone="muted">Draw simple, bold shapes. The same stroke renderer is used at icon size.</AppText></View> : null}
+        {drawingOpen ? <View style={{ gap: theme.spacing.sm, alignSelf: 'flex-start', width: 190, maxWidth: '100%' }}><DrawingCanvas strokes={iconDrawing?.strokes ?? []} editable onStroke={addIconStroke} height={190} /><View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><AppButton compact variant="ghost" label="Undo" disabled={!iconDrawing?.strokes.length} onPress={undoIconStroke} /><AppButton compact variant="ghost" label="Clear" disabled={!iconDrawing?.strokes.length} onPress={() => setIconDrawing(null)} /></View><AppText variant="bodySmall" tone="muted">Draw a simple icon.</AppText></View> : null}
         <AppButton label={busy ? 'Saving…' : editingId ? 'Save tag' : 'Add tag'} disabled={busy || !name.trim()} onPress={add} />
         <AppButton label="Add starter tag set" variant="ghost" disabled={busy} onPress={starterSet} />
       </CollapsibleComposer>
       <View style={{ gap: theme.spacing.md }}>
         <AppText variant="section">Our tags</AppText>
         {loading ? <AppText tone="muted">Loading tags…</AppText> : null}
-        {!loading && tags.length === 0 ? <EmptyState icon="#" title="No tags yet" body="Add the starter set or create only the labels that make sense to you." actionLabel="Add starter tags" onAction={starterSet} /> : null}
+        {!loading && tags.length === 0 ? <EmptyState icon="#" title="No tags yet" body="Create a tag or add the starter set." actionLabel="Add starter tags" onAction={starterSet} /> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
           {tags.map((tag) => (
             <Pressable key={tag.id} accessibilityRole="button" accessibilityHint="Tap to edit. Long press to delete this tag." onLongPress={() => remove(tag.id)} onPress={() => edit(tag)}

@@ -28,6 +28,7 @@ export async function createTask(input: {
   priority?: Priority;
   assignee?: 'me' | 'partner' | 'both';
   tagIds?: string[];
+  subtasks?: Array<{ title: string; dueDate?: string | null; estimatedMinutes?: number | null }>;
 }) {
   const result = await apiRequest<{ task: CoupleTask }>('/tasks', { method: 'POST', body: input });
   return result.task;

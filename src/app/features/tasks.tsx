@@ -34,6 +34,7 @@ function dueLabel(task: CoupleTask) {
 function recurrenceLabel(value: TaskRecurrence) { return value === 'none' ? '' : value === 'fortnightly' ? 'Every 2 weeks' : `Every ${value.replace('ly', '')}`; }
 
 type DurationUnit = 'minutes' | 'hours' | 'days' | 'weeks';
+type DraftStep = { id: string; title: string; dueDate: string | null; estimatedMinutes: number | null };
 function durationToMinutes(amount: string, unit: DurationUnit) {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return null;
@@ -77,6 +78,7 @@ export default function TasksScreen() {
   const [durationUnit, setDurationUnit] = useState<DurationUnit>('hours');
   const [priority, setPriority] = useState<Priority>('normal');
   const [recurrence, setRecurrence] = useState<TaskRecurrence>('none');
+  const [draftSteps, setDraftSteps] = useState<DraftStep[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newSubtaskDueDate, setNewSubtaskDueDate] = useState('');
   const [newSubtaskDurationAmount, setNewSubtaskDurationAmount] = useState('');
@@ -137,13 +139,13 @@ export default function TasksScreen() {
   }, [assignmentFilter, partnerProfile?.id, profile?.id, statusFilter, tasks]);
 
   function resetEditor(close = true) {
-    setEditingId(null); setTitle(''); setDescription(''); setDueDate(''); setStartDate(''); setDurationAmount(''); setDurationUnit('hours'); setPriority('normal'); setRecurrence('none'); setNewSubtaskTitle(''); setNewSubtaskDueDate(''); setNewSubtaskDurationAmount(''); setNewSubtaskDurationUnit('hours'); setTimingStepId(null); setAssignee('both'); setSelectedTagIds([]); setAdvancedOpen(false);
+    setEditingId(null); setTitle(''); setDescription(''); setDueDate(''); setStartDate(''); setDurationAmount(''); setDurationUnit('hours'); setPriority('normal'); setRecurrence('none'); setDraftSteps([]); setNewSubtaskTitle(''); setNewSubtaskDueDate(''); setNewSubtaskDurationAmount(''); setNewSubtaskDurationUnit('hours'); setTimingStepId(null); setAssignee('both'); setSelectedTagIds([]); setAdvancedOpen(false);
     if (close) setComposerOpen(false);
   }
   function beginEdit(task: CoupleTask) {
     setEditingId(task.id); setTitle(task.title); setDescription(task.description); setDueDate(task.due_date ?? dateOnlyFromIso(task.due_at)); setStartDate(task.start_date ?? ''); const duration = durationFromMinutes(task.estimated_minutes); setDurationAmount(duration.amount); setDurationUnit(duration.unit); setPriority(task.priority); setRecurrence(task.recurrence ?? 'none');
     setAssignee(task.assign_to_both ? 'both' : task.assignee_id === profile?.id ? 'me' : 'partner');
-    setSelectedTagIds((task.tags ?? []).map((tag) => tag.id)); setAdvancedOpen(true); setComposerOpen(true);
+    setDraftSteps([]); setSelectedTagIds((task.tags ?? []).map((tag) => tag.id)); setAdvancedOpen(true); setComposerOpen(true);
   }
   useEffect(() => {
     if (!params.focus || editingId === params.focus || !tasks.length) return;
@@ -162,7 +164,11 @@ export default function TasksScreen() {
     setBusy(true);
     try {
       const input = { title: title.trim(), description: description.trim(), dueAt, dueDate: dueDate || null, startDate: startDate || null, estimatedMinutes, recurrence, priority, assignee, tagIds: selectedTagIds };
-      if (editingId) await updateTask(editingId, input); else await createTask(input);
+      if (editingId) {
+        await updateTask(editingId, input);
+      } else {
+        await createTask({ ...input, subtasks: draftSteps.map((step) => ({ title: step.title, dueDate: step.dueDate, estimatedMinutes: step.estimatedMinutes })) });
+      }
       resetEditor(); await refresh();
     } catch (error) { Alert.alert(editingId ? 'Couldn’t update task' : 'Couldn’t add task', messageFrom(error)); }
     finally { setBusy(false); }
@@ -174,10 +180,22 @@ export default function TasksScreen() {
     catch (error) { setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status: previous } : item)); Alert.alert('Couldn’t update task', messageFrom(error)); }
   }
   async function addStep() {
-    if (!editingId || !newSubtaskTitle.trim()) return;
-    try { const estimatedMinutes = newSubtaskDurationAmount.trim() ? durationToMinutes(newSubtaskDurationAmount, newSubtaskDurationUnit) : null; if (newSubtaskDurationAmount.trim() && !estimatedMinutes) { Alert.alert('Check the duration', 'Enter a duration greater than zero.'); return; } await createSubtask(editingId, { title: newSubtaskTitle.trim(), dueDate: newSubtaskDueDate || null, estimatedMinutes }); setNewSubtaskTitle(''); setNewSubtaskDueDate(''); setNewSubtaskDurationAmount(''); await refresh(); }
-    catch (error) { Alert.alert('Couldn’t add step', messageFrom(error)); }
+    if (!newSubtaskTitle.trim()) return;
+    const estimatedMinutes = newSubtaskDurationAmount.trim() ? durationToMinutes(newSubtaskDurationAmount, newSubtaskDurationUnit) : null;
+    if (newSubtaskDurationAmount.trim() && !estimatedMinutes) { Alert.alert('Check the duration', 'Enter a duration greater than zero.'); return; }
+    if (newSubtaskDueDate && dueDate && newSubtaskDueDate > dueDate) { Alert.alert('Check the step date', 'A step can’t be due after the task itself.'); return; }
+    if (!editingId) {
+      setDraftSteps((current) => [...current, { id: `${Date.now()}-${current.length}`, title: newSubtaskTitle.trim(), dueDate: newSubtaskDueDate || null, estimatedMinutes }]);
+      setNewSubtaskTitle(''); setNewSubtaskDueDate(''); setNewSubtaskDurationAmount('');
+      return;
+    }
+    try {
+      await createSubtask(editingId, { title: newSubtaskTitle.trim(), dueDate: newSubtaskDueDate || null, estimatedMinutes });
+      setNewSubtaskTitle(''); setNewSubtaskDueDate(''); setNewSubtaskDurationAmount('');
+      await refresh();
+    } catch (error) { Alert.alert('Couldn’t add step', messageFrom(error)); }
   }
+  function removeDraftStep(id: string) { setDraftSteps((current) => current.filter((step) => step.id !== id)); }
   async function toggleStep(step: TaskSubtask) {
     try { await updateSubtask(step.id, { completed: !step.completed }); await refresh(); }
     catch (error) { Alert.alert('Couldn’t update step', messageFrom(error)); }
@@ -217,7 +235,7 @@ export default function TasksScreen() {
 
       <CollapsibleComposer
         title={editingId ? 'Edit task' : 'Tasks'}
-        subtitle={editingId ? 'Update the details below.' : 'Add a task only when you need to.'}
+        subtitle={editingId ? undefined : `${tasks.length - completed} open`}
         open={composerOpen}
         actionLabel="New task"
         closeLabel={editingId ? 'Cancel edit' : 'Close'}
@@ -234,11 +252,11 @@ export default function TasksScreen() {
           <FormField label="DETAILS · OPTIONAL" value={description} onChangeText={setDescription} placeholder="Booking link, reservation notes, what needs doing…" multiline />
           <DatePickerField label="DUE DATE · OPTIONAL" value={dueDate} onChange={setDueDate} optional />
           <DatePickerField label="START / NEEDS ATTENTION · OPTIONAL" value={startDate} onChange={setStartDate} optional />
-          <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">ESTIMATED DURATION · OPTIONAL</AppText><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="AMOUNT" value={durationAmount} onChangeText={setDurationAmount} keyboardType="numeric" placeholder="1" /></View><View style={{ flex: 2 }}><ChoiceChips value={durationUnit} onChange={setDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppText variant="bodySmall" tone="muted">If you leave Start blank, Togetherly can use this estimate to decide when the task needs attention before its due date.</AppText></View>
+          <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">ESTIMATED DURATION · OPTIONAL</AppText><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="AMOUNT" value={durationAmount} onChangeText={setDurationAmount} keyboardType="numeric" placeholder="1" /></View><View style={{ flex: 2 }}><ChoiceChips value={durationUnit} onChange={setDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppText variant="bodySmall" tone="muted">Helps work out when to start.</AppText></View>
           <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">PRIORITY</AppText><ChoiceChips value={priority} onChange={setPriority} options={[{ value: 'low', label: 'Low' }, { value: 'normal', label: 'Normal' }, { value: 'high', label: 'High' }]} /></View>
           <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">REPEAT</AppText><ChoiceChips value={recurrence} onChange={setRecurrence} options={[{ value: 'none', label: 'Never' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }, { value: 'fortnightly', label: '2 weeks' }, { value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} /></View>
           <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} />
-          {editingId ? <View style={{ gap: theme.spacing.md }}><AppText variant="caption" tone="secondary">CHECKLIST</AppText>{(tasks.find((item) => item.id === editingId)?.subtasks ?? []).map((step) => <View key={step.id} style={{ gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 9 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: step.completed }} onPress={() => toggleStep(step)} style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' }}><AppText>{step.completed ? '✓' : ''}</AppText></Pressable><View style={{ flex: 1, gap: 2 }}><AppText style={{ textDecorationLine: step.completed ? 'line-through' : 'none' }}>{step.title}</AppText>{step.due_date || step.estimated_minutes ? <AppText variant="caption" tone="muted">{step.due_date ? `Due ${shortDate(step.due_date)}` : ''}{step.due_date && step.estimated_minutes ? ' · ' : ''}{step.estimated_minutes ? `~${durationLabel(step.estimated_minutes)}` : ''}</AppText> : null}</View><AppButton compact variant="ghost" label={timingStepId === step.id ? 'Close' : 'Timing'} onPress={() => editStepTiming(step)} /><Pressable accessibilityRole="button" onPress={() => removeStep(step)}><AppText tone="muted">×</AppText></Pressable></View>{timingStepId === step.id ? <View style={{ gap: theme.spacing.sm }}><DatePickerField label="STEP DUE DATE · OPTIONAL" value={stepDueDate} onChange={setStepDueDate} optional /><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="DURATION" value={stepDurationAmount} onChangeText={setStepDurationAmount} keyboardType="numeric" placeholder="1" /></View><View style={{ flex: 2 }}><ChoiceChips value={stepDurationUnit} onChange={setStepDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppButton compact variant="secondary" label="Save step timing" onPress={() => saveStepTiming(step)} /></View> : null}</View>)}<View style={{ gap: theme.spacing.sm, paddingTop: 4 }}><FormField label="ADD STEP" value={newSubtaskTitle} onChangeText={setNewSubtaskTitle} placeholder="Book the restaurant…" /><DatePickerField label="STEP DUE DATE · OPTIONAL" value={newSubtaskDueDate} onChange={setNewSubtaskDueDate} optional /><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="DURATION" value={newSubtaskDurationAmount} onChangeText={setNewSubtaskDurationAmount} keyboardType="numeric" placeholder="30" /></View><View style={{ flex: 2 }}><ChoiceChips value={newSubtaskDurationUnit} onChange={setNewSubtaskDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppButton compact variant="secondary" label="Add step" disabled={!newSubtaskTitle.trim()} onPress={addStep} /></View></View> : <AppText variant="bodySmall" tone="muted">Save the task first, then add checklist steps and their own due dates while editing it.</AppText>}
+          <View style={{ gap: theme.spacing.md }}><AppText variant="caption" tone="secondary">CHECKLIST</AppText>{!editingId && draftSteps.map((step) => <View key={step.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 9 }}><View style={{ flex: 1, gap: 2 }}><AppText>{step.title}</AppText>{step.dueDate || step.estimatedMinutes ? <AppText variant="caption" tone="muted">{step.dueDate ? `Due ${shortDate(step.dueDate)}` : ''}{step.dueDate && step.estimatedMinutes ? ' · ' : ''}{step.estimatedMinutes ? `~${durationLabel(step.estimatedMinutes)}` : ''}</AppText> : null}</View><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${step.title}`} onPress={() => removeDraftStep(step.id)}><AppText tone="muted">×</AppText></Pressable></View>)}{editingId ? <>{(tasks.find((item) => item.id === editingId)?.subtasks ?? []).map((step) => <View key={step.id} style={{ gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 9 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: step.completed }} onPress={() => toggleStep(step)} style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' }}><AppText>{step.completed ? '✓' : ''}</AppText></Pressable><View style={{ flex: 1, gap: 2 }}><AppText style={{ textDecorationLine: step.completed ? 'line-through' : 'none' }}>{step.title}</AppText>{step.due_date || step.estimated_minutes ? <AppText variant="caption" tone="muted">{step.due_date ? `Due ${shortDate(step.due_date)}` : ''}{step.due_date && step.estimated_minutes ? ' · ' : ''}{step.estimated_minutes ? `~${durationLabel(step.estimated_minutes)}` : ''}</AppText> : null}</View><AppButton compact variant="ghost" label={timingStepId === step.id ? 'Close' : 'Timing'} onPress={() => editStepTiming(step)} /><Pressable accessibilityRole="button" onPress={() => removeStep(step)}><AppText tone="muted">×</AppText></Pressable></View>{timingStepId === step.id ? <View style={{ gap: theme.spacing.sm }}><DatePickerField label="STEP DUE DATE · OPTIONAL" value={stepDueDate} onChange={setStepDueDate} optional /><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="DURATION" value={stepDurationAmount} onChangeText={setStepDurationAmount} keyboardType="numeric" placeholder="1" /></View><View style={{ flex: 2 }}><ChoiceChips value={stepDurationUnit} onChange={setStepDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppButton compact variant="secondary" label="Save step timing" onPress={() => saveStepTiming(step)} /></View> : null}</View>)}</> : null}<View style={{ gap: theme.spacing.sm, paddingTop: 4 }}><FormField label="ADD STEP" value={newSubtaskTitle} onChangeText={setNewSubtaskTitle} placeholder="Book the restaurant…" /><DatePickerField label="STEP DUE DATE · OPTIONAL" value={newSubtaskDueDate} onChange={setNewSubtaskDueDate} optional /><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="DURATION" value={newSubtaskDurationAmount} onChangeText={setNewSubtaskDurationAmount} keyboardType="numeric" placeholder="30" /></View><View style={{ flex: 2 }}><ChoiceChips value={newSubtaskDurationUnit} onChange={setNewSubtaskDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppButton compact variant="secondary" label="Add step" disabled={!newSubtaskTitle.trim()} onPress={addStep} /></View></View>
         </View> : null}
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : editingId ? 'Save changes' : 'Add task'} disabled={busy || !title.trim()} onPress={saveTask} /></View>{editingId ? <AppButton compact variant="secondary" label="Cancel" onPress={() => resetEditor()} /> : null}</View>
       </CollapsibleComposer>

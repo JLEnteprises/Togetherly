@@ -20,6 +20,7 @@ export type Profile = {
   display_name: string;
   avatar_url: string | null;
   timezone: string;
+  timezone_mode: 'automatic' | 'manual';
   onboarding_complete: boolean;
   preferred_participant_color: ParticipantColor | null;
   deleted_at?: string | null;
@@ -377,4 +378,15 @@ export type GameSession = {
   winner_user_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type LiveLocationMember = {
+  userId: string;
+  displayName: string;
+  participantColor: ParticipantColor;
+  sharingEnabled: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  accuracyM: number | null;
+  capturedAt: string | null;
 };

@@ -1,54 +1,54 @@
-# Togetherly v1.9 — Polished Home Static Audit
+# Togetherly v1.11 — Polish & Hardening Static Audit
 
 Audit date: 2026-08-22
 
 ## Scope
-v1.9 is a UX/copy consolidation on top of v1.8. No backend feature or database capability was intentionally removed.
+
+This audit covers the v1.11 polish/hardening pass on top of v1.10 Live Location. No product capability was intentionally removed. The work focuses on location reliability, automatic timezone behaviour, task creation usability, navigation flattening, copy cleanup, and removal of obsolete Home implementation files.
 
 ## Source integrity
-- TypeScript/TSX files parsed: **142**
+
+- TypeScript/TSX files parsed: **143**
 - syntax diagnostics: **0**
-- local imports checked: **887**
+- local relative / `@/` imports checked: **867**
 - unresolved local imports: **0**
-- Expo Router pages excluding layouts: **43**
-- literal feature navigation references checked: **55**
+- literal `/features/...` navigation references checked: **70**
 - missing feature destinations: **0**
-
-## Backend integrity
-- Fastify route registrations found: **113**
-- duplicate method/path registrations: **0**
-- latest migration: `010_everyday_ease.sql`
-- v1.9 adds no migration
-
-## Interaction/accessibility
-- direct `Pressable` controls inspected: **89**
-- Pressables without `accessibilityRole`: **0**
+- Expo Router page files excluding layouts: **44**
+- Fastify route registrations: **116**
+- duplicate Fastify method/path registrations: **0**
+- direct `Pressable` controls inspected: **88**
+- direct `Pressable` controls without `accessibilityRole`: **0**
 - duplicate JSX attributes: **0**
 
-## Home audit
-- Today remains a single compact card
-- row dividers replaced with quieter tap states
-- smart Task attention summaries retained
-- Scratchpad defaults to a compact preview
-- Text/Draw expand inline only when requested
-- Save collapses the compact Scratchpad
-- Cancel restores saved Scratchpad state
-- long-distance visible name labels removed from clocks
-- each clock uses its participant colour with accessibility labels retaining identity
-- same-time / hour-difference cue added
-- Quick Actions use compact filled surfaces
-- active Play Together game can become the Home Continue action
+## Location / timezone corrections
 
-## Photos / Albums
-- Photos now owns `All photos` and `Albums`
-- album covers, create, edit, delete, add-memory and remove-memory behavior retained
-- legacy `/features/albums` route redirects to `/features/photos?view=albums`
-- Memories still provides access to Photos, Timeline and Memory Jar
+- automatic timezone can refresh from a one-time foreground location check even when live sharing is off;
+- automatic refresh is throttled and does not repeatedly prompt for permission;
+- manual timezone remains protected from location-driven overwrites;
+- the background location task restores the persisted authenticated session before sending an update;
+- mobile map has a proper no-location empty state;
+- `Live` ages automatically into a last-updated status;
+- distance formatting uses metres / decimal kilometres where appropriate;
+- map camera re-fits as the visible shared positions change;
+- web fallback no longer prints raw latitude/longitude values.
 
-## Copy audit
-Development/meta commentary was removed or rewritten across primary tabs and feature screens. Privacy/security copy that explains actual user-visible behavior was retained.
+## Everyday usability corrections
 
-## Deterministic logic suite
+- checklist steps can be created before the parent Task is first saved;
+- initial step due dates/durations are validated and persisted with Task creation;
+- Together: Live location is part of Connect rather than a redundant one-item Location group;
+- Plan: Tags is part of Organise rather than a one-item optional-tools group;
+- More is reduced to personal profile, Search, Manage and Sign out;
+- stale breadcrumbs were corrected after the previous navigation consolidation;
+- eight unused legacy Home preview components were deleted;
+- Play Together and general product copy were shortened to normal consumer language;
+- implementation/meta phrases such as “stroke renderer” and explanatory product-design commentary were removed from production UI.
+
+## Logic checks
+
+The deterministic utility suite was compiled and executed after the changes:
+
 ```text
 PASS strict date-only validation
 PASS strict local date-time validation
@@ -61,11 +61,5 @@ Logic smoke checks passed.
 ```
 
 ## Verification limitation
-This packaging environment does not contain the user's installed SDK57/SDK54 dependency trees or PostgreSQL instance. The authoritative installed-project checks still need to be run on Windows:
 
-```cmd
-npm --prefix server run typecheck
-npm run typecheck
-npm --prefix server run logic
-npm --prefix server run smoke
-```
+This packaging environment does not contain the user's installed SDK57/SDK54 dependency trees or live PostgreSQL database. Therefore installed-project TypeScript checks and the full API/PostgreSQL/WebSocket smoke suite must still be rerun on Windows after applying the overlay.

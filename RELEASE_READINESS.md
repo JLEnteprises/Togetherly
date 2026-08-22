@@ -1,8 +1,8 @@
-# Togetherly v1.9 — Release Readiness
+# Togetherly v1.11 — Release Readiness
 
-The v1.9 overlay is statically clean in the packaging environment and is ready for installed-project validation.
+v1.11 is a source-level release candidate focused on product polish and reliability. Static navigation/import/syntax/accessibility checks are clean and the deterministic date/recurrence/task-attention logic suite passes.
 
-Still required on the Windows project before treating the build as cleared:
+Before treating it as a tested release on the user's actual setup, rerun:
 
 ```cmd
 npm --prefix server run typecheck
@@ -11,6 +11,8 @@ npm --prefix server run logic
 npm --prefix server run smoke
 ```
 
-The SDK54 Expo-Go copy should also pass `npm run typecheck` and Expo Doctor aside from any local `.expo/` git-ignore warning.
+Also rerun the SDK54 client typecheck / Expo Doctor and perform the two-account manual tests in `APPLY_UPDATE_WINDOWS.md`.
 
-Production/deployment work remains separate: final bundle identifier, Apple signing, production HTTPS/API hosting, store artwork/metadata, privacy/support URLs, and native push if desired.
+No v1.11 database migration or new npm dependency is required. The latest migration remains `011_live_location.sql`.
+
+Background live location should not be called production-verified until it has been exercised in the signed iOS development/IPA build; Expo Go only covers the foreground testing path.

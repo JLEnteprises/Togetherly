@@ -33,7 +33,7 @@ export default function RegisterScreen() {
         <View style={{ gap: theme.spacing.sm }}>
           <Pressable accessibilityRole="button" onPress={() => router.back()}><AppText tone="accent">‹ Back</AppText></Pressable>
           <AppText variant="pageTitle">Create your account</AppText>
-          <AppText tone="secondary">Start with your private login. Your name, photo and timezone come next; you’ll choose your colour when you create your shared space.</AppText>
+          <AppText tone="secondary">Create your Togetherly account.</AppText>
         </View>
         <View style={{ gap: theme.spacing.lg }}>
           <FormField label="EMAIL" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="you@example.com" />

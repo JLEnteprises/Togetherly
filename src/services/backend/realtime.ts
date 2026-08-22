@@ -1,6 +1,6 @@
 import { backendConfig, getUsableAccessToken } from './api';
 
-export type RealtimeResource = 'tasks' | 'notes' | 'lists' | 'countdowns' | 'events' | 'goals' | 'trips' | 'memories' | 'activities' | 'questions' | 'moods' | 'tags' | 'schedules' | 'games';
+export type RealtimeResource = 'tasks' | 'notes' | 'lists' | 'countdowns' | 'events' | 'goals' | 'trips' | 'memories' | 'activities' | 'questions' | 'moods' | 'tags' | 'schedules' | 'games' | 'location';
 
 export type RealtimeEvent =
   | { type: 'ready'; coupleId: string | null }

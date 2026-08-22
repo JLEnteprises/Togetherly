@@ -6,6 +6,9 @@ import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
 import { FormField } from '@/components/common/FormField';
+import { TimezonePickerField } from '@/components/common/TimezonePickerField';
+import { ToggleRow } from '@/components/common/ToggleRow';
+import { useLocationSharing } from '@/providers/LocationProvider';
 import { PhotoPickerField } from '@/components/common/PhotoPickerField';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
@@ -21,20 +24,21 @@ export default function AccountScreen() {
   const theme = useAppTheme();
   const detectedTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', []);
   const { profile, myColor, refresh } = useWorkspace();
+  const { refreshAutomaticTimezone } = useLocationSharing();
   const { signOut } = useAuth();
-  const [name, setName] = useState(''); const [timezone, setTimezone] = useState(''); const [photo, setPhoto] = useState<string | null>(null);
+  const [name, setName] = useState(''); const [timezone, setTimezone] = useState(''); const [timezoneMode, setTimezoneMode] = useState<'automatic' | 'manual'>('automatic'); const [photo, setPhoto] = useState<string | null>(null);
   const [email, setEmail] = useState(''); const [emailPassword, setEmailPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState(''); const [newPassword, setNewPassword] = useState(''); const [confirmPassword, setConfirmPassword] = useState('');
   const [deletePassword, setDeletePassword] = useState(''); const [deletePhrase, setDeletePhrase] = useState('');
   const [busy, setBusy] = useState<string | null>(null); const [open, setOpen] = useState<OpenPanel>(null);
 
-  useEffect(() => { if (!profile) return; setName(profile.display_name); setTimezone(profile.timezone); setPhoto(profile.avatar_url); setEmail(profile.email); }, [profile?.id, profile?.display_name, profile?.timezone, profile?.avatar_url, profile?.email]);
+  useEffect(() => { if (!profile) return; setName(profile.display_name); setTimezone(profile.timezone); setTimezoneMode(profile.timezone_mode ?? 'automatic'); setPhoto(profile.avatar_url); setEmail(profile.email); }, [profile?.id, profile?.display_name, profile?.timezone, profile?.timezone_mode, profile?.avatar_url, profile?.email]);
   const toggle = (panel: Exclude<OpenPanel, null>) => setOpen((current) => current === panel ? null : panel);
 
   async function saveProfile() {
     if (!name.trim() || !timezone.trim()) return;
     setBusy('profile');
-    try { await updateProfile({ displayName: name.trim(), timezone: timezone.trim(), avatarUrl: photo }); await refreshCurrentUser(); await refresh(); Alert.alert('Saved', 'Your profile has been updated.'); }
+    try { let chosenTimezone=timezone.trim(); if(timezoneMode==='automatic'){chosenTimezone=(await refreshAutomaticTimezone()) ?? detectedTimezone;} await updateProfile({ displayName: name.trim(), timezone: chosenTimezone, timezoneMode, avatarUrl: photo }); setTimezone(chosenTimezone); await refreshCurrentUser(); await refresh(); Alert.alert('Saved', 'Your profile has been updated.'); }
     catch (error) { Alert.alert('Couldn’t save profile', messageFrom(error)); }
     finally { setBusy(null); }
   }
@@ -94,8 +98,9 @@ export default function AccountScreen() {
       <View style={{ gap: 4 }}><AppText variant="section">{profile?.display_name ?? 'Your profile'}</AppText><AppText tone="secondary">{profile?.email}</AppText></View>
       <PhotoPickerField label="PROFILE PHOTO" value={photo} onChange={setPhoto} circular />
       <FormField label="DISPLAY NAME" value={name} onChangeText={setName} placeholder="Your name" />
-      <FormField label="TIMEZONE" value={timezone} onChangeText={setTimezone} placeholder="Australia/Brisbane" autoCapitalize="none" />
-      {timezone !== detectedTimezone ? <AppButton compact variant="ghost" label={`Use device timezone · ${detectedTimezone}`} onPress={() => setTimezone(detectedTimezone)} /> : null}
+      <ToggleRow label="Automatic timezone" subtitle="Use your location to keep local time correct." value={timezoneMode === 'automatic'} onChange={(value) => setTimezoneMode(value ? 'automatic' : 'manual')} />
+      {timezoneMode === 'manual' ? <TimezonePickerField value={timezone} onChange={setTimezone} /> : <View style={{ gap: 4 }}><AppText variant="caption" tone="secondary">TIMEZONE</AppText><AppText>{timezone}</AppText><AppText variant="caption" tone="muted">Set automatically from your location.</AppText></View>}
+      {timezoneMode === 'manual' && timezone !== detectedTimezone ? <AppButton compact variant="ghost" label={`Use device timezone · ${detectedTimezone}`} onPress={() => setTimezone(detectedTimezone)} /> : null}
       <AppButton label={busy === 'profile' ? 'Saving…' : 'Save profile'} disabled={Boolean(busy) || !name.trim() || !timezone.trim()} onPress={saveProfile} />
     </Card>
 

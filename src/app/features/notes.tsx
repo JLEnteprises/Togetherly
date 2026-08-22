@@ -49,7 +49,7 @@ export default function NotesScreen() {
 
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Notes" subtitle="Shared notes, private notes and your scratchpad." />
-    <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard title="Quick note" subtitle="Need one shared place for a reminder, thought or quick sketch? Use the text-or-draw scratchpad." items={noteTools} /></View>
+    <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard title="Scratchpad" items={noteTools} /></View>
     <CollapsibleComposer title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="New note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
       <FormField label="TITLE" value={title} onChangeText={setTitle} placeholder="Flight details" />
       <FormField label="NOTE" value={body} onChangeText={setBody} placeholder="Keep the useful bits in one place…" multiline />

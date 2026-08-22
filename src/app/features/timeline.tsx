@@ -38,7 +38,7 @@ export default function TimelineScreen() {
     <AppScreen>
       <BackHeader eyebrow="Us" title="Relationship timeline" subtitle="Your relationship milestones." />
       {loading ? <AppText tone="muted">Loading timeline…</AppText> : null}
-      {!loading && timeline.length === 0 ? <EmptyState icon="♥" title="Your timeline is waiting" body="Mark a memory as a milestone to add it here." actionLabel="Add a memory" onAction={() => router.push('/features/memories' as never)} /> : null}
+      {!loading && timeline.length === 0 ? <EmptyState icon="♥" title="No milestones yet" body="Mark a memory as a milestone to add it here." actionLabel="Add a memory" onAction={() => router.push('/features/memories' as never)} /> : null}
       {timeline.length ? (
         <Card style={{ gap: 0 }}>
           {timeline.map((memory, index) => {

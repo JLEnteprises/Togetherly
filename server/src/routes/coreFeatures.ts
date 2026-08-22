@@ -146,6 +146,14 @@ export async function registerCoreFeatureRoutes(app: FastifyInstance, realtime: 
       const priority = oneOf(body.priority, ['low', 'normal', 'high'] as const, 'normal');
       const recurrence = oneOf(body.recurrence, ['none', 'daily', 'weekly', 'fortnightly', 'monthly', 'yearly'] as const, 'none');
       if (recurrence !== 'none' && !dueDate) throw new ApiError(400, 'Choose a due date for a repeating task.');
+      if (body.subtasks !== undefined && !Array.isArray(body.subtasks)) throw new ApiError(400, 'Checklist steps are invalid.');
+      const subtasks = (Array.isArray(body.subtasks) ? body.subtasks : []).slice(0, 50).map((value, index) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ApiError(400, `Checklist step ${index + 1} is invalid.`);
+        const step = value as Record<string, unknown>;
+        const stepDueDate = dateOnlyValue(step.dueDate, 'Step due date');
+        if (stepDueDate && dueDate && stepDueDate > dueDate) throw new ApiError(400, 'A checklist step cannot be due after the task.');
+        return { title: requiredText(step.title, 'Subtask', 300), dueDate: stepDueDate, estimatedMinutes: positiveMinutes(step.estimatedMinutes, 'Step duration') };
+      });
       const { assigneeId, assignToBoth } = await resolveAssignee(coupleId, request.userId, body.assignee);
       const id = randomUUID();
       const result = await pool.query(
@@ -155,6 +163,13 @@ export async function registerCoreFeatureRoutes(app: FastifyInstance, realtime: 
         [id, coupleId, request.userId, assigneeId, assignToBoth, title, description, dueAt, dueDate, startDate, estimatedMinutes, priority, recurrence, recurrence === 'none' ? null : id],
       );
       await setTags(coupleId, 'task', id, body.tagIds);
+      for (let index = 0; index < subtasks.length; index += 1) {
+        const step = subtasks[index]!;
+        await pool.query(
+          `INSERT INTO task_subtasks(id,task_id,creator_id,title,due_date,estimated_minutes,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [randomUUID(), id, request.userId, step.title, step.dueDate, step.estimatedMinutes, index],
+        );
+      }
       await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'task', preference: 'notification_tasks', entityType: 'task', entityId: id, title: 'New shared task', body: title });
       broadcast(realtime, coupleId, 'tasks', 'created', id);
       return reply.code(201).send({ task: result.rows[0] });

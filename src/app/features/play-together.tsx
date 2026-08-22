@@ -20,11 +20,11 @@ import type { BingoWinCondition, GameSession, GameType } from '@/types/database'
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 
 const games: Array<{ type: GameType; icon: string; title: string; subtitle: string; badge: string }> = [
-  { type: 'bingo', icon: '▦', title: 'Relationship Bingo', subtitle: 'See each other’s cards. Earn, verify and strategically withhold squares.', badge: 'ONGOING' },
-  { type: 'hangman', icon: 'A_', title: 'Hangman', subtitle: 'Challenge your partner with a word or inside-joke phrase.', badge: 'QUICK' },
-  { type: 'this_or_that', icon: '⇄', title: 'This or That', subtitle: 'Choose secretly, reveal together and see how often you match.', badge: 'QUICK' },
-  { type: 'know_me', icon: '♡?', title: 'How Well Do You Know Me?', subtitle: 'Answer about yourself while your partner predicts your choice.', badge: 'ABOUT US' },
-  { type: 'draw_together', icon: '✎', title: 'Draw Together', subtitle: 'Share one live canvas. Doodle, leave a sketch or make something chaotic together.', badge: 'CREATIVE' },
+  { type: 'bingo', icon: '▦', title: 'Relationship Bingo', subtitle: 'Complete your card before your partner.', badge: 'ONGOING' },
+  { type: 'hangman', icon: 'A_', title: 'Hangman', subtitle: 'Guess the word before you run out of tries.', badge: 'QUICK' },
+  { type: 'this_or_that', icon: '⇄', title: 'This or That', subtitle: 'Choose secretly, then reveal together.', badge: 'QUICK' },
+  { type: 'know_me', icon: '♡?', title: 'How Well Do You Know Me?', subtitle: 'See how well you can predict each other.', badge: 'ABOUT US' },
+  { type: 'draw_together', icon: '✎', title: 'Draw Together', subtitle: 'Draw together on one shared canvas.', badge: 'CREATIVE' },
 ];
 
 const quickTools = [

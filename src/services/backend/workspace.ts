@@ -15,7 +15,7 @@ export async function joinCoupleWithCode(inviteCode: string) {
 
 export async function regenerateCoupleInvite() { return apiRequest<{ inviteCode: string }>('/workspace/invite/regenerate', { method: 'POST', body: {} }); }
 
-export async function updateProfile(input: { displayName?: string; timezone?: string; avatarUrl?: string | null; preferredColor?: ParticipantColor; onboardingComplete?: boolean }) {
+export async function updateProfile(input: { displayName?: string; timezone?: string; timezoneMode?: 'automatic' | 'manual'; avatarUrl?: string | null; preferredColor?: ParticipantColor; onboardingComplete?: boolean }) {
   return apiRequest<{ profile: Profile }>('/workspace/profile', { method: 'PATCH', body: input });
 }
 

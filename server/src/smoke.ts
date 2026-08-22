@@ -98,6 +98,22 @@ async function main() {
     assert(aSnapshot.profile.avatar_url === tinyPng, 'Profile photo chosen during onboarding did not persist.');
     console.log('PASS chosen participant colour, opposite join colour, invite single-use and real names');
 
+    await request('/location/sharing', { method: 'PUT', token: a.accessToken, body: { enabled: true } });
+    await request('/location/sharing', { method: 'PUT', token: b.accessToken, body: { enabled: true } });
+    await request('/location/position', { method: 'PUT', token: a.accessToken, body: { latitude: -27.4698, longitude: 153.0251, accuracyM: 12, timezone: 'Australia/Brisbane' } });
+    await request('/workspace/profile', { method: 'PATCH', token: b.accessToken, body: { timezone: 'America/Chicago', timezoneMode: 'manual' } });
+    await request('/location/position', { method: 'PUT', token: b.accessToken, body: { latitude: 41.1538, longitude: -87.8875, accuracyM: 15, timezone: 'Australia/Brisbane' } });
+    const locationView = await request<{ members: Json[] }>('/location', { token: a.accessToken });
+    assert(locationView.members.filter((member) => member.sharingEnabled && member.latitude != null && member.longitude != null).length === 2, 'Linked partners could not see both shared locations.');
+    const bAfterLocation = await request<Json>('/workspace', { token: b.accessToken });
+    assert(bAfterLocation.profile.timezone === 'America/Chicago' && bAfterLocation.profile.timezone_mode === 'manual', 'A live location update overwrote a manually selected timezone.');
+    await request('/location/sharing', { method: 'PUT', token: a.accessToken, body: { enabled: false } });
+    const hiddenLocation = await request<{ members: Json[] }>('/location', { token: b.accessToken });
+    const hiddenA = hiddenLocation.members.find((member) => member.userId === a.user.id);
+    assert(hiddenA?.sharingEnabled === false && hiddenA?.latitude == null && hiddenA?.longitude == null, 'Turning location sharing off did not hide stored coordinates.');
+    await request('/workspace/profile', { method: 'PATCH', token: b.accessToken, body: { timezone: 'Australia/Brisbane', timezoneMode: 'automatic' } });
+    console.log('PASS live location visibility, location-off privacy and manual-timezone protection');
+
     await request('/workspace/join', { method: 'POST', token: d.accessToken, body: { inviteCode: cWorkspace.inviteCode } });
     await request('/workspace/remove-partner', { method: 'POST', token: c.accessToken });
     const removedSnapshot = await request<Json>('/workspace', { token: d.accessToken });
@@ -129,19 +145,20 @@ async function main() {
 
     const task = (await request<{ task: Json }>('/tasks', {
       method: 'POST', token: a.accessToken, expected: 201,
-      body: { title: 'Realtime smoke task', description: 'Created by purple', assignee: 'both', priority: 'high', tagIds: [tag.id] },
+      body: { title: 'Realtime smoke task', description: 'Created by purple', assignee: 'both', priority: 'high', dueDate: '2026-08-25', tagIds: [tag.id], subtasks: [{ title: 'Initial checklist step', dueDate: '2026-08-24', estimatedMinutes: 30 }] },
     })).task;
     const event = await realtimeEvent;
     assert(event.id === task.id, 'Realtime task event referenced the wrong item.');
     await request(`/tasks/${task.id}`, { method: 'PATCH', token: a.accessToken, body: { tagIds: [drawnTag.id] } });
     const drawnTaggedTask = (await request<{ tasks: Json[] }>('/tasks', { token: b.accessToken })).tasks.find((item) => item.id === task.id);
     assert(drawnTaggedTask?.tags?.[0]?.icon_drawing?.strokes?.length === 1, 'Drawn Tag icon did not propagate through tagged content.');
+    assert(drawnTaggedTask?.subtasks?.length === 1 && drawnTaggedTask.subtasks[0].title === 'Initial checklist step' && Number(drawnTaggedTask.subtasks[0].estimated_minutes) === 30, 'Checklist steps created with the task did not persist.');
     const bTasks = await request<{ tasks: Json[] }>('/tasks', { token: b.accessToken });
     assert(bTasks.tasks.some((item) => item.id === task.id), 'Partner cannot see shared task.');
     await request(`/tasks/${task.id}`, { method: 'PATCH', token: c.accessToken, expected: 404, body: { status: 'completed' } });
     await request('/tasks/not-a-uuid', { method: 'PATCH', token: a.accessToken, expected: 400, body: { status: 'completed' } });
     assert(!(await request<{ tasks: Json[] }>('/tasks', { token: c.accessToken })).tasks.some((item) => item.id === task.id), 'Other couple can see task.');
-    console.log('PASS realtime delivery, invalid-id handling and cross-couple task isolation');
+    console.log('PASS realtime delivery, create-with-checklist, invalid-id handling and cross-couple task isolation');
 
     const recurringTask = (await request<{ task: Json }>('/tasks', {
       method: 'POST', token: a.accessToken, expected: 201,

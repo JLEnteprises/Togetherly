@@ -3,17 +3,21 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { WorkspaceProvider, useWorkspace } from '@/providers/WorkspaceProvider';
 import { PreferencesProvider } from '@/providers/PreferencesProvider';
+import { LocationProvider } from '@/providers/LocationProvider';
 import { BackendSetupScreen } from '@/components/common/BackendSetupScreen';
 import { BackendUnavailableScreen } from '@/components/common/BackendUnavailableScreen';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 import { useAppTheme } from '@/theme/useAppTheme';
+import '@/services/locationBackground';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
       <WorkspaceProvider>
         <PreferencesProvider>
-          <RootNavigator />
+          <LocationProvider>
+            <RootNavigator />
+          </LocationProvider>
         </PreferencesProvider>
       </WorkspaceProvider>
     </AuthProvider>

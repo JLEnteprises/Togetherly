@@ -16,15 +16,15 @@ export default function WelcomeScreen() {
             <AppText variant="pageTitle" tone="accent">♥</AppText>
           </View>
           <View style={{ gap: theme.spacing.sm }}>
-            <AppText variant="caption" tone="accent">YOUR SHARED LIFE, IN ONE PLACE</AppText>
-            <AppText variant="hero">Together works better together.</AppText>
-            <AppText tone="secondary">Plans, lists, memories, countdowns and the little things that make distance feel smaller.</AppText>
+            <AppText variant="caption" tone="accent">TOGETHERLY</AppText>
+            <AppText variant="hero">Your life, together.</AppText>
+            <AppText tone="secondary">Plans, memories and everyday life in one place.</AppText>
           </View>
         </View>
 
         <Card tone="secondary" style={{ gap: theme.spacing.md }}>
           <AppText variant="cardTitle">Private by design</AppText>
-          <AppText variant="bodySmall" tone="secondary">You each keep your own account, while the things you choose to share live in one private space together.</AppText>
+          <AppText variant="bodySmall" tone="secondary">Keep your own account. Share only what you choose.</AppText>
         </Card>
 
         <View style={{ gap: theme.spacing.md }}>

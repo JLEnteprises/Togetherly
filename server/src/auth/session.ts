@@ -11,6 +11,7 @@ export type PublicUser = {
   display_name: string;
   avatar_url: string | null;
   timezone: string;
+  timezone_mode: 'automatic' | 'manual';
   onboarding_complete: boolean;
   preferred_participant_color: 'purple' | 'green' | null;
   deleted_at: string | null;
@@ -25,6 +26,7 @@ export function toPublicUser(row: Record<string, unknown>): PublicUser {
     display_name: String(row.display_name),
     avatar_url: row.avatar_url ? String(row.avatar_url) : null,
     timezone: String(row.timezone),
+    timezone_mode: row.timezone_mode === 'manual' ? 'manual' : 'automatic',
     onboarding_complete: row.onboarding_complete === true,
     preferred_participant_color: row.preferred_participant_color === 'green' ? 'green' : row.preferred_participant_color === 'purple' ? 'purple' : null,
     deleted_at: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : null,

@@ -186,6 +186,7 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, realtime: Re
       if (!current) throw new ApiError(404, 'Profile not found.');
       const displayName = body.displayName === undefined ? String(current.display_name) : typeof body.displayName === 'string' && body.displayName.trim().length > 0 && body.displayName.trim().length <= 80 ? body.displayName.trim() : null;
       if (!displayName) throw new ApiError(400, 'Display name must be between 1 and 80 characters.');
+      const timezoneMode = body.timezoneMode === undefined ? (current.timezone_mode === 'manual' ? 'manual' : 'automatic') : body.timezoneMode === 'manual' ? 'manual' : 'automatic';
       const timezone = body.timezone === undefined ? String(current.timezone) : typeof body.timezone === 'string' && body.timezone.trim().length > 0 && body.timezone.length <= 120 ? body.timezone.trim() : null;
       if (!timezone || !isValidTimezone(timezone)) throw new ApiError(400, 'Timezone must be a valid timezone such as Australia/Brisbane.');
       const avatarUrl = body.avatarUrl === undefined ? current.avatar_url : imageDataOrUrl(body.avatarUrl, 'Profile photo');
@@ -201,9 +202,9 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, realtime: Re
         await client.query('UPDATE couple_members SET participant_color=$1 WHERE user_id=$2', [preferredColor, request.userId]);
       }
       const result = await client.query(
-        `UPDATE users SET display_name=$1,timezone=$2,avatar_url=$3,preferred_participant_color=$4,onboarding_complete=$5,updated_at=now()
-         WHERE id=$6 RETURNING *`,
-        [displayName, timezone, avatarUrl, preferredColor, onboardingComplete, request.userId],
+        `UPDATE users SET display_name=$1,timezone=$2,avatar_url=$3,preferred_participant_color=$4,onboarding_complete=$5,timezone_mode=$6,updated_at=now()
+         WHERE id=$7 RETURNING *`,
+        [displayName, timezone, avatarUrl, preferredColor, onboardingComplete, timezoneMode, request.userId],
       );
       await client.query('COMMIT');
       const coupleId = membership.rows[0]?.couple_id ? String(membership.rows[0].couple_id) : null;

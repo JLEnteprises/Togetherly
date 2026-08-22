@@ -5,6 +5,8 @@ import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
 import { Card } from '@/components/common/Card';
 import { FormField } from '@/components/common/FormField';
+import { TimezonePickerField } from '@/components/common/TimezonePickerField';
+import { useLocationSharing } from '@/providers/LocationProvider';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { PhotoPickerField } from '@/components/common/PhotoPickerField';
 import { ToggleRow } from '@/components/common/ToggleRow';
@@ -24,10 +26,12 @@ export default function OnboardingScreen() {
   const detectedTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', []);
   const { profile, partnerProfile, couple, myColor, partnerColor, refresh } = useWorkspace();
   const { signOut } = useAuth();
+  const { refreshAutomaticTimezone } = useLocationSharing();
   const [stage, setStage] = useState<Stage>('profile');
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState(detectedTimezone);
+  const [timezoneMode, setTimezoneMode] = useState<'automatic' | 'manual'>('automatic');
   const [photo, setPhoto] = useState<string | null>(null);
   const [chosenColor, setChosenColor] = useState<ParticipantColor>('purple');
   const [inviteCode, setInviteCode] = useState('');
@@ -39,6 +43,7 @@ export default function OnboardingScreen() {
     if (!profile) return;
     setName(profile.onboarding_complete ? profile.display_name : profile.display_name === 'New member' ? '' : profile.display_name);
     setTimezone(profile.timezone || detectedTimezone);
+    setTimezoneMode(profile.timezone_mode ?? 'automatic');
     setPhoto(profile.avatar_url);
     setChosenColor(profile.preferred_participant_color ?? myColor ?? 'purple');
     if (couple) {
@@ -46,13 +51,14 @@ export default function OnboardingScreen() {
       setLongDistance(Boolean(couple.long_distance_enabled));
     }
     if (profile.onboarding_complete && !couple) setStage('space');
-  }, [couple?.id, couple?.relationship_start_date, couple?.long_distance_enabled, detectedTimezone, myColor, profile?.id]);
+  }, [couple?.id, couple?.relationship_start_date, couple?.long_distance_enabled, detectedTimezone, myColor, profile?.id, profile?.timezone_mode]);
 
   async function saveProfileStep() {
     if (!name.trim()) { Alert.alert('What should we call you?', 'Add the name you want your partner to see.'); return; }
     setBusy(true);
     try {
-      await updateProfile({ displayName: name.trim(), timezone: timezone.trim(), avatarUrl: photo, onboardingComplete: false });
+      let chosenTimezone=timezone.trim(); if(timezoneMode==='automatic') chosenTimezone=(await refreshAutomaticTimezone()) ?? detectedTimezone;
+      await updateProfile({ displayName: name.trim(), timezone: chosenTimezone, timezoneMode, avatarUrl: photo, onboardingComplete: false });
       setStage(couple ? 'relationship' : 'space');
       void refreshCurrentUser().catch(() => undefined);
       void refresh().catch(() => undefined);
@@ -108,13 +114,14 @@ export default function OnboardingScreen() {
         <View style={{ gap: theme.spacing.sm }}>
           <AppText variant="caption" tone="accent">SETUP · {progress}</AppText>
           <AppText variant="pageTitle">{stage === 'profile' ? 'Make it yours' : stage === 'space' ? 'Find your person' : stage === 'relationship' ? 'About your relationship' : 'Your space is ready'}</AppText>
-          <AppText tone="secondary">{stage === 'profile' ? 'This is how you’ll appear throughout Togetherly.' : stage === 'space' ? 'Create a shared space or join the one your partner made.' : stage === 'relationship' ? 'These details shape your dashboard and countdowns.' : 'Everything here will be shaped by the two of you.'}</AppText>
+          <AppText tone="secondary">{stage === 'profile' ? 'Add your name, photo and timezone.' : stage === 'space' ? 'Create a space or join your partner.' : stage === 'relationship' ? 'Add the details that matter to you.' : 'You’re ready to go.'}</AppText>
         </View>
 
         {stage === 'profile' ? <Card style={{ gap: theme.spacing.lg }}>
           <PhotoPickerField label="PROFILE PHOTO · OPTIONAL" value={photo} onChange={setPhoto} circular />
           <FormField label="DISPLAY NAME" value={name} onChangeText={setName} autoCapitalize="words" placeholder="Your name" />
-          <FormField label="TIMEZONE" value={timezone} onChangeText={setTimezone} autoCapitalize="none" placeholder="Australia/Brisbane" />
+          <ToggleRow label="Automatic timezone" subtitle="Use your location to set local time." value={timezoneMode === 'automatic'} onChange={(value) => setTimezoneMode(value ? 'automatic' : 'manual')} />
+          {timezoneMode === 'manual' ? <TimezonePickerField value={timezone} onChange={setTimezone} /> : <AppText variant="bodySmall" tone="muted">Set automatically from your location.</AppText>}
           <AppButton label={busy ? 'Saving…' : 'Continue'} disabled={busy || !name.trim() || !timezone.trim()} onPress={saveProfileStep} />
         </Card> : null}
 
@@ -126,7 +133,7 @@ export default function OnboardingScreen() {
             <AppText variant="section">Start your shared home</AppText>
             <View style={{ gap: theme.spacing.sm }}>
               <AppText variant="caption" tone="secondary">CHOOSE YOUR COLOUR</AppText>
-              <AppText variant="bodySmall" tone="secondary">Things you add will carry this colour on both devices. Your partner gets the other colour when they join.</AppText>
+              <AppText variant="bodySmall" tone="secondary">Your colour marks what you add. Your partner gets the other one.</AppText>
               <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
                 {(['purple', 'green'] as const).map((color) => {
                   const palette = participantPalettes[color]; const active = chosenColor === color;
@@ -135,11 +142,11 @@ export default function OnboardingScreen() {
               </View>
             </View>
             <DatePickerField label="RELATIONSHIP START DATE · OPTIONAL" value={startDate} onChange={setStartDate} optional />
-            <ToggleRow label="Long-distance relationship" subtitle="Prioritise visits, timezones and virtual plans on Home." value={longDistance} onChange={setLongDistance} />
+            <ToggleRow label="Long-distance relationship" subtitle="Show visits, time difference and shared free time on Home." value={longDistance} onChange={setLongDistance} />
             <AppButton label={busy ? 'Creating…' : 'Create our space'} disabled={busy} onPress={createSpace} />
           </Card> : <Card style={{ gap: theme.spacing.lg }}>
             <AppText variant="section">Join your partner</AppText>
-            <AppText variant="bodySmall" tone="secondary">Enter the eight-character code they see in Togetherly. Their chosen colour is already reserved; you’ll automatically take the other one.</AppText>
+            <AppText variant="bodySmall" tone="secondary">Enter your partner’s 8-character code. You’ll use the other colour.</AppText>
             <FormField label="INVITE CODE" value={inviteCode} onChangeText={(value) => setInviteCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))} placeholder="AB12CD34" autoCapitalize="characters" autoCorrect={false} maxLength={8} />
             <AppButton label={busy ? 'Joining…' : 'Join couple space'} disabled={busy || inviteCode.length !== 8} onPress={joinSpace} />
           </Card>}
@@ -147,7 +154,7 @@ export default function OnboardingScreen() {
 
         {stage === 'relationship' ? <Card style={{ gap: theme.spacing.lg }}>
           <DatePickerField label="RELATIONSHIP START DATE · OPTIONAL" value={startDate || couple?.relationship_start_date || ''} onChange={setStartDate} optional />
-          <ToggleRow label="Long-distance relationship" subtitle="Prioritise visits, timezones and virtual plans on Home." value={longDistance} onChange={setLongDistance} />
+          <ToggleRow label="Long-distance relationship" subtitle="Show visits, time difference and shared free time on Home." value={longDistance} onChange={setLongDistance} />
           <AppButton label={busy ? 'Saving…' : 'Continue'} disabled={busy} onPress={saveRelationship} />
         </Card> : null}
 

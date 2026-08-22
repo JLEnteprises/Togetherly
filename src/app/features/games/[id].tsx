@@ -189,7 +189,7 @@ function DrawTogetherGame({ game, me, busy, act, colorForUser }: SharedGameProps
     ]);
   }
   return <View style={{ gap: theme.spacing.lg }}>
-    <Card tone="secondary" style={{ gap: 5 }}><AppText variant="caption" tone="secondary">SHARED CANVAS</AppText><AppText variant="section">Draw on the same page</AppText><AppText variant="bodySmall" tone="secondary">Draw together in your own colours.</AppText></Card>
+    <Card tone="secondary" style={{ gap: 5 }}><AppText variant="caption" tone="secondary">SHARED CANVAS</AppText><AppText variant="section">Draw together</AppText></Card>
     <DrawingCanvas strokes={strokes} currentUserId={me} editable={game.status === 'active' && !busy} strokeColorForUser={colorForUser} onStroke={addStroke} height={360} />
     {game.status === 'active' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}><AppButton compact variant="secondary" label="Undo my last stroke" disabled={busy || !strokes.some((stroke) => stroke.userId === me)} onPress={() => void act({ action: 'undo_stroke' })} /><AppButton compact variant="danger" label="Clear canvas" disabled={busy || strokes.length === 0} onPress={clearCanvas} /></View> : null}
     <AppText variant="bodySmall" tone="muted">{strokes.length ? `${strokes.length} shared stroke${strokes.length === 1 ? '' : 's'}` : 'Blank canvas — start with anything.'}</AppText>

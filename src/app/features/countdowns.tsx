@@ -46,7 +46,7 @@ export default function CountdownsScreen() {
   async function removeConfirmed() { const target = deleteTarget; setDeleteTarget(null); if (!target) return; try { await deleteCountdown(target.id); setCountdowns((current) => current.filter((item) => item.id !== target.id)); if (editingId === target.id) resetForm(); } catch (error) { Alert.alert('Couldn’t delete countdown', messageFrom(error)); } }
 
   return <AppScreen>
-    <BackHeader eyebrow="Long distance" title="Countdowns" subtitle="Visits, anniversaries and dates worth looking forward to." />
+    <BackHeader eyebrow="Plan" title="Countdowns" subtitle="Visits, anniversaries and dates worth looking forward to." />
     <CollapsibleComposer title={editingId ? 'Edit countdown' : 'Our countdowns'} subtitle={`${countdowns.filter((item) => new Date(item.target_at).getTime() >= Date.now()).length} upcoming`} open={composerOpen} actionLabel="New countdown" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
       <FormField label="COUNTDOWN NAME" value={title} onChangeText={setTitle} placeholder="Next time we're together" />
       <DatePickerField label="TARGET DATE" value={date} onChange={setDate} />

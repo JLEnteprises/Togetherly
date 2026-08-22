@@ -14,11 +14,11 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import type { UserPreferences } from '@/types/database';
 
 const themes: { value: UserPreferences['backdrop_theme']; title: string; subtitle: string }[] = [
-  { value: 'dual_orbit', title: 'Dual Orbit', subtitle: 'Neutral cosmic night with both identity colours in orbit.' },
+  { value: 'dual_orbit', title: 'Dual Orbit', subtitle: 'Cosmic night with both colours in orbit.' },
   { value: 'minimal_night', title: 'Minimal Night', subtitle: 'Dark, quiet and nearly decoration-free.' },
-  { value: 'cottagecore', title: 'Cottage Night', subtitle: 'More green botanical texture without changing who owns each colour.' },
+  { value: 'cottagecore', title: 'Cottage Night', subtitle: 'Green botanical details and a softer night sky.' },
   { value: 'gothic', title: 'Gothic Sky', subtitle: 'Darker atmosphere and stronger star contrast.' },
-  { value: 'warm_light', title: 'Warm Night', subtitle: 'Adds a subtle amber glow beneath the purple/green identity system.' },
+  { value: 'warm_light', title: 'Warm Night', subtitle: 'A soft amber glow over the night backdrop.' },
 ];
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
@@ -43,11 +43,11 @@ export default function ThemesScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="More" title="Colours & theme" subtitle="Choose your colours and backdrop." />
+      <BackHeader eyebrow="Settings" title="Colours & theme" subtitle="Choose your colours and backdrop." />
       <Card participantColor="both" style={{ gap: theme.spacing.lg, overflow: 'hidden', marginBottom: theme.spacing.xxl }}>
         <View style={{ position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: participantPalettes.purple.glow, right: -60, top: -65 }} />
         <View style={{ position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: participantPalettes.green.glow, left: -50, bottom: -60 }} />
-        <AppText variant="caption" tone="secondary">IDENTITY COLOURS</AppText>
+        <AppText variant="caption" tone="secondary">YOUR COLOURS</AppText>
         <AppText variant="hero">Purple + Green</AppText>
         <AppText tone="secondary">Your colour marks the things you add.</AppText>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
