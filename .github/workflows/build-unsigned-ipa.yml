@@ -100,6 +100,9 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Install Expo development client
+        run: npx expo install expo-dev-client
+
       - name: Client typecheck
         run: npm run typecheck
 
@@ -136,8 +139,11 @@ jobs:
       - name: Repair Watch target platform settings
         run: ruby .github/scripts/fix-watch-target-platform.rb
 
-      - name: Build unsigned IPAs
+      - name: Build unsigned release IPAs
         run: bash .github/scripts/build-unsigned-ipa.sh
+
+      - name: Build unsigned development IPA
+        run: bash .github/scripts/build-dev-ipa.sh
 
       - name: Upload Xcode diagnostics
         if: always()
@@ -146,6 +152,7 @@ jobs:
           name: Togetherly-${{ github.run_number }}-xcode-diagnostics
           path: |
             output/xcodebuild.log
+            output/xcodebuild-dev.log
             output/xcode-schemes.json
           if-no-files-found: warn
           retention-days: 14
