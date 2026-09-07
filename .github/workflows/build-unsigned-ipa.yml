@@ -121,6 +121,9 @@ jobs:
         working-directory: ios
         run: pod install --repo-update
 
+      - name: Repair Watch target platform settings
+        run: ruby .github/scripts/fix-watch-target-platform.rb
+
       - name: Build unsigned IPAs
         run: bash .github/scripts/build-unsigned-ipa.sh
 
