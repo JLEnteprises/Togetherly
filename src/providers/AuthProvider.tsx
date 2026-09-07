@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import type { AuthSession, Profile } from '@/types/database';
 import { restoreAuthSession, signInWithEmail, signOut as signOutRequest, signUpWithEmail } from '@/services/backend/auth';
-import { backendConfig, subscribeToStoredSession } from '@/services/backend/api';
+import { backendConfig, initializeBackendConfig, subscribeToStoredSession } from '@/services/backend/api';
 import { realtimeClient } from '@/services/backend/realtime';
 
 type AuthContextValue = {
@@ -18,19 +18,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthSession | null>(null);
-  const [isLoading, setIsLoading] = useState(backendConfig.isConfigured);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isConfigured, setIsConfigured] = useState(backendConfig.isConfigured);
 
   useEffect(() => {
     const unsubscribe = subscribeToStoredSession((next) => setSession(next));
-    if (!backendConfig.isConfigured) {
-      setIsLoading(false);
-      return unsubscribe;
-    }
-
     let mounted = true;
-    restoreAuthSession()
+
+    initializeBackendConfig()
+      .then(async () => {
+        if (!mounted) return;
+        setIsConfigured(backendConfig.isConfigured);
+        if (!backendConfig.isConfigured) return null;
+        return restoreAuthSession();
+      })
       .then((next) => {
-        if (mounted) setSession(next);
+        if (mounted && next !== null && next !== undefined) setSession(next);
       })
       .catch(() => {
         if (mounted) setSession(null);
@@ -68,11 +71,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     session,
     user: session?.user ?? null,
     isLoading,
-    isConfigured: backendConfig.isConfigured,
+    isConfigured,
     signIn,
     signUp,
     signOut,
-  }), [isLoading, session, signIn, signOut, signUp]);
+  }), [isConfigured, isLoading, session, signIn, signOut, signUp]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

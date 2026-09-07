@@ -2,15 +2,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { AuthSession, AuthTokens, Profile } from '@/types/database';
+import { resolveRuntimeApiUrl } from './runtimeConfig';
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '') ?? '';
 const STORAGE_KEY = 'togetherly.auth.session.v1';
 const CACHE_PREFIX = 'togetherly.api.cache.v1';
 
-export const backendConfig = {
+export const backendConfig: { apiUrl: string; isConfigured: boolean; source: string } = {
   apiUrl,
   isConfigured: /^https?:\/\//.test(apiUrl),
-} as const;
+  source: apiUrl ? 'embedded' : 'none',
+};
+
+export async function initializeBackendConfig(force = false) {
+  if (backendConfigPromise && !force) return backendConfigPromise;
+  backendConfigPromise = (async () => {
+    const resolved = await resolveRuntimeApiUrl(embeddedApiUrl);
+    apiUrl = resolved.apiUrl;
+    backendConfig.apiUrl = resolved.apiUrl;
+    backendConfig.isConfigured = /^https?:\/\//.test(resolved.apiUrl);
+    backendConfig.source = resolved.source;
+  })();
+  try {
+    await backendConfigPromise;
+  } finally {
+    backendConfigPromise = null;
+  }
+}
 
 let session: AuthSession | null = null;
 let refreshPromise: Promise<AuthSession | null> | null = null;
@@ -82,6 +100,7 @@ async function cacheResponse(path: string, value: unknown) {
 }
 
 async function rawRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  await initializeBackendConfig();
   if (!backendConfig.isConfigured) throw new ApiClientError(0, 'Togetherly API is not configured.');
   const authenticated = options.authenticated !== false;
   const headers: Record<string, string> = { Accept: 'application/json' };
