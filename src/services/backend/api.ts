@@ -4,7 +4,9 @@ import { Platform } from 'react-native';
 import type { AuthSession, AuthTokens, Profile } from '@/types/database';
 import { resolveRuntimeApiUrl } from './runtimeConfig';
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '') ?? '';
+const embeddedApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '') ?? '';
+let apiUrl = embeddedApiUrl;
+let backendConfigPromise: Promise<void> | null = null;
 const STORAGE_KEY = 'togetherly.auth.session.v1';
 const CACHE_PREFIX = 'togetherly.api.cache.v1';
 
