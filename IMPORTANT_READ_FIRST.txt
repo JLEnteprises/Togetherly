@@ -1,0 +1,12 @@
+TOGETHERLY v1.14 — EVERYWHERE TEST BUILD
+
+This package contains the Expo SDK 57 phone client, Fastify/PostgreSQL server, v1.12 privacy hardening, v1.13 design/delight system, plus v1.14 remote push, Love/Thinking-of-You signals, native SwiftUI Apple Watch companion, Watch complications/Smart Stack widgets, and iPhone Lock Screen widgets.
+
+START HERE
+1. Read EVERYWHERE_TEST_GUIDE.md.
+2. Run `npm install` (not npm ci) once for the root client; this creates a fresh v1.14 package-lock.
+3. Run `npm --prefix server ci` for the server.
+4. Apply migration 012_push_watch_everywhere.sql.
+5. Configure EAS project ID / bundle ID / Apple Team ID before signed Watch testing.
+
+A real Apple Watch build still requires Apple signing through EAS or Xcode. No credentials/secrets are included in this ZIP.

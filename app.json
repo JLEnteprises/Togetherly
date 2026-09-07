@@ -1,0 +1,87 @@
+{
+  "expo": {
+    "name": "Togetherly",
+    "slug": "togetherly",
+    "version": "1.14.3",
+    "orientation": "portrait",
+    "scheme": "togetherly",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.togetherly",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Togetherly connects to your development computer while you test the app on your local network.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocationWhenInUseUsageDescription": "Togetherly uses your location to show you and your partner on the shared map and keep your timezone accurate.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Togetherly uses background location only while you have location sharing turned on.",
+        "UIBackgroundModes": [
+          "location",
+          "remote-notification"
+        ]
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.example.togetherly.shared"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.example.togetherly",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0A0F",
+        "foregroundImage": "./assets/images/adaptive-icon.png"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Togetherly uses your photo library only when you choose a profile or memory photo."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Togetherly uses your location to show you and your partner on the shared map and keep your timezone accurate.",
+          "locationAlwaysAndWhenInUsePermission": "Togetherly uses background location only while you have location sharing turned on.",
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#9B6AF5",
+          "defaultChannel": "general",
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      "@bacons/apple-targets"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0A0F"
+    },
+    "extra": {
+      "eas": {}
+    }
+  }
+}

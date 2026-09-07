@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="76%"><stop offset="0" stop-color="#1D1726"/><stop offset="0.62" stop-color="#0E0C13"/><stop offset="1" stop-color="#09080C"/></radialGradient>
+    <radialGradient id="purpleGlow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#9B6AF5" stop-opacity="0.34"/><stop offset="1" stop-color="#9B6AF5" stop-opacity="0"/></radialGradient>
+    <radialGradient id="greenGlow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#99AF61" stop-opacity="0.28"/><stop offset="1" stop-color="#99AF61" stop-opacity="0"/></radialGradient>
+    <linearGradient id="dual" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#BE9AFF"/><stop offset="0.5" stop-color="#D4C5E5"/><stop offset="1" stop-color="#B7CB7C"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1024" height="1024" rx="232" fill="url(#bg)"/>
+  <circle cx="300" cy="310" r="260" fill="url(#purpleGlow)" filter="url(#soft)"/>
+  <circle cx="760" cy="740" r="250" fill="url(#greenGlow)" filter="url(#soft)"/>
+  <circle cx="512" cy="512" r="326" fill="none" stroke="url(#dual)" stroke-width="10" stroke-opacity="0.28"/>
+  <ellipse cx="512" cy="512" rx="286" ry="128" transform="rotate(-27 512 512)" fill="none" stroke="#BE9AFF" stroke-width="14" stroke-opacity="0.68"/>
+  <ellipse cx="512" cy="512" rx="286" ry="128" transform="rotate(27 512 512)" fill="none" stroke="#B7CB7C" stroke-width="14" stroke-opacity="0.62"/>
+  <circle cx="286" cy="424" r="46" fill="#BE9AFF"/><circle cx="738" cy="600" r="46" fill="#B7CB7C"/>
+  <circle cx="286" cy="424" r="68" fill="none" stroke="#BE9AFF" stroke-opacity="0.18" stroke-width="12"/>
+  <circle cx="738" cy="600" r="68" fill="none" stroke="#B7CB7C" stroke-opacity="0.18" stroke-width="12"/>
+  <path d="M512 642c-28-17-125-78-125-161 0-56 42-100 97-100 28 0 50 12 68 35 18-23 40-35 68-35 55 0 97 44 97 100 0 83-97 144-125 161l-40 24-40-24Z" fill="url(#dual)"/>
+  <circle cx="700" cy="270" r="12" fill="#F2EBF8" fill-opacity="0.75"/><circle cx="366" cy="735" r="9" fill="#F2EBF8" fill-opacity="0.58"/><circle cx="806" cy="402" r="7" fill="#F2EBF8" fill-opacity="0.48"/>
+</svg>

@@ -1,0 +1,32 @@
+Togetherly v1.14 Everywhere — Test Source Package
+
+Version: 1.14.3
+Latest database migration: 012_push_watch_everywhere.sql
+
+Includes:
+- Expo SDK 57 / React Native Togetherly phone client
+- Fastify / PostgreSQL Togetherly API
+- Expo remote-push registration and delivery source
+- Love Tap + Thinking of You relationship signals
+- Restricted Watch-session authentication
+- Native SwiftUI Apple Watch companion source
+- Watch WidgetKit complications / Smart Stack source
+- iPhone Lock Screen / Home Screen WidgetKit source
+- WatchConnectivity local Expo bridge
+- v1.12 privacy/security hardening
+- v1.13 Design & Delight UI/motion/art system
+- v1.14 setup, release-readiness and test documentation
+- GitHub Actions Xcode 16.4 unsigned-IPA builder
+- Full Everywhere + PhoneOnly fallback IPA packaging script
+
+Not included:
+- node_modules
+- generated ios/ or android/ native build directories
+- server dist/ output
+- .expo cache
+- .git metadata
+- real .env files
+- signing keys, certificates, provisioning profiles or Apple/Expo credentials
+- pre-signed IPA/APK
+
+The root package-lock is intentionally regenerated with `npm install` on the test machine for v1.14. The server lockfile is included.

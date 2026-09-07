@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# Expo / generated native projects
+.expo/
+ios/
+android/
+
+# Build outputs
+build/
+output/
+server/dist/
+dist/
+web-build/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
