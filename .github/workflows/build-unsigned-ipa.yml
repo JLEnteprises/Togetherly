@@ -124,6 +124,17 @@ jobs:
       - name: Build unsigned IPAs
         run: bash .github/scripts/build-unsigned-ipa.sh
 
+      - name: Upload Xcode diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Togetherly-${{ github.run_number }}-xcode-diagnostics
+          path: |
+            output/xcodebuild.log
+            output/xcode-schemes.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload IPA artifacts
         uses: actions/upload-artifact@v7
         with:

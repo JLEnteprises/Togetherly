@@ -35,6 +35,8 @@ PY
 echo "Using workspace: $WORKSPACE"
 echo "Using scheme: $SCHEME"
 
+XCODE_LOG="$OUT/xcodebuild.log"
+set +e
 xcodebuild \
   -workspace "$WORKSPACE" \
   -scheme "$SCHEME" \
@@ -47,7 +49,20 @@ xcodebuild \
   DEVELOPMENT_TEAM='' \
   COMPILER_INDEX_STORE_ENABLE=NO \
   ONLY_ACTIVE_ARCH=NO \
-  build
+  build 2>&1 | tee "$XCODE_LOG"
+XCODE_STATUS=${PIPESTATUS[0]}
+set -e
+
+if [[ $XCODE_STATUS -ne 0 ]]; then
+  echo
+  echo '================ Focused Xcode diagnostics ================'
+  # Swift/Clang diagnostics normally contain file:line:column: error:, but include
+  # nearby target/build-failure lines as a fallback for generated-source failures.
+  grep -nE '(^|/)(Togetherly|targets/).*:[0-9]+:[0-9]+: (error|warning):|(^|[[:space:]])error:|SwiftCompile.*Togetherly|CompileSwift.*Togetherly|BUILD FAILED|The following build commands failed' "$XCODE_LOG" | tail -n 160 || true
+  echo '==========================================================='
+  echo "Full Xcode log saved to $XCODE_LOG"
+  exit "$XCODE_STATUS"
+fi
 
 PRODUCTS="$DERIVED/Build/Products/Release-iphoneos"
 MAIN_APP="$(find "$PRODUCTS" -maxdepth 1 -type d -name '*.app' ! -iname '*watch*.app' -print -quit)"
