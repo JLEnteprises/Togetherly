@@ -111,27 +111,38 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       if (enabled) {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== 'granted') throw new Error('Location permission is needed to share your location.');
+
+        let backgroundGranted = false;
         if (Constants.appOwnership !== 'expo') {
           const background = await Location.requestBackgroundPermissionsAsync();
-          if (background.status === 'granted' && !(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK))) {
-            await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-              accuracy: Location.Accuracy.Balanced,
-              distanceInterval: 25,
-              timeInterval: 15000,
-              pausesUpdatesAutomatically: false,
-              showsBackgroundLocationIndicator: true,
-              foregroundService: {
-                notificationTitle: 'Togetherly location sharing',
-                notificationBody: 'Your location is being shared with your partner.',
-              },
-            });
-          }
+          backgroundGranted = background.status === 'granted';
         }
-      } else if (Constants.appOwnership !== 'expo' && await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK)) {
-        await Location.stopLocationUpdatesAsync(LOCATION_TASK);
+
+        await setLocationSharing(true);
+        await refresh();
+
+        if (Constants.appOwnership !== 'expo' && backgroundGranted && !(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK))) {
+          await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+            accuracy: Location.Accuracy.Balanced,
+            distanceInterval: 25,
+            timeInterval: 15000,
+            pausesUpdatesAutomatically: false,
+            showsBackgroundLocationIndicator: true,
+            foregroundService: {
+              notificationTitle: 'Togetherly location sharing',
+              notificationBody: 'Your location is being shared with your partner.',
+            },
+          }).catch(() => undefined);
+        }
+      } else {
+        watch.current?.remove();
+        watch.current = null;
+        if (Constants.appOwnership !== 'expo' && await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK)) {
+          await Location.stopLocationUpdatesAsync(LOCATION_TASK).catch(() => undefined);
+        }
+        await setLocationSharing(false);
+        await refresh();
       }
-      await setLocationSharing(enabled);
-      await refresh();
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 export type ParticipantColor = 'purple' | 'green';
 
 export type DrawingPoint = { x: number; y: number };
-export type DrawingStroke = { id: string; userId?: string; points: DrawingPoint[]; width?: number };
+export type DrawingStroke = { id: string; userId?: string; points: DrawingPoint[]; width?: number; color?: string; opacity?: number; tool?: 'pen' | 'marker' | 'highlighter' | 'eraser' };
 export type DrawingData = { version: 1; strokes: DrawingStroke[] };
 
 export type Tag = {

@@ -238,6 +238,14 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       }
       const disabledCategories = [...new Set(body.disabledCategories as string[])];
       if (disabledCategories.length >= questionCategories.length) throw new ApiError(400, 'Keep at least one daily-question category enabled.');
+      const today = new Date().toISOString().slice(0, 10);
+      const answeredToday = await pool.query(
+        'SELECT 1 FROM question_answers WHERE couple_id=$1 AND answer_date=$2 LIMIT 1',
+        [coupleId, today],
+      );
+      if (answeredToday.rowCount) {
+        throw new ApiError(409, 'Question preferences are locked for today once either partner has answered. Change them tomorrow before either of you answers.');
+      }
       await pool.query('UPDATE couples SET disabled_question_categories=$1::text[],updated_at=now() WHERE id=$2', [disabledCategories, coupleId]);
       broadcast(realtime, coupleId, 'questions', 'settings');
       return reply.send({ disabledCategories });
@@ -251,7 +259,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       const body = request.body as Record<string, unknown>;
       const questionId = requiredText(body.questionId, 'Question', 100);
       const { question, today } = await loadTodaysQuestion(coupleId);
-      if (!question || String(question.id) !== questionId) throw new ApiError(409, 'Today’s question has changed. Refresh and answer the current question.');
+      if (!question || String(question.id) !== questionId) throw new ApiError(409, 'Todayâ€™s question has changed. Refresh and answer the current question.');
       const answer = requiredText(body.answer, 'Answer', 4000);
 
       await client.query('BEGIN');
@@ -263,7 +271,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       );
       const hadMyAnswer = existing.rows.some((row) => String(row.user_id) === request.userId);
       const partnerHasAnswered = existing.rows.some((row) => String(row.user_id) !== request.userId);
-      if (hadMyAnswer && partnerHasAnswered) throw new ApiError(409, 'Today’s answers are locked now that you have both answered.');
+      if (hadMyAnswer && partnerHasAnswered) throw new ApiError(409, 'Todayâ€™s answers are locked now that you have both answered.');
 
       const result = await client.query(
         `INSERT INTO question_answers(id,question_id,user_id,couple_id,answer,answer_date)
@@ -272,7 +280,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
          RETURNING *`, [randomUUID(), questionId, request.userId, coupleId, answer, today]);
       await client.query('COMMIT');
       if (!hadMyAnswer) {
-        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'daily_question', preference: 'notification_daily_question', entityType: 'question', entityId: questionId, title: 'Daily question answered', body: 'Your partner answered today’s question.' })
+        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'daily_question', preference: 'notification_daily_question', entityType: 'question', entityId: questionId, title: 'Daily question answered', body: 'Your partner answered todayâ€™s question.' })
           .catch((error) => console.error('Daily-question partner notification failed:', error));
       }
       broadcast(realtime, coupleId, 'questions', 'answered', questionId);
@@ -297,11 +305,21 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       const coupleId = await requireCoupleId(request.userId);
       const params = request.params as { id: string };
       const mood = await pool.query(
-        `SELECT id FROM moods WHERE id=$1 AND couple_id=$2 AND user_id<>$3 AND visibility='shared' LIMIT 1`,
+        `SELECT id,user_id FROM moods WHERE id=$1 AND couple_id=$2 AND user_id<>$3 AND visibility='shared' LIMIT 1`,
         [params.id, coupleId, request.userId],
       );
       if (!mood.rows[0]) throw new ApiError(404, 'That shared check-in is no longer available.');
-      await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: params.id, title: 'I’m here for you', body: 'Your partner saw your check-in and sent some support.' });
+      const alreadySent = await pool.query(
+        `SELECT 1 FROM notifications
+         WHERE couple_id=$1 AND recipient_user_id=$2 AND actor_user_id=$3
+           AND kind='mood' AND entity_type='mood' AND entity_id=$4
+           AND title='Iâ€™m here for you'
+         LIMIT 1`,
+        [coupleId, mood.rows[0].user_id, request.userId, params.id],
+      );
+      if (!alreadySent.rowCount) {
+        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: params.id, title: 'Iâ€™m here for you', body: 'Your partner saw your check-in and sent some support.' });
+      }
       return reply.send({ ok: true });
     } catch (error) { return sendError(reply, error); }
   });
@@ -315,7 +333,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       const visibility = oneOf(body.visibility, ['shared','private'] as const, 'shared');
       const result = await pool.query('INSERT INTO moods(id,user_id,couple_id,mood,need,visibility) VALUES($1,$2,$3,$4,$5,$6) RETURNING *', [randomUUID(), request.userId, coupleId, mood, need, visibility]);
       if (visibility === 'shared') {
-        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: result.rows[0].id, title: 'Partner check-in', body: `${mood} · ${need}` });
+        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: result.rows[0].id, title: 'Partner check-in', body: `${mood} Â· ${need}` });
         broadcast(realtime, coupleId, 'moods', 'created', result.rows[0].id);
       }
       return reply.code(201).send({ mood: result.rows[0] });

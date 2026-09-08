@@ -268,6 +268,11 @@ async function main() {
     await request(`/memory-albums/${album.id}/memories`, { method: 'POST', token: a.accessToken, expected: 201, body: { memoryId: memory.id } });
     const albumDetail = await request<{ album: Json; memories: Json[] }>(`/memory-albums/${album.id}`, { token: b.accessToken });
     assert(albumDetail.memories.some((item) => item.id === memory.id), 'Memory album did not contain the linked memory.');
+    assert(albumDetail.memories.find((item) => item.id === memory.id)?.photos?.length === 2, 'Album view did not preserve all photos from the linked memory.');
+    await request(`/memory-albums/${album.id}/memories/${memory.id}`, { method: 'DELETE', token: b.accessToken, expected: 204 });
+    const memoryAfterAlbumRemoval = (await request<{ memories: Json[] }>('/memories', { token: a.accessToken })).memories.find((item) => item.id === memory.id);
+    assert(memoryAfterAlbumRemoval?.photos?.length === 2, 'Removing a memory from an album deleted or altered the original memory.');
+    await request(`/memory-albums/${album.id}/memories`, { method: 'POST', token: a.accessToken, expected: 201, body: { memoryId: memory.id } });
     const timeline = await request<{ milestones: Json[] }>('/timeline', { token: b.accessToken });
     assert(timeline.milestones.some((item) => item.id === memory.id), 'Milestone memory did not appear on timeline.');
     const jar = await request<{ memory: Json | null }>('/memory-jar/random', { token: b.accessToken });
@@ -341,10 +346,11 @@ async function main() {
     await request(`/games/${bingoGame.id}`, { token: c.accessToken, expected: 404 });
     console.log('PASS Relationship Bingo shared cards, partner verification and cross-couple isolation');
 
-    const hangmanGame = (await request<{ game: Json }>('/games', { method: 'POST', token: a.accessToken, expected: 201, body: { gameType: 'hangman', secretWord: 'DINOSAUR' } })).game;
-    assert(hangmanGame.state.secretWord === 'DINOSAUR', 'Hangman host cannot see their own secret.');
+    const hangmanGame = (await request<{ game: Json }>('/games', { method: 'POST', token: a.accessToken, expected: 201, body: { gameType: 'hangman', secretWord: 'DINOSAUR LOVE' } })).game;
+    assert(hangmanGame.state.secretWord === 'DINOSAUR LOVE', 'Hangman host cannot see their own secret.');
     const hiddenHangman = (await request<{ game: Json }>(`/games/${hangmanGame.id}`, { token: b.accessToken })).game;
     assert(hiddenHangman.state.secretWord === undefined && String(hiddenHangman.state.maskedWord).includes('_'), 'Hangman leaked the secret word to the guesser.');
+    assert(String(hiddenHangman.state.maskedWord).includes(' '), 'Hangman did not preserve word boundaries in a phrase.');
     await request(`/games/${hangmanGame.id}/actions`, { method: 'POST', token: b.accessToken, body: { action: 'guess_letter', letter: 'D' } });
     const guessedHangman = (await request<{ game: Json }>(`/games/${hangmanGame.id}`, { token: b.accessToken })).game;
     assert(String(guessedHangman.state.maskedWord).startsWith('D'), 'Correct Hangman letter did not reveal in the masked word.');
@@ -373,9 +379,10 @@ async function main() {
     console.log('PASS How Well Do You Know Me hidden answer, prediction and reveal');
 
     const drawTogether = (await request<{ game: Json }>('/games', { method: 'POST', token: a.accessToken, expected: 201, body: { gameType: 'draw_together' } })).game;
-    await request(`/games/${drawTogether.id}/actions`, { method: 'POST', token: a.accessToken, body: { action: 'draw_stroke', stroke: { id: 'smoke-draw', points: [{ x: 100, y: 120 }, { x: 400, y: 450 }, { x: 800, y: 700 }], width: 7 } } });
+    await request(`/games/${drawTogether.id}/actions`, { method: 'POST', token: a.accessToken, body: { action: 'draw_stroke', stroke: { id: 'smoke-draw', points: [{ x: 100, y: 120 }, { x: 400, y: 450 }, { x: 800, y: 700 }], width: 18, color: '#7c3aed', opacity: 0.3, tool: 'highlighter' } } });
     const partnerDrawing = (await request<{ game: Json }>(`/games/${drawTogether.id}`, { token: b.accessToken })).game;
     assert(partnerDrawing.state.strokes?.length === 1 && partnerDrawing.state.strokes[0].userId === a.user.id, 'Draw Together did not share the completed stroke with the partner.');
+    assert(partnerDrawing.state.strokes[0].color === '#7c3aed' && partnerDrawing.state.strokes[0].tool === 'highlighter' && Number(partnerDrawing.state.strokes[0].opacity) === 0.3, 'Draw Together did not preserve brush colour/style metadata.');
     await request(`/games/${drawTogether.id}/actions`, { method: 'POST', token: a.accessToken, body: { action: 'undo_stroke' } });
     const undoneDrawing = (await request<{ game: Json }>(`/games/${drawTogether.id}`, { token: b.accessToken })).game;
     assert(undoneDrawing.state.strokes?.length === 0, 'Draw Together undo did not remove the author’s latest stroke.');

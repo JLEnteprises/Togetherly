@@ -23,7 +23,7 @@ export function CoupleHero() {
     ? 'Invite your partner when you’re ready.'
     : couple?.long_distance_enabled
       ? `${togetherDays == null ? 'Add your relationship date' : `${togetherDays} days together`} · across the distance`
-      : `${togetherDays == null ? 'Add your relationship date' : `${togetherDays} days together`} · sharing everyday life`;
+      : `${togetherDays == null ? 'Add your relationship date' : `${togetherDays} days together`} · sharing every day of life`;
 
   return (
     <Card participantColor="both" style={{ padding: theme.spacing.lg, gap: theme.spacing.md, overflow: 'hidden' }}>

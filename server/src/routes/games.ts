@@ -196,7 +196,10 @@ function drawingStroke(value: unknown, userId: string) {
     if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1000 || y < 0 || y > 1000) throw new ApiError(400, 'Drawing point is outside the canvas.');
     return { x, y };
   });
-  return { id: typeof raw.id === 'string' ? raw.id.slice(0, 80) : randomUUID(), userId, points, width: Math.max(1, Math.min(30, Number(raw.width) || 7)) };
+  const color = typeof raw.color === 'string' && /^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color.toLowerCase() : undefined;
+  const opacity = Math.max(0.1, Math.min(1, Number(raw.opacity) || 1));
+  const tool = ['pen', 'marker', 'highlighter', 'eraser'].includes(String(raw.tool)) ? String(raw.tool) : undefined;
+  return { id: typeof raw.id === 'string' ? raw.id.slice(0, 80) : randomUUID(), userId, points, width: Math.max(1, Math.min(48, Number(raw.width) || 7)), ...(color ? { color } : {}), opacity, ...(tool ? { tool } : {}) };
 }
 
 function createInitialState(gameType: GameType, members: string[], creatorId: string, body: JsonObject, longDistance: boolean) {

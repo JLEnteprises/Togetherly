@@ -24,6 +24,12 @@ import { participantPalettes } from '@/theme/tokens';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong. Please try again.'; }
+function normalizedWebLink(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return /^https?:\/\/[^\s]+$/i.test(url) ? url : null;
+}
 
 export default function ListDetailScreen() {
   const theme = useAppTheme();
@@ -72,7 +78,9 @@ export default function ListDetailScreen() {
     if (!list || !itemTitle.trim()) return;
     setBusy(true);
     try {
-      const input = { title: itemTitle.trim(), notes: itemNotes.trim(), link: itemLink.trim() || null, priority: itemPriority };
+      const normalizedLink = itemLink.trim() ? normalizedWebLink(itemLink) : null;
+      if (itemLink.trim() && !normalizedLink) { Alert.alert('Check the link', 'Use a normal web address such as example.com or https://example.com.'); setBusy(false); return; }
+      const input = { title: itemTitle.trim(), notes: itemNotes.trim(), link: normalizedLink, priority: itemPriority };
       if (editingItemId) await updateListItem(editingItemId, input); else await createListItem(list.id, input);
       resetItemEditor(); await refresh();
     } catch (error) { Alert.alert(editingItemId ? 'Couldn’t update item' : 'Couldn’t add item', messageFrom(error)); }
@@ -112,7 +120,7 @@ export default function ListDetailScreen() {
           <AppText style={{ textDecorationLine: item.completed ? 'line-through' : 'none' }}>{item.title}</AppText>
           <ParticipantAttribution userId={item.creator_id} />
           {item.notes ? <AppText variant="bodySmall" tone="secondary">{item.notes}</AppText> : null}
-          {item.link ? <Pressable accessibilityRole="button" onPress={(event) => { event.stopPropagation(); Linking.openURL(item.link as string).catch(() => undefined); }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><AppText variant="bodySmall" tone="accent">Open link</AppText><AppIcon name="external" size={14} color={theme.colors.accent} /></View></Pressable> : null}
+          {item.link ? <Pressable accessibilityRole="button" onPress={(event) => { event.stopPropagation(); Linking.openURL(normalizedWebLink(item.link as string) ?? (item.link as string)).catch(() => Alert.alert('Couldn’t open link', 'This web address could not be opened.')); }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><AppText variant="bodySmall" tone="accent">Open link</AppText><AppIcon name="external" size={14} color={theme.colors.accent} /></View></Pressable> : null}
         </Pressable>
         <View style={{ alignItems: 'flex-end', gap: 8 }}>{item.priority !== 'normal' ? <TagChip subtle label={item.priority.toUpperCase()} /> : null}<IconButton icon="overflow" label={`More actions for ${item.title}`} onPress={() => openItemMenu(item)} /></View>
       </View>

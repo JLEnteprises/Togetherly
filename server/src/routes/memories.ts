@@ -205,6 +205,7 @@ export async function registerMemoryRoutes(app: FastifyInstance, realtime: Realt
       const album = await pool.query('SELECT id FROM memory_albums WHERE id=$1 AND couple_id=$2', [id, coupleId]);
       if (!album.rowCount) throw new ApiError(404, 'Album not found.');
       await pool.query('DELETE FROM memory_album_items WHERE album_id=$1 AND memory_id=$2', [id, memoryId]);
+      await pool.query('UPDATE memory_albums SET updated_at=now() WHERE id=$1', [id]);
       broadcast(realtime, coupleId, 'memories', 'album-memory-removed', memoryId);
       return reply.code(204).send();
     } catch (error) { return sendError(reply, error); }

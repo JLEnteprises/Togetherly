@@ -50,7 +50,18 @@ export default function CalendarScreen() {
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('events', refresh); useRealtimeRefresh('tags', refresh);
 
   const bounds = useMemo(() => monthBounds(monthAnchor), [monthAnchor]); const gridDates = useMemo(() => monthGrid(monthAnchor), [monthAnchor]); const monthOccurrences = useMemo(() => expandEvents(events, bounds.gridStart, bounds.gridEnd), [events, bounds.gridEnd, bounds.gridStart]);
-  const byDay = useMemo(() => { const map = new Map<string, EventOccurrence[]>(); for (const occurrence of monthOccurrences) { const key = localDateKey(occurrence.start); const current = map.get(key) ?? []; current.push(occurrence); map.set(key, current); } return map; }, [monthOccurrences]);
+  const byDay = useMemo(() => {
+    const map = new Map<string, EventOccurrence[]>();
+    const add = (key: string, occurrence: EventOccurrence) => { const current = map.get(key) ?? []; current.push(occurrence); map.set(key, current); };
+    for (const occurrence of monthOccurrences) {
+      add(localDateKey(occurrence.start), occurrence);
+      if (occurrence.event.all_day && occurrence.end) {
+        const cursor = new Date(occurrence.start); cursor.setDate(cursor.getDate() + 1);
+        while (cursor.getTime() <= occurrence.end.getTime()) { add(localDateKey(cursor), occurrence); cursor.setDate(cursor.getDate() + 1); }
+      }
+    }
+    return map;
+  }, [monthOccurrences]);
   const selectedOccurrences = byDay.get(selectedDay) ?? [];
   const agenda = useMemo(() => expandEvents(events, new Date(Date.now() - 86_400_000), new Date(Date.now() + 366 * 86_400_000)), [events]);
   const weekStart = useMemo(() => { const d = new Date(`${selectedDay}T12:00:00`); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; }, [selectedDay]);

@@ -1,4 +1,4 @@
-import { backendConfig, getUsableAccessToken } from './api';
+import { backendConfig, getUsableAccessToken, initializeBackendConfig } from './api';
 
 export type RealtimeResource = 'tasks' | 'notes' | 'lists' | 'countdowns' | 'events' | 'goals' | 'trips' | 'memories' | 'activities' | 'questions' | 'moods' | 'tags' | 'schedules' | 'games' | 'location' | 'relationship_pings';
 
@@ -16,6 +16,7 @@ class RealtimeClient {
   private listeners = new Set<Listener>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private manuallyStopped = true;
+  private lastRuntimeRefreshAt = 0;
 
   subscribe(listener: Listener) {
     this.listeners.add(listener);
@@ -43,8 +44,18 @@ class RealtimeClient {
     this.socket = null;
   }
 
-  private async ensureConnected() {
-    if (!backendConfig.isConfigured || this.socket || this.manuallyStopped || this.listeners.size === 0) return;
+  private async ensureConnected(refreshRuntime = false) {
+    if (this.socket || this.manuallyStopped || this.listeners.size === 0) return;
+    if (refreshRuntime && Date.now() - this.lastRuntimeRefreshAt >= 15_000) {
+      await initializeBackendConfig(true).catch(() => undefined);
+      this.lastRuntimeRefreshAt = Date.now();
+    } else {
+      await initializeBackendConfig().catch(() => undefined);
+    }
+    if (!backendConfig.isConfigured) {
+      this.reconnectTimer = setTimeout(() => this.ensureConnected(true).catch(() => undefined), 5_000);
+      return;
+    }
     const accessToken = await getUsableAccessToken();
     if (!accessToken) return;
     const wsUrl = backendConfig.apiUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
@@ -64,7 +75,7 @@ class RealtimeClient {
     socket.onclose = () => {
       if (this.socket === socket) this.socket = null;
       if (!this.manuallyStopped && this.listeners.size > 0) {
-        this.reconnectTimer = setTimeout(() => this.ensureConnected().catch(() => undefined), 2000);
+        this.reconnectTimer = setTimeout(() => this.ensureConnected(true).catch(() => undefined), 2000);
       }
     };
   }

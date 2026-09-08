@@ -14,6 +14,7 @@ import { AppButton } from '@/components/common/AppButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { IconButton } from '@/components/common/IconButton';
 import { AppIcon } from '@/components/art/AppIcon';
+import { MemoryDetailModal } from '@/components/memories/MemoryDetailModal';
 import {
   addMemoryToAlbum,
   createMemoryAlbum,
@@ -52,6 +53,9 @@ export default function PhotosScreen() {
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<MemoryAlbum | null>(null);
+  const [detailTarget, setDetailTarget] = useState<CoupleMemory | null>(null);
+  const [detailPhotoIndex, setDetailPhotoIndex] = useState(0);
+  const [detailOpenPhoto, setDetailOpenPhoto] = useState(false);
 
   useEffect(() => { if (params.view === 'albums') setView('albums'); }, [params.view]);
 
@@ -155,18 +159,21 @@ export default function PhotosScreen() {
           </Card>
         ) : null}
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md }}>
-          {albumMemories.length === 0 ? <View style={{ width: '100%' }}><EmptyState icon="photo" title="Nothing here yet" body="Add memories to this album." /></View> : null}
+        <View style={{ gap: theme.spacing.md }}>
+          {albumMemories.length === 0 ? <EmptyState icon="photo" title="Nothing here yet" body="Add memories to this album." /> : null}
           {albumMemories.map((memory) => {
-            const image = memory.photos?.[0]?.media_url ?? memory.photo_url;
+            const memoryPhotos = (memory.photos ?? []).map((photo) => photo.media_url).filter(Boolean);
+            if (!memoryPhotos.length && memory.photo_url) memoryPhotos.push(memory.photo_url);
             return (
-              <Card key={memory.id} participantColor={colorForUser(memory.creator_id)} style={{ width: '47%', padding: 0, overflow: 'hidden' }}>
-                {image ? <Image source={{ uri: image }} style={{ width: '100%', aspectRatio: 1, backgroundColor: theme.colors.elevatedBackground }} resizeMode="cover" /> : <View style={{ aspectRatio: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppText variant="hero">{memory.emoji}</AppText></View>}
-                <View style={{ padding: theme.spacing.md, gap: 6 }}><AppText variant="cardTitle" numberOfLines={2}>{memory.title}</AppText><AppText variant="caption" tone="muted">{memory.memory_date}</AppText><AppButton compact variant="ghost" label="Remove" onPress={() => toggleMemory(memory)} /></View>
+              <Card key={memory.id} participantColor={colorForUser(memory.creator_id)} style={{ gap: theme.spacing.md, overflow: 'hidden' }}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Open memory ${memory.title}`} onPress={() => { setDetailTarget(memory); setDetailPhotoIndex(0); setDetailOpenPhoto(false); }} style={({ pressed }) => ({ gap: 4, opacity: pressed ? 0.78 : 1 })}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><AppText variant="section">{memory.emoji}</AppText><AppText variant="section" style={{ flex: 1 }}>{memory.title}</AppText></View><AppText variant="caption" tone="secondary">{memory.memory_date}{memory.location ? ` · ${memory.location}` : ''}</AppText>{memory.description ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{memory.description}</AppText> : null}</Pressable>
+                {memoryPhotos.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{memoryPhotos.map((url, index) => <Pressable key={`${memory.id}-${index}-${url.slice(-20)}`} accessibilityRole="button" accessibilityLabel={`Open photo ${index + 1} from ${memory.title}`} onPress={() => { setDetailTarget(memory); setDetailPhotoIndex(index); setDetailOpenPhoto(true); }} style={({ pressed }) => ({ width: memoryPhotos.length === 1 ? '100%' : '31%', opacity: pressed ? 0.78 : 1 })}><Image source={{ uri: url }} style={{ width: '100%', aspectRatio: memoryPhotos.length === 1 ? 1.6 : 1, borderRadius: theme.radii.md, backgroundColor: theme.colors.elevatedBackground }} resizeMode="cover" /></Pressable>)}</View> : <View style={{ minHeight: 90, alignItems: 'center', justifyContent: 'center', borderRadius: theme.radii.md, backgroundColor: theme.colors.elevatedBackground }}><AppText variant="hero">{memory.emoji}</AppText></View>}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.sm }}><AppText variant="caption" tone="muted">{memoryPhotos.length} {memoryPhotos.length === 1 ? 'photo' : 'photos'}</AppText><AppButton compact variant="ghost" label="Remove from album" onPress={() => toggleMemory(memory)} /></View>
               </Card>
             );
           })}
         </View>
+        <MemoryDetailModal memory={detailTarget} visible={!!detailTarget} initialPhotoIndex={detailPhotoIndex} openPhotoImmediately={detailOpenPhoto} onClose={() => { setDetailTarget(null); setDetailOpenPhoto(false); }} onEdit={(memory) => { setDetailTarget(null); setDetailOpenPhoto(false); router.push(`/features/memories?edit=${encodeURIComponent(memory.id)}` as never); }} />
       </AppScreen>
     );
   }
@@ -182,7 +189,7 @@ export default function PhotosScreen() {
           {!loading && photos.length === 0 ? <EmptyState icon="photo" title="No photos yet" body="Add a photo to a memory and it’ll show up here." actionLabel="Add a memory" onAction={() => router.push('/features/memories' as never)} /> : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md }}>
             {photos.map(({ key, url, memory, index }) => (
-              <Pressable key={key} accessibilityRole="button" onPress={() => router.push(`/features/memories?focus=${encodeURIComponent(memory.id)}` as never)} style={{ width: '47%' }}>
+              <Pressable key={key} accessibilityRole="button" accessibilityLabel={`Open photo from ${memory.title}`} onPress={() => { setDetailTarget(memory); setDetailPhotoIndex(index); setDetailOpenPhoto(true); }} style={{ width: '47%' }}>
                 {({ pressed }) => (
                   <Card participantColor={colorForUser(memory.creator_id)} style={{ padding: 0, overflow: 'hidden', opacity: pressed ? 0.76 : 1 }}>
                     <Image source={{ uri: url }} resizeMode="cover" style={{ width: '100%', aspectRatio: 1, backgroundColor: theme.colors.elevatedBackground }} />
@@ -215,6 +222,7 @@ export default function PhotosScreen() {
           </View>
         </>
       )}
+      <MemoryDetailModal memory={detailTarget} visible={!!detailTarget} initialPhotoIndex={detailPhotoIndex} openPhotoImmediately={detailOpenPhoto} onClose={() => { setDetailTarget(null); setDetailOpenPhoto(false); }} onEdit={(memory) => { setDetailTarget(null); setDetailOpenPhoto(false); router.push(`/features/memories?edit=${encodeURIComponent(memory.id)}` as never); }} />
       <ConfirmDialog visible={!!deleteTarget} title="Delete album?" body={deleteTarget ? `Delete “${deleteTarget.title}”? The memories will stay saved.` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeAlbum().catch(() => undefined)} />
     </AppScreen>
   );

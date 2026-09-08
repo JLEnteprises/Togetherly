@@ -52,9 +52,14 @@ export default function NotificationsScreen() {
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
   useEffect(() => realtimeClient.subscribe((event) => {
     if (event.type === 'feature.updated' || event.type === 'workspace.updated' || event.type === 'shared_item.updated') {
-      refresh().catch(() => undefined);
+      getNotifications()
+        .then((result) => {
+          setNotifications(result.notifications);
+          setUnreadCount(result.unreadCount);
+        })
+        .catch(() => undefined);
     }
-  }), [refresh]);
+  }), []);
 
   async function change(patch: Parameters<typeof save>[0]) {
     try { await save(patch); }
@@ -81,10 +86,11 @@ export default function NotificationsScreen() {
   }
   async function remove(id: string) {
     try {
+      const target = notifications.find((entry) => entry.id === id);
       await deleteNotification(id);
       setNotifications((current) => current.filter((entry) => entry.id !== id));
-      await refresh();
-    } catch (error) { Alert.alert('Couldn’t delete notification', messageFrom(error)); }
+      if (target && !target.read_at) setUnreadCount((count) => Math.max(0, count - 1));
+    } catch (error) { Alert.alert('Couldnâ€™t delete notification', messageFrom(error)); }
   }
 
   async function enablePush() {

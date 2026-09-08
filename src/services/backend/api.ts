@@ -7,6 +7,8 @@ import { resolveRuntimeApiUrl } from './runtimeConfig';
 const embeddedApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '') ?? '';
 let apiUrl = embeddedApiUrl;
 let backendConfigPromise: Promise<void> | null = null;
+let backendConfigResolvedAt = 0;
+const BACKEND_CONFIG_TTL_MS = 60_000;
 const STORAGE_KEY = 'togetherly.auth.session.v1';
 const CACHE_PREFIX = 'togetherly.api.cache.v1';
 
@@ -17,13 +19,15 @@ export const backendConfig: { apiUrl: string; isConfigured: boolean; source: str
 };
 
 export async function initializeBackendConfig(force = false) {
-  if (backendConfigPromise && !force) return backendConfigPromise;
+  if (!force && backendConfigResolvedAt > 0 && Date.now() - backendConfigResolvedAt < BACKEND_CONFIG_TTL_MS) return;
+  if (backendConfigPromise) return backendConfigPromise;
   backendConfigPromise = (async () => {
     const resolved = await resolveRuntimeApiUrl(embeddedApiUrl);
     apiUrl = resolved.apiUrl;
     backendConfig.apiUrl = resolved.apiUrl;
     backendConfig.isConfigured = /^https?:\/\//.test(resolved.apiUrl);
     backendConfig.source = resolved.source;
+    backendConfigResolvedAt = Date.now();
   })();
   try {
     await backendConfigPromise;
@@ -41,6 +45,7 @@ type RequestOptions = {
   body?: unknown;
   authenticated?: boolean;
   retryAfterRefresh?: boolean;
+  retryAfterConfig?: boolean;
 };
 
 export class ApiClientError extends Error {
@@ -67,12 +72,27 @@ function sessionForStorage(next: AuthSession): AuthSession {
   return { ...next, user: { ...next.user, avatar_url: null } };
 }
 
+async function clearCachedResponsesForUser(userId: string) {
+  try {
+    const prefix = `${CACHE_PREFIX}.${userId}.`;
+    const keys = await AsyncStorage.getAllKeys();
+    const matches = keys.filter((key) => key.startsWith(prefix));
+    if (matches.length) await AsyncStorage.multiRemove(matches);
+  } catch {
+    // Cache cleanup is best-effort and must not prevent sign-out.
+  }
+}
+
 async function persist(next: AuthSession | null) {
+  const previousUserId = session?.user?.id ?? null;
   session = next;
   if (next) {
     const storedSession = Platform.OS === 'web' ? next : sessionForStorage(next);
     await writeStoredValue(JSON.stringify(storedSession));
-  } else await deleteStoredValue();
+  } else {
+    await deleteStoredValue();
+    if (previousUserId) await clearCachedResponsesForUser(previousUserId);
+  }
   for (const listener of sessionListeners) listener(next);
 }
 
@@ -110,6 +130,7 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
   if (authenticated && session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
 
   const method = options.method ?? 'GET';
+  const requestApiUrl = apiUrl;
   let response: Response;
   try {
     response = await fetch(`${apiUrl}${path}`, {
@@ -118,11 +139,17 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch {
+    if (options.retryAfterConfig !== false) {
+      await initializeBackendConfig(true).catch(() => undefined);
+      if (backendConfig.isConfigured && apiUrl !== requestApiUrl) {
+        return rawRequest<T>(path, { ...options, retryAfterConfig: false });
+      }
+    }
     if (authenticated && method === 'GET') {
       const cached = await readCachedResponse<T>(path);
       if (cached !== null) return cached;
     }
-    throw new ApiClientError(0, 'Togetherly couldn’t connect. Check your internet connection and try again.');
+    throw new ApiClientError(0, 'Togetherly could not connect. Check your internet connection and try again.');
   }
 
   if (response.status === 401 && authenticated && options.retryAfterRefresh !== false && session?.refreshToken) {

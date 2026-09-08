@@ -54,14 +54,17 @@ export default function ActivityRandomizerScreen() {
         kidFriendly: kidFriendly ? true : undefined,
         tagIds: tagIds.length ? tagIds : undefined,
       }));
-    } catch (error) { Alert.alert('Couldn’t pick an activity', messageFrom(error)); }
+    } catch (error) { Alert.alert('Couldnâ€™t pick an activity', messageFrom(error)); }
     finally { setBusy(false); }
   }
 
   async function notTonight() {
-    if (!pick) return;
-    try { await rejectActivity(pick.id); await roll(); }
-    catch (error) { Alert.alert('Couldn’t reroll', messageFrom(error)); }
+    if (!pick || busy) return;
+    setBusy(true);
+    try { await rejectActivity(pick.id); }
+    catch (error) { Alert.alert('Could not reroll', messageFrom(error)); setBusy(false); return; }
+    setBusy(false);
+    await roll();
   }
 
   function planPick() {
@@ -78,7 +81,7 @@ export default function ActivityRandomizerScreen() {
   async function choose(status: 'favourite') {
     if (!pick) return;
     try { const updated = await updateActivity(pick.id, { status }); setPick({ ...pick, ...updated }); }
-    catch (error) { Alert.alert('Couldn’t update activity', messageFrom(error)); }
+    catch (error) { Alert.alert('Couldnâ€™t update activity', messageFrom(error)); }
   }
 
   return (
@@ -90,16 +93,16 @@ export default function ActivityRandomizerScreen() {
         <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">ENVIRONMENT</AppText><ChoiceChips value={environment} onChange={setEnvironment} options={[{ value: 'any', label: 'Either' }, { value: 'indoor', label: 'Indoor' }, { value: 'outdoor', label: 'Outdoor' }]} /></View>
         <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">MOOD</AppText><ChoiceChips value={mood} onChange={setMood} options={[{ value: 'any', label: 'Any' }, { value: 'romantic', label: 'Romantic' }, { value: 'relaxing', label: 'Relaxing' }, { value: 'adventurous', label: 'Adventure' }, { value: 'active', label: 'Active' }, { value: 'lazy', label: 'Lazy' }, { value: 'silly', label: 'Silly' }]} /></View>
         <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">TIME OF DAY</AppText><ChoiceChips value={timeOfDay} onChange={setTimeOfDay} options={[{ value: 'any', label: 'Any' }, { value: 'morning', label: 'Morning' }, { value: 'day', label: 'Day' }, { value: 'night', label: 'Night' }]} /></View>
-        <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">DURATION</AppText><ChoiceChips value={time} onChange={setTime} options={[{ value: 'any', label: 'Any' }, { value: '30', label: '≤30m' }, { value: '60', label: '≤1h' }, { value: '180', label: '1–3h' }, { value: '360', label: 'Half day' }, { value: '1440', label: 'Full day' }]} /></View>
+        <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">DURATION</AppText><ChoiceChips value={time} onChange={setTime} options={[{ value: 'any', label: 'Any' }, { value: '30', label: 'â‰¤30m' }, { value: '60', label: 'â‰¤1h' }, { value: '180', label: '<=3h' }, { value: '360', label: 'Half day' }, { value: '1440', label: 'Full day' }]} /></View>
         <ToggleRow label="Must be kid friendly" value={kidFriendly} onChange={setKidFriendly} />
         <TagSelector tags={tags} selectedIds={tagIds} onChange={setTagIds} label="MUST INCLUDE TAGS" />
-        <AppButton label={busy ? 'Consulting the stars…' : '✦ Pick something for us'} disabled={busy} onPress={roll} />
+        <AppButton label={busy ? 'Consulting the starsâ€¦' : 'âœ¦ Pick something for us'} disabled={busy} onPress={roll} />
       </Card>
 
       {hasTried && !busy && !pick ? <EmptyState icon="spark" title="Nothing matches" body="Nothing matches those filters. Try loosening one or add another idea." /> : null}
       {pick ? (
         <Card tone="accent" participantColor={colorForUser(pick.creator_id)} style={{ gap: theme.spacing.lg, padding: theme.spacing.xl }}>
-          <AppText variant="caption" tone="accent">TONIGHT’S PICK</AppText>
+          <AppText variant="caption" tone="accent">TONIGHTâ€™S PICK</AppText>
           <AppText variant="hero">{pick.title}</AppText>
           <ParticipantAttribution userId={pick.creator_id} />
           {pick.description ? <AppText tone="secondary">{pick.description}</AppText> : null}
@@ -108,11 +111,11 @@ export default function ActivityRandomizerScreen() {
             {pick.kid_friendly ? <TagChip subtle label="KID FRIENDLY" /> : null}
             {(pick.tags ?? []).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
           </View>
-          <AppText variant="bodySmall" tone="secondary">{durationLabel(pick.duration_minutes)}{pick.location ? ` · ${pick.location}` : ''}</AppText>
+          <AppText variant="bodySmall" tone="secondary">{durationLabel(pick.duration_minutes)}{pick.location ? ` Â· ${pick.location}` : ''}</AppText>
           <View style={{ gap: theme.spacing.sm }}>
-            <AppButton icon="heart" label="Let’s do it" onPress={planPick} />
-            <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton icon="spark" label="Reroll" variant="secondary" onPress={roll} /></View><View style={{ flex: 1 }}><AppButton label="Not tonight" variant="ghost" onPress={notTonight} /></View></View>
-            <AppButton label={pick.status === 'favourite' ? '★ Favourite' : '☆ Save as favourite'} variant="ghost" onPress={() => choose('favourite')} />
+            <AppButton icon="heart" label="Letâ€™s do it" onPress={planPick} />
+            <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton icon="spark" label="Reroll" variant="secondary" disabled={busy} onPress={roll} /></View><View style={{ flex: 1 }}><AppButton label="Not tonight" variant="ghost" disabled={busy} onPress={notTonight} /></View></View>
+            <AppButton label={pick.status === 'favourite' ? 'â˜… Favourite' : 'â˜† Save as favourite'} variant="ghost" disabled={busy} onPress={() => choose('favourite')} />
           </View>
         </Card>
       ) : null}

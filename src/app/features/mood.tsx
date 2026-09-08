@@ -31,6 +31,12 @@ export default function MoodScreen() {
   const [busy, setBusy] = useState(false);
   const [ackBusy, setAckBusy] = useState(false);
   const [acknowledgedId, setAcknowledgedId] = useState<string | null>(null);
+  const [, setRelativeTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setRelativeTick((value) => value + 1), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const refresh = useCallback(async () => {
     try { const next = await getLatestMoods(); setMine(next.mine); setPartner(next.partner); }

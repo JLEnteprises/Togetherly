@@ -244,9 +244,12 @@ export async function registerPlanningRoutes(app: FastifyInstance, realtime: Rea
       const goal = goalResult.rows[0];
       if (!goal) throw new ApiError(404, 'Goal not found.');
       const contributionId = randomUUID();
+      const currentValue = Number(goal.current_value);
+      const effectiveAmount = amount < 0 ? Math.max(amount, -currentValue) : amount;
+      if (effectiveAmount === 0) throw new ApiError(400, 'This goal is already at zero.');
       await client.query('INSERT INTO goal_contributions(id,goal_id,creator_id,amount,note) VALUES($1,$2,$3,$4,$5)',
-        [contributionId, id, request.userId, amount, optionalText(body.note, 500)]);
-      const nextValue = Math.max(0, Number(goal.current_value) + amount);
+        [contributionId, id, request.userId, effectiveAmount, optionalText(body.note, 500)]);
+      const nextValue = currentValue + effectiveAmount;
       const status = nextValue >= Number(goal.target_value) ? 'completed' : (goal.status === 'completed' ? 'active' : goal.status);
       const updated = await client.query('UPDATE goals SET current_value=$1,status=$2,updated_at=now() WHERE id=$3 RETURNING *', [nextValue, status, id]);
       await client.query('COMMIT');

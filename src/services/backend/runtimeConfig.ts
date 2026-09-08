@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const RUNTIME_CONFIG_URL = 'https://raw.githubusercontent.com/JLEnteprises/Togetherly/main/runtime-config.json';
 const CACHE_KEY = 'togetherly.runtime-api-url.v1';
+const RUNTIME_CONFIG_TIMEOUT_MS = 4_000;
 
 export type RuntimeBackendConfig = {
   apiUrl: string;
@@ -16,9 +17,17 @@ function normalizeApiUrl(value: unknown): string {
 
 export async function resolveRuntimeApiUrl(embeddedUrl: string): Promise<RuntimeBackendConfig> {
   try {
-    const response = await fetch(`${RUNTIME_CONFIG_URL}?t=${Date.now()}`, {
-      headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), RUNTIME_CONFIG_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(`${RUNTIME_CONFIG_URL}?t=${Date.now()}`, {
+        headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (response.ok) {
       const payload = await response.json() as { apiUrl?: unknown };
       const apiUrl = normalizeApiUrl(payload.apiUrl);

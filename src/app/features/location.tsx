@@ -59,7 +59,7 @@ export default function LocationScreen() {
         <Card participantColor="both" style={{ gap: theme.spacing.md }}>
           <ToggleRow
             label="Share my location"
-            subtitle="Keep sharing until you turn it off."
+            subtitle="Shares with your partner; background updates depend on device permission."
             value={sharing}
             disabled={loading}
             onChange={(value) => setSharing(value).catch((error) => Alert.alert('Couldn’t change location sharing', error instanceof Error ? error.message : 'Try again.'))}

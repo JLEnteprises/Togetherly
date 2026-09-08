@@ -71,8 +71,8 @@ jobs:
           TEAM_ID="${INPUT_APPLE_TEAM_ID:-${VAR_APPLE_TEAM_ID:-0000000000}}"
 
           if [[ -z "$API_URL" ]]; then
-            echo '::error::No API URL supplied. Enter api_url when running the workflow or create repository variable TOGETHERLY_API_URL.'
-            exit 1
+            API_URL="https://example.invalid"
+            echo '::notice::Using dynamic runtime API discovery; embedding https://example.invalid as fallback.'
           fi
           if [[ ! "$API_URL" =~ ^https?:// ]]; then
             echo '::error::API URL must start with http:// or https://'
@@ -105,6 +105,15 @@ jobs:
 
       - name: Client typecheck
         run: npm run typecheck
+
+      - name: Install backend dependencies
+        run: npm --prefix server ci --no-audit --no-fund
+
+      - name: Server typecheck
+        run: npm --prefix server run typecheck
+
+      - name: Pure logic smoke tests
+        run: npm --prefix server run logic
 
       - name: Install CocoaPods 1.16.2
         run: gem install cocoapods -v 1.16.2 --no-document

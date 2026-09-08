@@ -1,9 +1,15 @@
-import type { ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { CosmicBackdrop } from './CosmicBackdrop';
 import { FadeSlideIn } from '@/components/motion/Motion';
+
+const ScreenScrollLockContext = createContext<(locked: boolean) => void>(() => undefined);
+
+export function useAppScreenScrollLock() {
+  return useContext(ScreenScrollLockContext);
+}
 
 type Props = {
   children: ReactNode;
@@ -13,15 +19,19 @@ type Props = {
 
 export function AppScreen({ children, scroll = true, contentStyle }: Props) {
   const theme = useAppTheme();
+  const [scrollLocked, setScrollLocked] = useState(false);
+  const setDrawingScrollLock = useCallback((locked: boolean) => setScrollLocked(locked), []);
   const content = <FadeSlideIn distance={8}><View style={[styles.content, { paddingHorizontal: theme.spacing.xl }, contentStyle]}>{children}</View></FadeSlideIn>;
 
   return (
+    <ScreenScrollLockContext.Provider value={setDrawingScrollLock}>
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }]} edges={['top', 'left', 'right']}>
       <CosmicBackdrop />
       <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {scroll ? (
           <ScrollView
             style={styles.safe}
+            scrollEnabled={!scrollLocked}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -32,6 +42,7 @@ export function AppScreen({ children, scroll = true, contentStyle }: Props) {
         ) : content}
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </ScreenScrollLockContext.Provider>
   );
 }
 

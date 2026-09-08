@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { useAuth } from '@/providers/AuthProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { backendConfig } from '@/services/backend/api';
+import { backendConfig, initializeBackendConfig } from '@/services/backend/api';
 import { acknowledgeMood, createMood, createRelationshipPing, createWatchSession, getWatchStateForPhone } from '@/services/backend/mvpFeatures';
 import { realtimeClient } from '@/services/backend/realtime';
 import { clearWatchContext, getWatchBridgeStatus, subscribeWatchActions, subscribeWatchStatus, syncWatchContext, type WatchBridgeStatus } from '@/services/watchBridge';
@@ -47,7 +47,9 @@ export function WatchBridgeProvider({ children }: PropsWithChildren) {
   const syncing = useRef<Promise<void> | null>(null);
 
   const refresh = useCallback(async () => {
-    if (Platform.OS !== 'ios' || !user || !couple || !backendConfig.isConfigured) return;
+    if (Platform.OS !== 'ios' || !user || !couple) return;
+    await initializeBackendConfig().catch(() => undefined);
+    if (!backendConfig.isConfigured) return;
     if (syncing.current) return syncing.current;
     const work = (async () => {
       setIsSyncing(true);

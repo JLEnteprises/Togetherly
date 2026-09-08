@@ -33,9 +33,12 @@ function scratchpadDrawing(value: unknown) {
       if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 1000 || y < 0 || y > 1000) throw new ApiError(400, 'Scratchpad point is outside the canvas.');
       return { x, y };
     });
-    const width = Math.max(1, Math.min(30, Number(stroke.width) || 7));
+    const width = Math.max(1, Math.min(48, Number(stroke.width) || 7));
     const userId = typeof stroke.userId === 'string' ? stroke.userId.slice(0, 100) : undefined;
-    return { id: typeof stroke.id === 'string' ? stroke.id.slice(0, 80) : `stroke-${strokeIndex}`, userId, points, width };
+    const color = typeof stroke.color === 'string' && /^#[0-9a-f]{6}$/i.test(stroke.color) ? stroke.color.toLowerCase() : undefined;
+    const opacity = Math.max(0.1, Math.min(1, Number(stroke.opacity) || 1));
+    const tool = ['pen', 'marker', 'highlighter', 'eraser'].includes(String(stroke.tool)) ? String(stroke.tool) : undefined;
+    return { id: typeof stroke.id === 'string' ? stroke.id.slice(0, 80) : `stroke-${strokeIndex}`, userId, points, width, ...(color ? { color } : {}), opacity, ...(tool ? { tool } : {}) };
   });
   return { version: 1, strokes };
 }

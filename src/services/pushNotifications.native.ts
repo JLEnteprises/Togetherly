@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { deactivatePushToken, registerPushDevice } from '@/services/backend/mvpFeatures';
+import { getStoredSession } from '@/services/backend/api';
 
 const STORAGE_KEY = 'togetherly.push.registration.v1';
 const CHANNEL_RELATIONSHIP = 'relationship';
@@ -90,7 +91,9 @@ export async function getPushStatus(): Promise<PushStatus> {
   if (!Device.isDevice) return { supported: false, permission: 'undetermined', token: null, registered: false, reason: 'Remote push notifications require a physical device.' };
   const permission = normalizePermission((await Notifications.getPermissionsAsync()).status);
   const stored = await readStored();
-  return { supported: true, permission, token: stored?.token ?? null, registered: Boolean(stored?.token) };
+  const currentUserId = getStoredSession()?.user?.id ?? null;
+  const belongsToCurrentUser = Boolean(stored?.token && currentUserId && stored.userId === currentUserId);
+  return { supported: true, permission, token: belongsToCurrentUser ? stored!.token : null, registered: belongsToCurrentUser };
 }
 
 async function registerCurrentToken() {
@@ -98,8 +101,10 @@ async function registerCurrentToken() {
   const token = await expoToken();
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
   const deviceName = Device.deviceName ?? Device.modelName ?? (platform === 'ios' ? 'iPhone' : 'Android device');
+  const userId = getStoredSession()?.user?.id ?? null;
+  if (!userId) throw new Error('Sign in before registering push notifications.');
   await registerPushDevice({ token, platform, deviceName });
-  await writeStored({ token, platform });
+  await writeStored({ token, platform, userId });
   return token;
 }
 
@@ -128,7 +133,9 @@ export async function syncPushRegistrationIfGranted(): Promise<PushStatus> {
     return { supported: true, permission: 'granted', token, registered: true };
   } catch (error) {
     const stored = await readStored();
-    return { supported: true, permission: 'granted', token: stored?.token ?? null, registered: Boolean(stored?.token), reason: error instanceof Error ? error.message : 'Could not register this device.' };
+    const currentUserId = getStoredSession()?.user?.id ?? null;
+    const belongsToCurrentUser = Boolean(stored?.token && currentUserId && stored.userId === currentUserId);
+    return { supported: true, permission: 'granted', token: belongsToCurrentUser ? stored!.token : null, registered: belongsToCurrentUser, reason: error instanceof Error ? error.message : 'Could not register this device.' };
   }
 }
 

@@ -210,6 +210,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
                 strokes={strokes}
                 currentUserId={profile?.id}
                 height={compact ? 150 : 280}
+                showTools={!compact}
                 onStroke={addStroke}
                 strokeColorForUser={(userId) => {
                   const participant = colorForUser(userId);
