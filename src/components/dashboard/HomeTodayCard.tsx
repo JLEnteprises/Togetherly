@@ -15,11 +15,11 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { expandEvents, type EventOccurrence } from '@/utils/calendar';
 import type { CoupleTask, DailyQuestionState, MoodEntry, MoodValue } from '@/types/database';
 import { durationShortLabel, taskAttentionDate } from '@/utils/taskTiming';
+import { moodSupportForNeed } from '@/utils/moodSupport';
 
 const moodShort: Record<MoodValue, string> = {
   amazing: '😄', good: '🙂', okay: '😐', low: '😔', frustrated: '😡', overwhelmed: '😫', tired: '😴', stressed: '😰',
 };
-const needText = { affection: 'affection', reassurance: 'reassurance', advice: 'advice', listen: 'someone to listen', distraction: 'a distraction', space: 'some space', call: 'a call', nothing: 'nothing right now' } as const;
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 function formatEvent(occurrence: EventOccurrence | null) {
@@ -50,21 +50,29 @@ function smartTaskSummary(tasks: CoupleTask[]) {
 }
 function isRecent(entry: MoodEntry | null, hours = 12) { return !!entry && Date.now() - new Date(entry.created_at).getTime() < hours * 3_600_000; }
 
-function StatusRow({ icon, title, value, valueTone = 'primary', topBorder = false }: { icon: AppIconName; title: string; value: string; valueTone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error'; topBorder?: boolean }) {
+type StatusTone = 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error';
+function StatusRow({ icon, title, value, valueTone = 'primary', topBorder = false, href }: { icon: AppIconName; title: string; value: string; valueTone?: StatusTone; topBorder?: boolean; href: string }) {
   const theme = useAppTheme();
   return (
-    <View
-      accessible
+    <Pressable
+      accessibilityRole="button"
       accessibilityLabel={`${title}. ${value}`}
-      style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 9, borderTopWidth: topBorder ? 1 : 0, borderTopColor: theme.colors.border }}
+      accessibilityHint={`Open ${title}`}
+      onPress={() => router.push(href as never)}
     >
-      <View style={{ width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={18} color={theme.colors.textSecondary} /></View>
-      <View style={{ flex: 1, gap: 2 }}><AppText variant="bodySmall" tone="secondary" style={{ fontWeight: '700' }}>{title}</AppText><AppText variant="bodySmall" tone={valueTone} numberOfLines={2}>{value}</AppText></View>
-    </View>
+      {({ pressed }) => (
+        <View style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 9, borderTopWidth: topBorder ? 1 : 0, borderTopColor: theme.colors.border, opacity: pressed ? 0.72 : 1 }}>
+          <View style={{ width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={18} color={theme.colors.textSecondary} /></View>
+          <View style={{ flex: 1, gap: 2 }}><AppText variant="bodySmall" tone="secondary" style={{ fontWeight: '700' }}>{title}</AppText><AppText variant="bodySmall" tone={valueTone} numberOfLines={2}>{value}</AppText></View>
+          <AppIcon name="chevron" size={15} color={theme.colors.textMuted} />
+        </View>
+      )}
+    </Pressable>
   );
 }
 
-// G2_HOME_DECLUTTER: routine Home rows are glanceable status; only genuinely important moments remain actionable.
+// G2_HOME_DECLUTTER: Home stays glanceable while each surfaced status now leads directly to the thing it describes.
+// CONTEXT_COMPOUNDING: realtime changes refresh only their own domain and mood needs determine the support language/action.
 export function HomeTodayCard() {
   const theme = useAppTheme();
   const { profile, partnerProfile, partnerColor } = useWorkspace();
@@ -74,20 +82,32 @@ export function HomeTodayCard() {
   const [moods, setMoods] = useState<{ mine: MoodEntry | null; partner: MoodEntry | null }>({ mine: null, partner: null });
   const [acknowledgingMood, setAcknowledgingMood] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const [taskResult, eventResult, questionResult, moodResult] = await Promise.allSettled([getTasks(), getEvents(), getDailyQuestion(), getLatestMoods()]);
-    if (taskResult.status === 'fulfilled') setTasks(taskResult.value.filter((task) => task.status !== 'completed'));
-    if (eventResult.status === 'fulfilled') { const now = new Date(); setEvent(expandEvents(eventResult.value, now, new Date(now.getTime() + 366 * 86_400_000))[0] ?? null); }
-    if (questionResult.status === 'fulfilled') setQuestion(questionResult.value);
-    if (moodResult.status === 'fulfilled') setMoods(moodResult.value);
+  const refreshTasks = useCallback(async () => {
+    const next = await getTasks();
+    setTasks(next.filter((task) => task.status !== 'completed'));
   }, []);
-  useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
-  useRealtimeRefresh('tasks', refresh); useRealtimeRefresh('events', refresh); useRealtimeRefresh('questions', refresh); useRealtimeRefresh('moods', refresh);
+  const refreshEvents = useCallback(async () => {
+    const next = await getEvents();
+    const now = new Date();
+    setEvent(expandEvents(next, now, new Date(now.getTime() + 366 * 86_400_000))[0] ?? null);
+  }, []);
+  const refreshQuestion = useCallback(async () => { setQuestion(await getDailyQuestion()); }, []);
+  const refreshMoods = useCallback(async () => { setMoods(await getLatestMoods()); }, []);
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([refreshTasks(), refreshEvents(), refreshQuestion(), refreshMoods()]);
+  }, [refreshEvents, refreshMoods, refreshQuestion, refreshTasks]);
+
+  useEffect(() => { refreshAll().catch(() => undefined); }, [refreshAll]);
+  useRealtimeRefresh('tasks', refreshTasks);
+  useRealtimeRefresh('events', refreshEvents);
+  useRealtimeRefresh('questions', refreshQuestion);
+  useRealtimeRefresh('moods', refreshMoods);
 
   const taskSummary = useMemo(() => smartTaskSummary(tasks), [tasks]);
   const questionSummary = question?.bothAnswered ? (question.revealed ? 'Both answered · revealed' : 'Both answered · ready to reveal') : question?.myAnswer ? `Waiting for ${partnerProfile?.display_name ?? 'your partner'}` : question?.question ? 'A question is waiting for you' : 'No question today';
   const moodSummary = `${moods.mine ? moodShort[moods.mine.mood] : '—'} ${profile?.display_name ?? 'You'}  ·  ${moods.partner ? moodShort[moods.partner.mood] : '—'} ${partnerProfile?.display_name ?? 'Partner'}`;
   const partnerMood = moods.partner;
+  const partnerSupport = partnerMood ? moodSupportForNeed(partnerMood.need) : null;
   const partnerNeedsAttention = isRecent(partnerMood) && partnerMood?.need !== 'nothing' && !partnerMood?.acknowledged_by_me;
   const revealReady = Boolean(question?.question && question.bothAnswered && !question.revealed);
   const answerWaiting = Boolean(question?.question && !question.myAnswer);
@@ -110,15 +130,15 @@ export function HomeTodayCard() {
     }
   }
 
-  const regularRows: Array<{ icon: AppIconName; title: string; value: string; tone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error' }> = [
-    { icon: 'calendar', title: 'Calendar', value: formatEvent(event) },
-    { icon: 'task', title: 'Tasks', value: taskSummary.text, tone: taskSummary.tone },
+  const regularRows: Array<{ icon: AppIconName; title: string; value: string; tone?: StatusTone; href: string }> = [
+    { icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: '/features/calendar' },
+    { icon: 'task', title: 'Tasks', value: taskSummary.text, tone: taskSummary.tone, href: '/features/tasks' },
   ];
   if (!priority) {
-    regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary });
-    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary });
+    regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary, href: '/features/daily-question' });
+    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary, href: '/features/mood' });
   } else if (priority !== 'partner_mood') {
-    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary });
+    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary, href: '/features/mood' });
   }
 
   return (
@@ -130,7 +150,7 @@ export function HomeTodayCard() {
             <AppText variant="bodySmall" tone="muted">The relationship moment that matters most right now.</AppText>
           </View>
 
-          {priority === 'partner_mood' && partnerMood ? (
+          {priority === 'partner_mood' && partnerMood && partnerSupport ? (
             <FadeSlideIn>
               <Card participantColor={partnerColor} style={{ gap: theme.spacing.md, padding: theme.spacing.lg }}>
                 <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
@@ -139,13 +159,16 @@ export function HomeTodayCard() {
                   </View>
                   <View style={{ flex: 1, gap: 4 }}>
                     <ParticipantIdentityBadge userId={partnerProfile?.id} compact />
-                    <AppText variant="cardTitle">{partnerProfile?.display_name ?? 'Your partner'} could use {needText[partnerMood.need]}.</AppText>
-                    <AppText variant="bodySmall" tone="secondary">A small response here can make the app feel like you’re actually beside them.</AppText>
+                    <AppText variant="cardTitle">{partnerProfile?.display_name ?? 'Your partner'} could use {partnerSupport.needLabel}.</AppText>
+                    <AppText variant="bodySmall" tone="secondary">{partnerSupport.helper}</AppText>
                   </View>
                 </View>
-                <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-                  <View style={{ flex: 1 }}><AppButton compact icon="heart" label={acknowledgingMood ? 'Sending…' : 'I’m here'} disabled={acknowledgingMood} onPress={() => void acknowledgePartnerMood()} /></View>
-                  <View style={{ flex: 1 }}><AppButton compact variant="secondary" label="Open check-in" onPress={() => router.push('/features/mood' as never)} /></View>
+                <View style={{ gap: theme.spacing.sm }}>
+                  <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+                    <View style={{ flex: 1 }}><AppButton compact icon="heart" label={acknowledgingMood ? 'Sending…' : partnerSupport.actionLabel} disabled={acknowledgingMood} onPress={() => void acknowledgePartnerMood()} /></View>
+                    <View style={{ flex: 1 }}><AppButton compact variant="secondary" label="Open check-in" onPress={() => router.push('/features/mood' as never)} /></View>
+                  </View>
+                  {partnerSupport.secondaryHref && partnerSupport.secondaryLabel ? <AppButton compact variant="secondary" label={partnerSupport.secondaryLabel} onPress={() => router.push(partnerSupport.secondaryHref as never)} /> : null}
                 </View>
               </Card>
             </FadeSlideIn>
@@ -200,10 +223,10 @@ export function HomeTodayCard() {
       <View style={{ gap: theme.spacing.sm }}>
         <View style={{ gap: 2 }}>
           <AppText variant="section">Life today</AppText>
-          <AppText variant="bodySmall" tone="muted">The practical bits around your day.</AppText>
+          <AppText variant="bodySmall" tone="muted">The practical bits around your day. Tap any row to go straight there.</AppText>
         </View>
         <View style={{ paddingHorizontal: theme.spacing.sm }}>
-          {regularRows.map((row, index) => <StatusRow key={row.title} icon={row.icon} title={row.title} value={row.value} valueTone={row.tone} topBorder={index > 0} />)}
+          {regularRows.map((row, index) => <StatusRow key={row.title} icon={row.icon} title={row.title} value={row.value} valueTone={row.tone} href={row.href} topBorder={index > 0} />)}
         </View>
       </View>
     </View>
