@@ -15,7 +15,7 @@ import { TagSelector } from '@/components/common/TagSelector';
 import { ToggleRow } from '@/components/common/ToggleRow';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -33,6 +33,7 @@ function durationLabel(minutes: number | null) { if (!minutes) return 'Flexible'
 function planActivityHref(activity: CoupleActivity) { return `/features/calendar?prefillTitle=${encodeURIComponent(activity.title)}&prefillDescription=${encodeURIComponent(activity.description ?? '')}&prefillDuration=${activity.duration_minutes ?? 120}&sourceActivityId=${encodeURIComponent(activity.id)}`; }
 type Filter = 'all' | 'matches' | 'want_to_do' | 'planned' | 'favourite' | 'completed';
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function ActivitiesScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { profile, partnerProfile, colorForUser } = useWorkspace();
   const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
@@ -110,7 +111,7 @@ export default function ActivitiesScreen() {
       <IconButton icon="date" label="Add a new date idea" tone="accent" onPress={() => setComposerOpen(true)} />
     </View>
 
-    <CollapsibleComposer title={editingId ? 'Edit idea' : 'Add a date idea'} subtitle={editingId ? 'Change the details you want to keep.' : 'Start simple. Extra details are optional.'} open={composerOpen} actionLabel="New idea" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
+    <ComposerSheet title={editingId ? 'Edit idea' : 'Add a date idea'} subtitle={editingId ? 'Change the details you want to keep.' : 'Start simple. Extra details are optional.'} open={composerOpen} actionLabel="New idea" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
       <FormField label="What do you want to do?" value={title} onChangeText={setTitle} placeholder="Stargazing" />
       <DetailsToggle open={advancedOpen} onToggle={() => setAdvancedOpen((value) => !value)} closedLabel="Add details" openLabel="Hide details" hint="Cost, place, mood, duration and anything else." />
       {advancedOpen ? <View style={{ gap: theme.spacing.lg }}>
@@ -125,7 +126,7 @@ export default function ActivitiesScreen() {
         <ToggleRow label="Kid friendly" value={kidFriendly} onChange={setKidFriendly} /><ToggleRow label="Booking required" value={booking} onChange={setBooking} /><TagSelector tags={tags} selectedIds={selectedTags} onChange={setSelectedTags} />
       </View> : null}
       <AppButton label={busy ? 'Savingâ€¦' : editingId ? 'Save changes' : 'Save idea'} disabled={busy || !title.trim()} onPress={save} />
-    </CollapsibleComposer>
+    </ComposerSheet>
 
     {topMatch ? <Card tone="accent" participantColor="both" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.lg, padding: theme.spacing.xl }}>
       <AppText variant="caption" tone="accent">YOU BOTH PICKED THIS ❤️</AppText>

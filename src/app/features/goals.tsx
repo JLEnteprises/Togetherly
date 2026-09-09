@@ -14,7 +14,7 @@ import { TagSelector } from '@/components/common/TagSelector';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -30,6 +30,7 @@ import type { CoupleGoal, GoalStatus, Tag } from '@/types/database';
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 function amount(goal: CoupleGoal, value: number | string) { const n = Number(value); return goal.unit === '$' ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : `${n.toLocaleString()}${goal.unit ? ` ${goal.unit}` : ''}`; }
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function GoalsScreen() {
   const theme = useAppTheme();
   const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
@@ -136,7 +137,7 @@ export default function GoalsScreen() {
   return (
     <AppScreen>
       <BackHeader eyebrow="Plan" title="Shared goals" subtitle="The things you’re building toward, little by little." />
-      <CollapsibleComposer title={editingId ? 'Edit goal' : 'Our goals'} subtitle={editingId ? 'Update the target, deadline or details.' : `${goals.filter((goal) => goal.status === 'active').length} active`} open={composerOpen} actionLabel="Add goal" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
+      <ComposerSheet title={editingId ? 'Edit goal' : 'Our goals'} subtitle={editingId ? 'Update the target, deadline or details.' : `${goals.filter((goal) => goal.status === 'active').length} active`} open={composerOpen} actionLabel="Add goal" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
         <FormField label="GOAL" value={title} onChangeText={setTitle} placeholder="Next visit fund" />
         <FormField label="DESCRIPTION · OPTIONAL" value={description} onChangeText={setDescription} placeholder="What this gets us closer to…" multiline />
         {!editingId ? <FormField label="STARTING AMOUNT · OPTIONAL" value={current} onChangeText={setCurrent} keyboardType="decimal-pad" placeholder="0" /> : <AppText variant="bodySmall" tone="muted">Use Add progress below so you can both see how the goal moved over time.</AppText>}
@@ -144,7 +145,7 @@ export default function GoalsScreen() {
         <DatePickerField label="DEADLINE · OPTIONAL" value={deadline} onChange={setDeadline} optional />
         <TagSelector tags={tags} selectedIds={selectedTags} onChange={setSelectedTags} />
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : editingId ? 'Save changes' : 'Add goal'} disabled={busy || !title.trim() || !target.trim()} onPress={saveGoal} /></View>{editingId ? <AppButton compact variant="secondary" label="Cancel" onPress={() => resetEditor()} /> : null}</View>
-      </CollapsibleComposer>
+      </ComposerSheet>
 
       <View style={{ gap: theme.spacing.md }}>
         {loading ? <AppText tone="muted">Loading goals…</AppText> : null}

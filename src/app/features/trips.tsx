@@ -11,7 +11,7 @@ import { TagChip } from '@/components/common/TagChip';
 import { TagSelector } from '@/components/common/TagSelector';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { IconButton } from '@/components/common/IconButton';
@@ -24,6 +24,7 @@ import type { CoupleTrip, Tag } from '@/types/database';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function TripsScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string }>(); const { colorForUser } = useWorkspace();
   const [trips, setTrips] = useState<CoupleTrip[]>([]); const [tags, setTags] = useState<Tag[]>([]); const [title, setTitle] = useState(''); const [destination, setDestination] = useState(''); const [startDate, setStartDate] = useState(''); const [endDate, setEndDate] = useState(''); const [notes, setNotes] = useState(''); const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -44,9 +45,9 @@ export default function TripsScreen() {
   }
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Trips" subtitle="Travel plans, dates and linked details." />
-    <CollapsibleComposer title={editingId ? 'Edit trip' : 'Our trips'} subtitle={`${trips.length} planned or saved`} open={composerOpen} actionLabel="New trip" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
+    <ComposerSheet title={editingId ? 'Edit trip' : 'Our trips'} subtitle={`${trips.length} planned or saved`} open={composerOpen} actionLabel="New trip" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
       <FormField label="TRIP NAME" value={title} onChangeText={setTitle} placeholder="October visit" /><FormField label="DESTINATION" value={destination} onChangeText={setDestination} placeholder="Chicago, IL" /><DatePickerField label="START · OPTIONAL" value={startDate} onChange={setStartDate} optional /><DatePickerField label="END · OPTIONAL" value={endDate} onChange={setEndDate} optional minimumDate={startDate || undefined} /><FormField label="NOTES" value={notes} onChangeText={setNotes} multiline placeholder="Flights, hotel, ideas, things to remember…" /><TagSelector tags={tags} selectedIds={selectedTags} onChange={setSelectedTags} /><AppButton label={busy ? 'Saving…' : editingId ? 'Save trip' : 'Create trip'} disabled={busy || !title.trim()} onPress={save} />
-    </CollapsibleComposer>
+    </ComposerSheet>
     {/* F2_EMPTY_STATE_COACHING: trip empties suggest the smallest useful planning record. */}
     <View style={{ gap: theme.spacing.md }}>{loading ? <AppText tone="muted">Loading trips…</AppText> : null}{!loading && trips.length === 0 ? <EmptyState icon="trip" eyebrow="PUT THE NEXT PLACE ON THE MAP" title="No trips planned yet" body="Create a visit, weekend away, or future holiday." tip="You only need a name to start. Add dates, flights, hotel details and planning items when they become real." actionLabel="Plan a trip" onAction={() => setComposerOpen(true)} /> : null}{trips.map((trip) => <Card key={trip.id} participantColor="both" style={{ gap: theme.spacing.sm, borderColor: editingId === trip.id ? theme.colors.accent : theme.colors.border }}><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-start' }}><Pressable accessibilityRole="button" onPress={() => router.push(`/features/trip-detail?id=${encodeURIComponent(trip.id)}` as never)} style={{ flex: 1, gap: 8 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><View style={{ flex: 1, gap: 5 }}><AppText variant="cardTitle">{trip.title}</AppText><ParticipantAttribution userId={trip.creator_id} />{trip.destination ? <AppText tone="secondary">{trip.destination}</AppText> : null}</View><AppIcon name="chevron" size={16} color={theme.colors.textMuted} /></View>{trip.notes ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{trip.notes}</AppText> : null}<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{trip.start_date ? <TagChip subtle label={trip.end_date ? `${trip.start_date} → ${trip.end_date}` : trip.start_date} /> : null}{trip.link_count ? <TagChip subtle label={`${trip.link_count} PLANNING ITEMS`} /> : null}{(trip.tags ?? []).slice(0, 3).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}</View></Pressable><IconButton icon="overflow" label={`More actions for ${trip.title}`} onPress={() => openTripMenu(trip)} /></View></Card>)}</View>
     <ConfirmDialog visible={!!deleteTarget} title="Delete trip?" body={deleteTarget ? `Delete “${deleteTarget.title}”?` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />

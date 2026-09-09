@@ -13,7 +13,7 @@ import { TagChip } from '@/components/common/TagChip';
 import { TagSelector } from '@/components/common/TagSelector';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
@@ -70,6 +70,7 @@ function shortDate(value: string | null | undefined) {
 type AssignmentFilter = 'all' | 'mine' | 'partner' | 'both';
 type StatusFilter = 'now' | 'open' | 'all' | 'completed';
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function TasksScreen() {
   const theme = useAppTheme();
   const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
@@ -261,7 +262,7 @@ export default function TasksScreen() {
         </View>
       </Card>
 
-      <CollapsibleComposer
+      <ComposerSheet
         title={editingId ? 'Edit task' : 'Add something to do'}
         subtitle={editingId ? undefined : `${tasks.length - completed} still open`}
         open={composerOpen}
@@ -285,7 +286,7 @@ export default function TasksScreen() {
           <View style={{ gap: theme.spacing.md }}><AppText variant="caption" tone="secondary">Steps</AppText>{!editingId && draftSteps.map((step) => <View key={step.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 9 }}><View style={{ flex: 1, gap: 2 }}><AppText>{step.title}</AppText>{step.dueDate || step.estimatedMinutes ? <AppText variant="caption" tone="muted">{step.dueDate ? `Due ${shortDate(step.dueDate)}` : ''}{step.dueDate && step.estimatedMinutes ? ' · ' : ''}{step.estimatedMinutes ? `~${durationLabel(step.estimatedMinutes)}` : ''}</AppText> : null}</View><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${step.title}`} onPress={() => removeDraftStep(step.id)} hitSlop={8}><AppIcon name="close" size={15} color={theme.colors.textMuted} /></Pressable></View>)}{editingId ? <>{(tasks.find((item) => item.id === editingId)?.subtasks ?? []).map((step) => <View key={step.id} style={{ gap: 8, borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 9 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: step.completed }} onPress={() => toggleStep(step)} style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' }}>{step.completed ? <AppIcon name="check" size={15} color={theme.colors.accent} /> : null}</Pressable><View style={{ flex: 1, gap: 2 }}><AppText style={{ textDecorationLine: step.completed ? 'line-through' : 'none' }}>{step.title}</AppText>{step.due_date || step.estimated_minutes ? <AppText variant="caption" tone="muted">{step.due_date ? `Due ${shortDate(step.due_date)}` : ''}{step.due_date && step.estimated_minutes ? ' · ' : ''}{step.estimated_minutes ? `~${durationLabel(step.estimated_minutes)}` : ''}</AppText> : null}</View><AppButton compact variant="ghost" label={timingStepId === step.id ? 'Close' : 'Timing'} onPress={() => editStepTiming(step)} /><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${step.title}`} onPress={() => removeStep(step)} hitSlop={8}><AppIcon name="close" size={15} color={theme.colors.textMuted} /></Pressable></View>{timingStepId === step.id ? <View style={{ gap: theme.spacing.sm }}><DatePickerField label="STEP DUE DATE · OPTIONAL" value={stepDueDate} onChange={setStepDueDate} optional /><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="DURATION" value={stepDurationAmount} onChangeText={setStepDurationAmount} keyboardType="numeric" placeholder="1" /></View><View style={{ flex: 2 }}><ChoiceChips value={stepDurationUnit} onChange={setStepDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppButton compact variant="secondary" label="Save step timing" onPress={() => saveStepTiming(step)} /></View> : null}</View>)}</> : null}<View style={{ gap: theme.spacing.sm, paddingTop: 4 }}><FormField label="Add a step" value={newSubtaskTitle} onChangeText={setNewSubtaskTitle} placeholder="Book the restaurant…" /><DatePickerField label="STEP DUE DATE · OPTIONAL" value={newSubtaskDueDate} onChange={setNewSubtaskDueDate} optional /><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-end' }}><View style={{ flex: 1 }}><FormField label="DURATION" value={newSubtaskDurationAmount} onChangeText={setNewSubtaskDurationAmount} keyboardType="numeric" placeholder="30" /></View><View style={{ flex: 2 }}><ChoiceChips value={newSubtaskDurationUnit} onChange={setNewSubtaskDurationUnit} options={[{ value: 'minutes', label: 'Min' }, { value: 'hours', label: 'Hours' }, { value: 'days', label: 'Days' }, { value: 'weeks', label: 'Weeks' }]} /></View></View><AppButton compact variant="secondary" label="Add step" disabled={!newSubtaskTitle.trim()} onPress={addStep} /></View></View>
         </View> : null}
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : editingId ? 'Save changes' : 'Add task'} disabled={busy || !title.trim()} onPress={saveTask} /></View>{editingId ? <AppButton compact variant="secondary" label="Cancel" onPress={() => resetEditor()} /> : null}</View>
-      </CollapsibleComposer>
+      </ComposerSheet>
 
       <Card tone="secondary" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl }}>
         <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">WHAT</AppText><ChoiceChips value={statusFilter} onChange={setStatusFilter} options={[{ value: 'now', label: 'Now' }, { value: 'open', label: 'Open' }, { value: 'all', label: 'All' }, { value: 'completed', label: 'Done' }]} /></View>

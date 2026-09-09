@@ -8,7 +8,7 @@ import { Card } from '@/components/common/Card';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { ChoiceChips } from '@/components/common/ChoiceChips';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { FormField } from '@/components/common/FormField';
 import { AppButton } from '@/components/common/AppButton';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -35,6 +35,7 @@ type PhotoView = 'all' | 'albums';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function PhotosScreen() {
   const theme = useAppTheme();
   const params = useLocalSearchParams<{ view?: string }>();
@@ -144,10 +145,23 @@ export default function PhotosScreen() {
         <Card participantColor={colorForUser(selected.creator_id)} style={{ gap: theme.spacing.md, marginBottom: theme.spacing.lg }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md, alignItems: 'center' }}>
             <View style={{ flex: 1 }}><ParticipantAttribution userId={selected.creator_id} /><AppText variant="bodySmall" tone="secondary">{albumMemories.length} memories</AppText></View>
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><AppButton compact variant="ghost" label={albumEditOpen ? 'Done' : 'Edit'} onPress={() => setAlbumEditOpen((value) => !value)} /><AppButton compact variant="secondary" label={pickerOpen ? 'Done adding' : 'Add'} onPress={() => setPickerOpen((value) => !value)} /></View>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><AppButton compact variant="ghost" label="Edit" onPress={() => { setEditTitle(selected.title); setEditDescription(selected.description ?? ''); setAlbumEditOpen(true); }} /><AppButton compact variant="secondary" label={pickerOpen ? 'Done adding' : 'Add'} onPress={() => setPickerOpen((value) => !value)} /></View>
           </View>
-          {albumEditOpen ? <View style={{ gap: theme.spacing.md }}><FormField label="ALBUM NAME" value={editTitle} onChangeText={setEditTitle} /><FormField label="DESCRIPTION · OPTIONAL" value={editDescription} onChangeText={setEditDescription} multiline /><AppButton compact label="Save changes" disabled={!editTitle.trim()} onPress={saveAlbumDetails} /></View> : null}
+          
         </Card>
+
+        <ComposerSheet
+          title="Edit album"
+          subtitle="Change the album name or description without moving the page underneath you."
+          open={albumEditOpen}
+          closeLabel="Cancel edit"
+          showLauncher={false}
+          onToggle={() => setAlbumEditOpen(false)}
+        >
+          <FormField label="ALBUM NAME" value={editTitle} onChangeText={setEditTitle} />
+          <FormField label="DESCRIPTION · OPTIONAL" value={editDescription} onChangeText={setEditDescription} multiline />
+          <AppButton label="Save changes" disabled={!editTitle.trim()} onPress={saveAlbumDetails} />
+        </ComposerSheet>
 
         {pickerOpen ? (
           <Card tone="secondary" style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.lg }}>
@@ -202,11 +216,11 @@ export default function PhotosScreen() {
         </>
       ) : (
         <>
-          <CollapsibleComposer title="Albums" subtitle={`${albums.length} ${albums.length === 1 ? 'album' : 'albums'}`} open={composerOpen} actionLabel="New album" closeLabel="Close" tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => setComposerOpen((value) => !value)}>
+          <ComposerSheet title="Albums" subtitle={`${albums.length} ${albums.length === 1 ? 'album' : 'albums'}`} open={composerOpen} actionLabel="New album" closeLabel="Close" tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => setComposerOpen((value) => !value)}>
             <FormField label="ALBUM NAME" value={title} onChangeText={setTitle} placeholder="First visit" />
             <FormField label="DESCRIPTION · OPTIONAL" value={description} onChangeText={setDescription} multiline placeholder="A little note about this album" />
             <AppButton label="Create album" disabled={!title.trim()} onPress={saveAlbum} />
-          </CollapsibleComposer>
+          </ComposerSheet>
           {loading ? <AppText tone="muted">Loading albums…</AppText> : null}
           {!loading && albums.length === 0 ? <EmptyState icon="photo" title="No albums yet" body="Group your favourite memories into an album." actionLabel="Create album" onAction={() => setComposerOpen(true)} /> : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md }}>

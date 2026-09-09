@@ -14,7 +14,7 @@ import { ToggleRow } from '@/components/common/ToggleRow';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { TimePickerField } from '@/components/common/TimePickerField';
@@ -40,6 +40,7 @@ function splitDateTime(value: string | null | undefined) {
 }
 function combineDateTime(date: string, time: string, allDay: boolean) { return parseLocalDateTimeInput(`${date} ${allDay ? '12:00' : time}`); }
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function CalendarScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string; prefillTitle?: string; prefillDescription?: string; prefillDuration?: string; sourceActivityId?: string }>(); const { colorForUser, profile, partnerProfile } = useWorkspace();
   const [events, setEvents] = useState<CoupleEvent[]>([]); const [tags, setTags] = useState<Tag[]>([]);
@@ -98,7 +99,7 @@ export default function CalendarScreen() {
 
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Calendar" subtitle="Plans, dates and events." />
-    <CollapsibleComposer title={editingId ? 'Edit event' : 'Calendar'} subtitle={editingId ? 'Update this event.' : 'Month, week and agenda views for everything you plan together.'} open={composerOpen} actionLabel="New event" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
+    <ComposerSheet title={editingId ? 'Edit event' : 'Calendar'} subtitle={editingId ? 'Update this event.' : 'Month, week and agenda views for everything you plan together.'} open={composerOpen} actionLabel="New event" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
       <FormField label="TITLE" value={title} onChangeText={setTitle} placeholder="Game night" />
       <DatePickerField label="START DATE" value={startDate} onChange={setStartDate} />
       {!allDay ? <TimePickerField label="START TIME" value={startTime} onChange={setStartTime} /> : null}
@@ -106,7 +107,7 @@ export default function CalendarScreen() {
       <Pressable accessibilityRole="button" onPress={() => setAdvancedOpen((value) => !value)} style={{ flexDirection: 'row', justifyContent: 'space-between' }}><AppText variant="bodySmall" tone="accent">{advancedOpen ? 'Hide options' : 'More options'}</AppText><AppIcon name={advancedOpen ? 'chevronUp' : 'chevronDown'} size={15} color={theme.colors.textMuted} /></Pressable>
       {advancedOpen ? <View style={{ gap: theme.spacing.lg }}><FormField label="DESCRIPTION · OPTIONAL" value={description} onChangeText={setDescription} placeholder="What you need to remember…" multiline /><DatePickerField label="END DATE · OPTIONAL" value={endDate} onChange={setEndDate} optional minimumDate={startDate || undefined} />{!allDay && endDate ? <TimePickerField label="END TIME" value={endTime} onChange={setEndTime} /> : null}<FormField label="LOCATION · OPTIONAL" value={location} onChangeText={setLocation} placeholder="Discord, Chicago, home…" /><View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">FOR</AppText><ChoiceChips value={assignee} onChange={setAssignee} options={[{ value: 'both', label: 'Both' }, { value: 'me', label: profile?.display_name ?? 'My account' }, ...(partnerProfile ? [{ value: 'partner' as const, label: partnerProfile.display_name }] : [])]} /></View><View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">REPEAT</AppText><ChoiceChips value={recurrence} onChange={setRecurrence} options={[{ value: 'none', label: 'Once' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} /></View><TagSelector tags={tags} selectedIds={selectedTags} onChange={setSelectedTags} /></View> : null}
       <AppButton label={busy ? 'Saving…' : editingId ? 'Save event' : 'Add event'} disabled={busy || !title.trim() || !startDate} onPress={save} />
-    </CollapsibleComposer>
+    </ComposerSheet>
 
     <View style={{ gap: theme.spacing.md }}>
       <ChoiceChips value={calendarView} onChange={setCalendarView} options={[{ value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }, { value: 'agenda', label: 'Agenda' }]} />

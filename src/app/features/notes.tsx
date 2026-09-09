@@ -11,7 +11,7 @@ import { ChoiceChips } from '@/components/common/ChoiceChips';
 import { TagChip } from '@/components/common/TagChip';
 import { TagSelector } from '@/components/common/TagSelector';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -90,6 +90,7 @@ function SharedNotePresence({
   );
 }
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function NotesScreen() {
   const theme = useAppTheme();
   const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
@@ -145,7 +146,7 @@ export default function NotesScreen() {
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Notes" subtitle="Saved writing you want to keep. Scratchpad stays quick and shared." />
     <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard title="Scratchpad" items={noteTools} /></View>
-    <CollapsibleComposer title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="Add note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
+    <ComposerSheet title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="Add note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
       {editingSharedNote && partnerOnSameNote ? <SharedNotePresence partnerName={livePartnerName} partnerMode={partnerNoteMode} /> : null}
       <FormField label="What is this note about?" value={title} onChangeText={setTitle} placeholder="Flight details" />
       <FormField label="Write it down" value={body} onChangeText={setBody} placeholder="Keep the useful bits in one place…" multiline />
@@ -160,7 +161,7 @@ export default function NotesScreen() {
         <Pressable accessibilityRole="button" onPress={() => setPinned((value) => !value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: pinned ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: pinned ? theme.colors.secondarySoft : 'transparent', alignItems: 'center', justifyContent: 'center' }}><AppText variant="caption" tone="secondary">{pinned ? '✓' : ''}</AppText></View><AppText variant="bodySmall" tone="secondary">Pin this note to the top</AppText></Pressable>
       </View> : null}
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : selectedId ? 'Save changes' : 'Add note'} disabled={busy || !title.trim()} onPress={save} /></View>{selectedId ? <AppButton compact label="Delete" variant="danger" disabled={busy} onPress={() => { if (selectedNote) setDeleteTarget(selectedNote); setDeleteOpen(true); }} /> : null}</View>
-    </CollapsibleComposer>
+    </ComposerSheet>
     <Card tone="secondary" style={{ marginBottom: theme.spacing.xxl, gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">FILTER</AppText><ChoiceChips value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, { value: 'shared', label: 'Shared' }, { value: 'private', label: 'Private' }, { value: 'pinned', label: 'Pinned' }]} /></Card>
     <View style={{ gap: theme.spacing.md }}>
       {loading ? <AppText tone="muted">Loading notes…</AppText> : null}

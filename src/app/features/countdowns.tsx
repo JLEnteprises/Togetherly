@@ -10,7 +10,7 @@ import { ChoiceChips } from '@/components/common/ChoiceChips';
 import { TagChip } from '@/components/common/TagChip';
 import { ProgressBar } from '@/components/common/ProgressBar';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
@@ -57,6 +57,7 @@ function countdownTypeLine(type: CountdownType) {
   return 'until the moment you’re waiting for';
 }
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function CountdownsScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { colorForUser } = useWorkspace();
   const [countdowns, setCountdowns] = useState<CoupleCountdown[]>([]); const [title, setTitle] = useState(''); const [startDate, setStartDate] = useState(''); const [date, setDate] = useState(''); const [type, setType] = useState<CountdownType>('visit');
@@ -97,7 +98,7 @@ export default function CountdownsScreen() {
 
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Countdowns" subtitle="Visits, anniversaries and dates worth looking forward to." />
-    <CollapsibleComposer title={editingId ? 'Edit countdown' : 'Our countdowns'} subtitle={`${countdowns.filter((item) => !countdownRemaining(item.target_at, nowMs).passed).length} upcoming`} open={composerOpen} actionLabel="New countdown" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
+    <ComposerSheet title={editingId ? 'Edit countdown' : 'Our countdowns'} subtitle={`${countdowns.filter((item) => !countdownRemaining(item.target_at, nowMs).passed).length} upcoming`} open={composerOpen} actionLabel="New countdown" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
       <FormField label="What are you counting down to?" value={title} onChangeText={setTitle} placeholder="Next time we're together" />
       <DatePickerField label="When is it?" value={date} onChange={setDate} />
       <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add details" openLabel="Hide details" hint="Start date and countdown type." />
@@ -106,7 +107,7 @@ export default function CountdownsScreen() {
         <View style={{ gap: theme.spacing.sm }}><AppText variant="bodySmall" tone="secondary">What kind of countdown is it?</AppText><ChoiceChips value={type} onChange={setType} options={[{ value: 'visit', label: 'Visit' }, { value: 'flight', label: 'Flight' }, { value: 'anniversary', label: 'Anniversary' }, { value: 'birthday', label: 'Birthday' }, { value: 'moving', label: 'Moving' }, { value: 'wedding', label: 'Wedding' }, { value: 'holiday', label: 'Holiday' }, { value: 'custom', label: 'Custom' }]} /></View>
       </View> : null}
       <AppButton label={busy ? 'Saving…' : editingId ? 'Save changes' : 'Create countdown'} disabled={busy || !title.trim() || !date} onPress={save} />
-    </CollapsibleComposer>
+    </ComposerSheet>
     {leadCountdown ? (() => {
       const leadTime = countdownRemaining(leadCountdown.target_at, nowMs);
       const leadProgress = countdownProgress(leadCountdown.start_at, leadCountdown.target_at, nowMs);

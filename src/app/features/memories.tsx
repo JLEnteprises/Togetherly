@@ -14,7 +14,7 @@ import { TagSelector } from '@/components/common/TagSelector';
 import { ToggleRow } from '@/components/common/ToggleRow';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -31,6 +31,7 @@ function messageFrom(error: unknown) { return error instanceof Error ? error.mes
 type Filter = 'all' | 'milestones' | 'mine' | 'partner';
 
 // G5_US_STORY_CONSOLIDATION: Memories focuses on memory entries; Us owns Photos, Timeline and rediscovery navigation.
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function MemoriesScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { colorForUser, profile, partnerProfile } = useWorkspace();
   const [memories, setMemories] = useState<CoupleMemory[]>([]); const [tags, setTags] = useState<Tag[]>([]); const [title, setTitle] = useState(''); const [date, setDate] = useState(''); const [description, setDescription] = useState(''); const [location, setLocation] = useState(''); const [emoji, setEmoji] = useState('✦'); const [photoUrls, setPhotoUrls] = useState<string[]>([]); const [milestone, setMilestone] = useState(false); const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -55,7 +56,7 @@ export default function MemoriesScreen() {
   }
   return <AppScreen>
     <BackHeader eyebrow="Us" title="Memories" subtitle="The moments you chose to keep, all in one place." />
-    <CollapsibleComposer title={editingId ? 'Edit memory' : 'Add a memory'} subtitle={`${memories.length} memories saved`} open={composerOpen} actionLabel="New memory" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
+    <ComposerSheet title={editingId ? 'Edit memory' : 'Add a memory'} subtitle={`${memories.length} memories saved`} open={composerOpen} actionLabel="New memory" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
       <FormField label="What happened?" value={title} onChangeText={setTitle} placeholder="First meeting" />
       <DatePickerField label="When was it?" value={date} onChange={setDate} />
       <MultiPhotoPickerField label="Photos" values={photoUrls} onChange={setPhotoUrls} />
@@ -68,7 +69,7 @@ export default function MemoriesScreen() {
         <TagSelector tags={tags} selectedIds={selectedTags} onChange={setSelectedTags} />
       </View> : null}
       <AppButton label={busy ? 'Saving…' : editingId ? 'Update memory' : 'Save memory'} disabled={busy || !title.trim() || !date} onPress={save} />
-    </CollapsibleComposer>
+    </ComposerSheet>
     <View style={{ marginBottom: theme.spacing.xxl }}><ChoiceChips value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, { value: 'milestones', label: 'Milestones' }, { value: 'mine', label: profile?.display_name ?? 'Mine' }, ...(partnerProfile ? [{ value: 'partner' as const, label: partnerProfile.display_name }] : [])]} /></View>
     <View style={{ gap: theme.spacing.md }}>
       {loading ? <AppText tone="muted">Loading memories…</AppText> : null}

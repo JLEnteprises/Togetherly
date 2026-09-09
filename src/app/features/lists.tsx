@@ -10,7 +10,7 @@ import { FormField } from '@/components/common/FormField';
 import { TagChip } from '@/components/common/TagChip';
 import { TagSelector } from '@/components/common/TagSelector';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
-import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { EmptyState } from '@/components/common/EmptyState';
 import { createList, getLists } from '@/services/backend/coreFeatures';
@@ -23,6 +23,7 @@ import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong. Please try again.'; }
 
+// G6_COMPOSER_SHEETS: major create/edit flow uses the explicit shared ComposerSheet primitive.
 export default function ListsScreen() {
   const theme = useAppTheme();
   const { colorForUser } = useWorkspace();
@@ -57,12 +58,12 @@ export default function ListsScreen() {
   return (
     <AppScreen>
       <BackHeader eyebrow="Plan" title="Shared lists" subtitle="Groceries, packing, ideas — anything easier when it lives in one place together." />
-      <CollapsibleComposer title="Our lists" subtitle={`${lists.length} ${lists.length === 1 ? 'list' : 'lists'} in your shared space`} open={composerOpen} actionLabel="Add list" tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => setComposerOpen((value) => !value)}>
+      <ComposerSheet title="Our lists" subtitle={`${lists.length} ${lists.length === 1 ? 'list' : 'lists'} in your shared space`} open={composerOpen} actionLabel="Add list" tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => setComposerOpen((value) => !value)}>
         <FormField label="What is this list for?" value={newListTitle} onChangeText={setNewListTitle} placeholder="Things to pack" />
         <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add tags" openLabel="Hide tags" />
         {detailsOpen ? <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} /> : null}
         <AppButton label={busy ? 'Adding…' : 'Add list'} disabled={busy || !newListTitle.trim()} onPress={addList} />
-      </CollapsibleComposer>
+      </ComposerSheet>
 
       <View style={{ gap: theme.spacing.md }}>
         {loading ? <AppText tone="muted">Loading lists…</AppText> : null}
