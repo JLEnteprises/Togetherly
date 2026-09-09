@@ -15,6 +15,7 @@ import { TimePickerField } from '@/components/common/TimePickerField';
 import { ChoiceChips } from '@/components/common/ChoiceChips';
 import { ComposerSheet } from '@/components/common/ComposerSheet';
 import { DataStatus } from '@/components/common/DataStatus';
+import { SyncStatus } from '@/components/common/SyncStatus';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getActivities } from '@/services/backend/mvpFeatures';
@@ -115,6 +116,7 @@ export default function DatePlansScreen() {
         <AppButton label={busy ? 'Sending…' : 'Send proposal'} disabled={busy || !title.trim() || !valid || start.getTime() <= Date.now() || !partnerProfile} onPress={submit} />
         {!partnerProfile ? <AppText tone="muted">Invite your partner to start planning together.</AppText> : null}
       </ComposerSheet>
+      <SyncStatus resources={['date-proposals']} retry={refresh} />
       <DataStatus loading={loading} error={failed} retry={() => { void refresh(); }} />
       {!loading && !failed && !plans.length ? <AppText tone="secondary">Your first plan can be as simple as a 30-minute call.</AppText> : null}
       {sorted.map((plan) => {

@@ -3,7 +3,10 @@ export type DateProposal = { id: string; proposer_id: string; title: string; sta
 export type PlanInput = { title: string; startAt: string; endAt: string };
 export type TimeCapsule = { id: string; creator_id: string; title: string; opens_at: string; opened: boolean; opened_by_me: boolean; responses: Array<{user_id:string;body:string}>; body: string | null; photo_url: string | null };
 export type Reflection = { user_id: string; body: string; updated_at: string };
-export async function getDateProposals() { return (await apiRequest<{ proposals: DateProposal[] }>('/date-proposals')).proposals; }
+// Proposals are collaborative state: never let an offline cache make an old
+// accept/counter response look current. Callers can still render their last
+// in-memory result while this request reports the scoped freshness warning.
+export async function getDateProposals() { return (await apiRequest<{ proposals: DateProposal[] }>('/date-proposals', { cache: false })).proposals; }
 export async function proposeDate(input: PlanInput & { id: string; sourceActivityId?: string | null; replacesEventId?: string | null }) { return (await apiRequest<{ proposal: DateProposal }>('/date-proposals', { method: 'POST', body: input })).proposal; }
 export async function respondToDate(id: string, revision: number, action: 'accept' | 'decline' | 'cancel' | 'counter', input?: PlanInput) { return (await apiRequest<{ proposal: DateProposal }>(`/date-proposals/${id}/respond`, { method: 'POST', body: { action, revision, ...input } })).proposal; }
 export async function getCapsules(summary = false) { return (await apiRequest<{ capsules: TimeCapsule[] }>(summary ? '/time-capsules?summary=true' : '/time-capsules', { cache: false })).capsules; }
