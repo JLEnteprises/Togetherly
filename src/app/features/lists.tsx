@@ -50,23 +50,23 @@ export default function ListsScreen() {
       const created = await createList(newListTitle.trim(), selectedTagIds);
       setNewListTitle(''); setSelectedTagIds([]); setDetailsOpen(false); setComposerOpen(false); await refresh();
       router.push(`/features/lists/${created.id}` as never);
-    } catch (error) { Alert.alert('Couldn’t create list', messageFrom(error)); }
+    } catch (error) { Alert.alert('Couldn’t add list', messageFrom(error)); }
     finally { setBusy(false); }
   }
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Plan" title="Shared lists" subtitle="Shopping, packing and shared lists." />
-      <CollapsibleComposer title="Our lists" subtitle={`${lists.length} ${lists.length === 1 ? 'list' : 'lists'} in your shared space`} open={composerOpen} actionLabel="New list" tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => setComposerOpen((value) => !value)}>
+      <BackHeader eyebrow="Plan" title="Shared lists" subtitle="Groceries, packing, ideas — anything easier when it lives in one place together." />
+      <CollapsibleComposer title="Our lists" subtitle={`${lists.length} ${lists.length === 1 ? 'list' : 'lists'} in your shared space`} open={composerOpen} actionLabel="Add list" tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => setComposerOpen((value) => !value)}>
         <FormField label="What is this list for?" value={newListTitle} onChangeText={setNewListTitle} placeholder="Things to pack" />
         <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add tags" openLabel="Hide tags" />
         {detailsOpen ? <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} /> : null}
-        <AppButton label={busy ? 'Creating…' : 'Create list'} disabled={busy || !newListTitle.trim()} onPress={addList} />
+        <AppButton label={busy ? 'Adding…' : 'Add list'} disabled={busy || !newListTitle.trim()} onPress={addList} />
       </CollapsibleComposer>
 
       <View style={{ gap: theme.spacing.md }}>
         {loading ? <AppText tone="muted">Loading lists…</AppText> : null}
-        {!loading && lists.length === 0 ? <EmptyState icon="list" title="Start your first shared list" body="Create a list for groceries, packing, ideas, or anything you want to keep in one place together." actionLabel="Create a list" onAction={() => setComposerOpen(true)} /> : null}
+        {!loading && lists.length === 0 ? <EmptyState icon="list" title="Start your first shared list" body="Create a list for groceries, packing, ideas, or anything you want to keep in one place together." actionLabel="Add a list" onAction={() => setComposerOpen(true)} /> : null}
         {lists.map((list) => (
           <Pressable accessibilityRole="button" key={list.id} onPress={() => router.push(`/features/lists/${list.id}` as never)}>
             {({ pressed }) => (
@@ -75,7 +75,7 @@ export default function ListsScreen() {
                   <View style={{ flex: 1, gap: 5 }}>
                     <AppText variant="cardTitle">{list.title}</AppText>
                     <ParticipantAttribution userId={list.creator_id} />
-                    <AppText variant="bodySmall" tone="secondary">{list.completed_count ?? 0}/{list.item_count ?? 0} completed</AppText>
+                    <AppText variant="bodySmall" tone="secondary">{list.completed_count ?? 0} of {list.item_count ?? 0} done</AppText>
                     {(list.tags ?? []).length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>{(list.tags ?? []).slice(0, 4).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}</View> : null}
                   </View>
                   <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />

@@ -243,7 +243,7 @@ export default function TasksScreen() {
     catch (error) { Alert.alert('Couldn’t delete task', messageFrom(error)); }
   }
   function openTaskMenu(task: CoupleTask) {
-    Alert.alert(task.title, 'Manage this task', [
+    Alert.alert(task.title, 'Choose what to do.', [
       { text: 'Edit task', onPress: () => beginEdit(task) },
       { text: 'Delete task', style: 'destructive', onPress: () => setDeleteTarget(task) },
       { text: 'Cancel', style: 'cancel' },
@@ -252,20 +252,20 @@ export default function TasksScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Plan" title="Shared tasks" subtitle="Tasks, deadlines and shared to-dos." />
+      <BackHeader eyebrow="Plan" title="Shared tasks" subtitle="What needs doing, who’s got it, and what matters next." />
 
       <Card tone="accent" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.lg }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <View><AppText variant="caption" tone="accent">SHARED TASKS</AppText><AppText variant="pageTitle">{tasks.length - completed} remaining</AppText></View>
+          <View><AppText variant="caption" tone="accent">WHAT NEEDS DOING</AppText><AppText variant="pageTitle">{tasks.length - completed} remaining</AppText></View>
           <AppText variant="cardTitle" tone="secondary">{completed}/{tasks.length}</AppText>
         </View>
       </Card>
 
       <CollapsibleComposer
-        title={editingId ? 'Edit task' : 'Tasks'}
-        subtitle={editingId ? undefined : `${tasks.length - completed} open`}
+        title={editingId ? 'Edit task' : 'Add something to do'}
+        subtitle={editingId ? undefined : `${tasks.length - completed} still open`}
         open={composerOpen}
-        actionLabel="New task"
+        actionLabel="Add task"
         closeLabel={editingId ? 'Cancel edit' : 'Close'}
         tone="accent"
         style={{ marginBottom: theme.spacing.lg }}
@@ -288,8 +288,8 @@ export default function TasksScreen() {
       </CollapsibleComposer>
 
       <Card tone="secondary" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl }}>
-        <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">SHOW</AppText><ChoiceChips value={statusFilter} onChange={setStatusFilter} options={[{ value: 'now', label: 'Now' }, { value: 'open', label: 'Open' }, { value: 'all', label: 'All' }, { value: 'completed', label: 'Done' }]} /></View>
-        <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">ASSIGNED</AppText><ChoiceChips value={assignmentFilter} onChange={setAssignmentFilter} options={[{ value: 'all', label: 'Everyone' }, { value: 'mine', label: profile?.display_name ?? 'My tasks' }, ...(partnerProfile ? [{ value: 'partner' as const, label: partnerProfile.display_name }] : []), { value: 'both', label: 'Both' }]} /></View>
+        <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">WHAT</AppText><ChoiceChips value={statusFilter} onChange={setStatusFilter} options={[{ value: 'now', label: 'Now' }, { value: 'open', label: 'Open' }, { value: 'all', label: 'All' }, { value: 'completed', label: 'Done' }]} /></View>
+        <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">WHO</AppText><ChoiceChips value={assignmentFilter} onChange={setAssignmentFilter} options={[{ value: 'all', label: 'Everyone' }, { value: 'mine', label: profile?.display_name ?? 'My tasks' }, ...(partnerProfile ? [{ value: 'partner' as const, label: partnerProfile.display_name }] : []), { value: 'both', label: 'Both' }]} /></View>
       </Card>
 
       <View style={{ gap: theme.spacing.md }}>

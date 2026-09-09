@@ -134,7 +134,7 @@ export default function NotesScreen() {
   async function save() { if (!title.trim()) return; setBusy(true); try { if (selectedId) await updateNote(selectedId, { title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds, updatedAt: selectedUpdatedAt ?? undefined }); else await createNote({ title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds }); resetEditor(); await refresh(); } catch (error) { Alert.alert('Couldn’t save note', messageFrom(error)); } finally { setBusy(false); } }
   async function removeConfirmed() { const target = deleteTarget ?? selectedNote; if (!target) return; setDeleteOpen(false); setDeleteTarget(null); setBusy(true); try { await deleteNote(target.id); setNotes((current) => current.filter((note) => note.id !== target.id)); if (selectedId === target.id) resetEditor(); if (viewTarget?.id === target.id) setViewTarget(null); } catch (error) { Alert.alert('Couldn’t delete note', messageFrom(error)); } finally { setBusy(false); } }
   function openNoteMenu(note: CoupleNote) {
-    Alert.alert(note.title, 'Manage this note', [
+    Alert.alert(note.title, 'Choose what to do.', [
       { text: 'Edit note', onPress: () => select(note) },
       { text: 'Delete note', style: 'destructive', onPress: () => { setDeleteTarget(note); setDeleteOpen(true); } },
       { text: 'Cancel', style: 'cancel' },
@@ -144,7 +144,7 @@ export default function NotesScreen() {
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Notes" subtitle="Saved writing you want to keep. Scratchpad stays quick and shared." />
     <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard title="Scratchpad" items={noteTools} /></View>
-    <CollapsibleComposer title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="New note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
+    <CollapsibleComposer title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="Add note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
       {editingSharedNote && partnerOnSameNote ? <SharedNotePresence partnerName={livePartnerName} partnerMode={partnerNoteMode} /> : null}
       <FormField label="What is this note about?" value={title} onChangeText={setTitle} placeholder="Flight details" />
       <FormField label="Write it down" value={body} onChangeText={setBody} placeholder="Keep the useful bits in one place…" multiline />

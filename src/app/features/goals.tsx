@@ -91,7 +91,7 @@ export default function GoalsScreen() {
       resetEditor();
       await refresh();
     } catch (error) {
-      Alert.alert(editingId ? 'Couldn’t update goal' : 'Couldn’t create goal', messageFrom(error));
+      Alert.alert(editingId ? 'Couldn’t save changes' : 'Couldn’t add goal', messageFrom(error));
     } finally {
       setBusy(false);
     }
@@ -130,25 +130,25 @@ export default function GoalsScreen() {
     if (goal.status !== 'completed') actions.push({ text: 'Mark complete', onPress: () => setGoalStatus(goal, 'completed') });
     if (goal.status === 'completed' && Number(goal.current_value) < Number(goal.target_value)) actions.push({ text: 'Reopen goal', onPress: () => setGoalStatus(goal, 'active') });
     actions.push({ text: 'Delete goal', style: 'destructive', onPress: () => setDeleteTarget(goal) }, { text: 'Cancel', style: 'cancel' });
-    Alert.alert(goal.title, 'Manage this goal', actions);
+    Alert.alert(goal.title, 'Choose what to do.', actions);
   }
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Plan" title="Shared goals" subtitle="Things you’re working toward together." />
-      <CollapsibleComposer title={editingId ? 'Edit goal' : 'Our goals'} subtitle={editingId ? 'Update the target, deadline or details.' : `${goals.filter((goal) => goal.status === 'active').length} active`} open={composerOpen} actionLabel="New goal" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
+      <BackHeader eyebrow="Plan" title="Shared goals" subtitle="The things you’re building toward, little by little." />
+      <CollapsibleComposer title={editingId ? 'Edit goal' : 'Our goals'} subtitle={editingId ? 'Update the target, deadline or details.' : `${goals.filter((goal) => goal.status === 'active').length} active`} open={composerOpen} actionLabel="Add goal" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
         <FormField label="GOAL" value={title} onChangeText={setTitle} placeholder="Next visit fund" />
         <FormField label="DESCRIPTION · OPTIONAL" value={description} onChangeText={setDescription} placeholder="What this gets us closer to…" multiline />
-        {!editingId ? <FormField label="STARTING AMOUNT · OPTIONAL" value={current} onChangeText={setCurrent} keyboardType="decimal-pad" placeholder="0" /> : <AppText variant="bodySmall" tone="muted">Progress is changed through Add progress so the contribution history always matches the total.</AppText>}
+        {!editingId ? <FormField label="STARTING AMOUNT · OPTIONAL" value={current} onChangeText={setCurrent} keyboardType="decimal-pad" placeholder="0" /> : <AppText variant="bodySmall" tone="muted">Use Add progress below so you can both see how the goal moved over time.</AppText>}
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><FormField label="TARGET" value={target} onChangeText={setTarget} keyboardType="decimal-pad" placeholder="4000" /></View><View style={{ width: 84 }}><FormField label="UNIT" value={unit} onChangeText={setUnit} placeholder="$" /></View></View>
         <DatePickerField label="DEADLINE · OPTIONAL" value={deadline} onChange={setDeadline} optional />
         <TagSelector tags={tags} selectedIds={selectedTags} onChange={setSelectedTags} />
-        <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : editingId ? 'Save goal' : 'Create goal'} disabled={busy || !title.trim() || !target.trim()} onPress={saveGoal} /></View>{editingId ? <AppButton compact variant="secondary" label="Cancel" onPress={() => resetEditor()} /> : null}</View>
+        <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : editingId ? 'Save changes' : 'Add goal'} disabled={busy || !title.trim() || !target.trim()} onPress={saveGoal} /></View>{editingId ? <AppButton compact variant="secondary" label="Cancel" onPress={() => resetEditor()} /> : null}</View>
       </CollapsibleComposer>
 
       <View style={{ gap: theme.spacing.md }}>
         {loading ? <AppText tone="muted">Loading goals…</AppText> : null}
-        {!loading && goals.length === 0 ? <EmptyState icon="goal" title="Pick something worth moving toward" body="Your first shared goal will show progress from both of you." actionLabel="Create a goal" onAction={() => setComposerOpen(true)} /> : null}
+        {!loading && goals.length === 0 ? <EmptyState icon="goal" title="Pick something worth moving toward" body="Your first shared goal will show progress from both of you." actionLabel="Add a goal" onAction={() => setComposerOpen(true)} /> : null}
         {goals.map((goal) => {
           const currentValue = Number(goal.current_value); const targetValue = Number(goal.target_value); const percent = Math.max(0, Math.min(100, targetValue ? (currentValue / targetValue) * 100 : 0));
           const openContribution = contributionOpen === goal.id;
