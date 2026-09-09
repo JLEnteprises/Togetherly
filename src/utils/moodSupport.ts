@@ -38,9 +38,9 @@ const supportByNeed: Record<NeedValue, MoodSupportSemantics> = {
     needLabel: 'a distraction',
     actionLabel: 'I’m here',
     acknowledgedLabel: 'Support sent',
-    helper: 'You can also let Togetherly find something light for the two of you to do.',
+    helper: 'You can also let Togetherly use your current context to find something light for the two of you to do.',
     secondaryLabel: 'Find a distraction',
-    secondaryHref: '/features/activity-randomizer?context=distraction',
+    secondaryHref: '/features/activity-now?context=distraction',
   },
   space: {
     needLabel: 'some space',
