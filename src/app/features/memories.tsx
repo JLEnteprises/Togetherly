@@ -18,7 +18,6 @@ import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { FeatureGroupCard } from '@/components/navigation/FeatureGroupCard';
 import { IconButton } from '@/components/common/IconButton';
 import { MemoryDetailModal } from '@/components/memories/MemoryDetailModal';
 import { createMemory, deleteMemory, getMemories, getTags, updateMemory } from '@/services/backend/mvpFeatures';
@@ -31,12 +30,7 @@ import type { CoupleMemory, Tag } from '@/types/database';
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 type Filter = 'all' | 'milestones' | 'mine' | 'partner';
 
-const storyViews = [
-  { icon: 'photo', title: 'Photos', subtitle: 'All photos and albums', href: '/features/photos' },
-  { icon: 'timeline', title: 'Timeline', subtitle: 'See relationship milestones in order', href: '/features/timeline' },
-  { icon: 'jar', title: 'Memory Jar', subtitle: 'Bring back a random saved moment', href: '/features/memory-jar' },
-] as const;
-
+// G5_US_STORY_CONSOLIDATION: Memories focuses on memory entries; Us owns Photos, Timeline and rediscovery navigation.
 export default function MemoriesScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { colorForUser, profile, partnerProfile } = useWorkspace();
   const [memories, setMemories] = useState<CoupleMemory[]>([]); const [tags, setTags] = useState<Tag[]>([]); const [title, setTitle] = useState(''); const [date, setDate] = useState(''); const [description, setDescription] = useState(''); const [location, setLocation] = useState(''); const [emoji, setEmoji] = useState('✦'); const [photoUrls, setPhotoUrls] = useState<string[]>([]); const [milestone, setMilestone] = useState(false); const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -60,8 +54,7 @@ export default function MemoriesScreen() {
     ]);
   }
   return <AppScreen>
-    <BackHeader eyebrow="Us" title="Memories" subtitle="A photo-led record of the moments you want to keep." />
-    <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard eyebrow="BROWSE" title="Our story" items={storyViews} /></View>
+    <BackHeader eyebrow="Us" title="Memories" subtitle="The moments you chose to keep, all in one place." />
     <CollapsibleComposer title={editingId ? 'Edit memory' : 'Add a memory'} subtitle={`${memories.length} memories saved`} open={composerOpen} actionLabel="New memory" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
       <FormField label="What happened?" value={title} onChangeText={setTitle} placeholder="First meeting" />
       <DatePickerField label="When was it?" value={date} onChange={setDate} />
