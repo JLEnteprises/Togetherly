@@ -56,8 +56,6 @@ set -e
 if [[ $XCODE_STATUS -ne 0 ]]; then
   echo
   echo '================ Focused Xcode diagnostics ================'
-  # Swift/Clang diagnostics normally contain file:line:column: error:, but include
-  # nearby target/build-failure lines as a fallback for generated-source failures.
   grep -nE '(^|/)(Togetherly|targets/).*:[0-9]+:[0-9]+: (error|warning):|(^|[[:space:]])error:|SwiftCompile.*Togetherly|CompileSwift.*Togetherly|BUILD FAILED|The following build commands failed' "$XCODE_LOG" | tail -n 160 || true
   echo '==========================================================='
   echo "Full Xcode log saved to $XCODE_LOG"
@@ -68,56 +66,27 @@ PRODUCTS="$DERIVED/Build/Products/Release-iphoneos"
 MAIN_APP="$(find "$PRODUCTS" -maxdepth 1 -type d -name '*.app' ! -iname '*watch*.app' -print -quit)"
 if [[ -z "$MAIN_APP" || ! -d "$MAIN_APP" ]]; then
   echo "Main iPhone .app not found under $PRODUCTS" >&2
-  find "$PRODUCTS" -maxdepth 3 -type d -name '*.app' -o -name '*.appex' || true
+  find "$PRODUCTS" -maxdepth 3 -type d \( -name '*.app' -o -name '*.appex' \) -print || true
   exit 1
 fi
 
 echo "Main app: $MAIN_APP"
-echo 'Embedded Apple targets:'
-find "$MAIN_APP" -type d \( -name '*.app' -o -name '*.appex' \) -print | sed 's#^#  #'
 
-# Full Everywhere IPA. Fail loudly if the expected v1.14 Apple targets were not embedded.
-WATCH_APP="$(find "$MAIN_APP/Watch" -maxdepth 1 -type d -name '*.app' -print -quit 2>/dev/null || true)"
-PHONE_WIDGET="$(find "$MAIN_APP/PlugIns" -maxdepth 1 -type d -name '*.appex' -print -quit 2>/dev/null || true)"
-WATCH_WIDGET=""
-if [[ -n "$WATCH_APP" ]]; then
-  WATCH_WIDGET="$(find "$WATCH_APP/PlugIns" -maxdepth 1 -type d -name '*.appex' -print -quit 2>/dev/null || true)"
-fi
+# This fast workflow intentionally ships one phone-only IPA. Keep the Watch/widget
+# source in the repository, but strip any extension that may appear unexpectedly
+# so free Apple-ID/Sideloadly testing stays simple and packaging stays deterministic.
+PHONE_APP="$OUT/Togetherly-PhoneOnly.app"
+ditto "$MAIN_APP" "$PHONE_APP"
+rm -rf "$PHONE_APP/Watch" "$PHONE_APP/PlugIns"
 
-if [[ -z "$WATCH_APP" ]]; then
-  echo 'Expected Watch companion was not embedded in the iPhone app.' >&2
-  exit 1
-fi
-if [[ -z "$PHONE_WIDGET" ]]; then
-  echo 'Expected iPhone WidgetKit extension was not embedded.' >&2
-  exit 1
-fi
-if [[ -z "$WATCH_WIDGET" ]]; then
-  echo 'Expected Watch widget/complication extension was not embedded.' >&2
-  exit 1
-fi
-
-make_ipa() {
-  local app_source="$1"
-  local ipa_name="$2"
-  local stage="$OUT/stage-$ipa_name"
-  rm -rf "$stage"
-  mkdir -p "$stage/Payload"
-  ditto "$app_source" "$stage/Payload/Togetherly.app"
-  (cd "$stage" && zip -qry "$OUT/$ipa_name" Payload)
-  unzip -t "$OUT/$ipa_name" >/dev/null
-  rm -rf "$stage"
-}
-
-make_ipa "$MAIN_APP" "Togetherly-v${VERSION}-Everywhere-unsigned.ipa"
-
-# Free Apple-ID signing can reject advanced extensions/entitlements. Ship a fallback IPA
-# from the same build so phone testing can continue even if Sideloadly cannot sign Watch/widgets.
-PHONE_ONLY_APP="$OUT/Togetherly-PhoneOnly.app"
-ditto "$MAIN_APP" "$PHONE_ONLY_APP"
-rm -rf "$PHONE_ONLY_APP/Watch" "$PHONE_ONLY_APP/PlugIns"
-make_ipa "$PHONE_ONLY_APP" "Togetherly-v${VERSION}-PhoneOnly-unsigned.ipa"
-rm -rf "$PHONE_ONLY_APP"
+STAGE="$OUT/stage-phone"
+rm -rf "$STAGE"
+mkdir -p "$STAGE/Payload"
+ditto "$PHONE_APP" "$STAGE/Payload/Togetherly.app"
+IPA_NAME="Togetherly-v${VERSION}-PhoneOnly-unsigned.ipa"
+(cd "$STAGE" && zip -qry "$OUT/$IPA_NAME" Payload)
+unzip -t "$OUT/$IPA_NAME" >/dev/null
+rm -rf "$STAGE" "$PHONE_APP"
 
 {
   echo "Togetherly version: $VERSION"
@@ -127,11 +96,11 @@ rm -rf "$PHONE_ONLY_APP"
   echo "Bundle ID: ${EXPO_PUBLIC_IOS_BUNDLE_ID:-unknown}"
   echo "API URL: ${EXPO_PUBLIC_API_URL:-unknown}"
   echo "EAS project ID configured: $([[ -n "${EXPO_PUBLIC_EAS_PROJECT_ID:-}" ]] && echo yes || echo no)"
-  echo "Full IPA includes Watch app: yes"
-  echo "Full IPA includes iPhone widget: yes"
-  echo "Full IPA includes Watch widget: yes"
-  echo "PhoneOnly IPA strips Watch/Widget extensions for free-signing fallback."
+  echo "Build mode: fast phone-only release"
+  echo "Watch companion included: no"
+  echo "iPhone widget included: no"
+  echo "Watch widget included: no"
+  echo "Development IPA included: no"
 } > "$OUT/build-info.txt"
 
-rm -f "$OUT/xcode-schemes.json"
-ls -lh "$OUT"/*.ipa "$OUT/build-info.txt"
+ls -lh "$OUT/$IPA_NAME" "$OUT/build-info.txt"
