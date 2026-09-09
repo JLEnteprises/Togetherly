@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppButton } from '@/components/common/AppButton';
@@ -38,8 +38,6 @@ function modeFromItem(item: SharedItem | null): ScratchpadMode {
   return item?.metadata?.mode === 'draw' ? 'draw' : 'text';
 }
 
-function drawingKey(strokes: DrawingStroke[]) { return JSON.stringify(strokes); }
-
 export function SharedScratchpadCard({ compact = false }: { compact?: boolean }) {
   const theme = useAppTheme();
   const { couple, profile, myColor, colorForUser } = useWorkspace();
@@ -49,7 +47,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
   const [mode, setMode] = useState<ScratchpadMode>('text');
   const [savedMode, setSavedMode] = useState<ScratchpadMode>('text');
   const [strokes, setStrokes] = useState<DrawingStroke[]>([]);
-  const [savedDrawingKey, setSavedDrawingKey] = useState('[]');
+  const [drawingDirty, setDrawingDirty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [remoteUpdate, setRemoteUpdate] = useState(false);
@@ -75,7 +73,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
     setMode(nextMode);
     setSavedMode(nextMode);
     setStrokes(drawing.strokes);
-    setSavedDrawingKey(drawingKey(drawing.strokes));
+    setDrawingDirty(false);
     setRemoteUpdate(false);
   }, []);
 
@@ -97,8 +95,8 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
     });
   }, [couple?.id, load]);
 
-  const currentDrawingKey = useMemo(() => drawingKey(strokes), [strokes]);
-  const dirty = body !== savedBody || mode !== savedMode || currentDrawingKey !== savedDrawingKey;
+  // I2_DRAWING_PERFORMANCE_HARDENING: dirty state changes only on committed drawing edits; no full-stroke JSON serialization.
+  const dirty = body !== savedBody || mode !== savedMode || drawingDirty;
   dirtyRef.current = dirty;
 
   function reloadLatest() {
@@ -163,19 +161,20 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
   }
 
   function addStroke(stroke: DrawingStroke) {
-    setStrokes((current) => [...current, stroke].slice(-120));
+    setStrokes((current) => [...current, stroke]);
+    setDrawingDirty(true);
   }
 
   function undoMine() {
-    setStrokes((current) => {
-      const next = [...current];
-      let index = -1;
-      for (let cursor = next.length - 1; cursor >= 0; cursor -= 1) {
-        if (!profile?.id || next[cursor]?.userId === profile.id) { index = cursor; break; }
-      }
-      if (index >= 0) next.splice(index, 1);
-      return next;
-    });
+    const next = [...strokes];
+    let index = -1;
+    for (let cursor = next.length - 1; cursor >= 0; cursor -= 1) {
+      if (!profile?.id || next[cursor]?.userId === profile.id) { index = cursor; break; }
+    }
+    if (index < 0) return;
+    next.splice(index, 1);
+    setStrokes(next);
+    setDrawingDirty(true);
   }
 
   function clearDrawing() {
@@ -185,7 +184,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
       'This removes every stroke from the shared canvas after you save.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear drawing', style: 'destructive', onPress: () => setStrokes([]) },
+        { text: 'Clear drawing', style: 'destructive', onPress: () => { setStrokes([]); setDrawingDirty(true); } },
       ],
     );
   }

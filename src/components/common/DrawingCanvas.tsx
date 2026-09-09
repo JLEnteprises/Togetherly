@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import type { DrawingStroke } from '@/types/database';
@@ -13,7 +13,11 @@ type BrushTool = 'pen' | 'marker' | 'highlighter' | 'eraser';
 type BrushSize = 'thin' | 'medium' | 'thick';
 
 const WIDTHS: Record<BrushSize, number> = { thin: 4, medium: 8, thick: 16 };
+const MIN_POINT_DISTANCE = 6;
+const SIMPLIFY_DEVIATION = 1.6;
+const MAX_STRAIGHT_SEGMENT = 28;
 
+// I2_DRAWING_PERFORMANCE_HARDENING: live drawing is sampled/throttled and committed paths are memoized separately.
 function pointPath(points: DrawingStroke['points']) {
   if (!points.length) return '';
   if (points.length === 1) return `M ${points[0]!.x} ${points[0]!.y} l 0.1 0.1`;
@@ -26,6 +30,39 @@ function pointPath(points: DrawingStroke['points']) {
   const last = points[points.length - 1]!;
   path += ` L ${last.x} ${last.y}`;
   return path;
+}
+
+function distance(a: DrawingStroke['points'][number], b: DrawingStroke['points'][number]) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function pointToSegmentDistance(
+  point: DrawingStroke['points'][number],
+  start: DrawingStroke['points'][number],
+  end: DrawingStroke['points'][number],
+) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) return distance(point, start);
+  const t = Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
+}
+
+function simplifyPoints(points: DrawingStroke['points']) {
+  if (points.length <= 2) return points;
+
+  const simplified: DrawingStroke['points'] = [points[0]!];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const anchor = simplified[simplified.length - 1]!;
+    const current = points[index]!;
+    const next = points[index + 1]!;
+    const deviation = pointToSegmentDistance(current, anchor, next);
+    if (deviation >= SIMPLIFY_DEVIATION || distance(anchor, current) >= MAX_STRAIGHT_SEGMENT) {
+      simplified.push(current);
+    }
+  }
+  simplified.push(points[points.length - 1]!);
+  return simplified;
 }
 
 function makeId() {
@@ -58,6 +95,74 @@ function arcWedgePath(cx: number, cy: number, inner: number, outer: number, star
   const i2 = polarPoint(cx, cy, inner, end);
   const i1 = polarPoint(cx, cy, inner, start);
   return `M ${o1.x} ${o1.y} A ${outer} ${outer} 0 0 1 ${o2.x} ${o2.y} L ${i2.x} ${i2.y} A ${inner} ${inner} 0 0 0 ${i1.x} ${i1.y} Z`;
+}
+
+const CommittedStrokeLayer = memo(function CommittedStrokeLayer({
+  strokes,
+  strokeColorForUser,
+  fallbackColor,
+  eraserColor,
+}: {
+  strokes: DrawingStroke[];
+  strokeColorForUser?: (userId: string | undefined) => string;
+  fallbackColor: string;
+  eraserColor: string;
+}) {
+  const paths = useMemo(() => strokes.map((stroke) => ({
+    id: stroke.id,
+    d: pointPath(stroke.points),
+    color: stroke.tool === 'eraser' ? eraserColor : stroke.color ?? strokeColorForUser?.(stroke.userId) ?? fallbackColor,
+    width: stroke.width ?? 7,
+    opacity: stroke.opacity ?? 1,
+  })), [eraserColor, fallbackColor, strokeColorForUser, strokes]);
+
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
+      <Svg width="100%" height="100%" viewBox={`0 0 ${SPACE} ${SPACE}`} preserveAspectRatio="none">
+        {paths.map((stroke) => (
+          <Path
+            key={stroke.id}
+            d={stroke.d}
+            stroke={stroke.color}
+            strokeWidth={stroke.width}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+            opacity={stroke.opacity}
+          />
+        ))}
+      </Svg>
+    </View>
+  );
+});
+
+function LiveStrokeLayer({
+  stroke,
+  strokeColorForUser,
+  fallbackColor,
+  eraserColor,
+}: {
+  stroke: DrawingStroke | null;
+  strokeColorForUser?: (userId: string | undefined) => string;
+  fallbackColor: string;
+  eraserColor: string;
+}) {
+  if (!stroke) return null;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
+      <Svg width="100%" height="100%" viewBox={`0 0 ${SPACE} ${SPACE}`} preserveAspectRatio="none">
+        <Path
+          d={pointPath(stroke.points)}
+          stroke={stroke.tool === 'eraser' ? eraserColor : stroke.color ?? strokeColorForUser?.(stroke.userId) ?? fallbackColor}
+          strokeWidth={stroke.width ?? 7}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          opacity={(stroke.opacity ?? 1) * 0.9}
+        />
+      </Svg>
+    </View>
+  );
 }
 
 function ColourWheel({ hue, saturation, value, onChange }: { hue: number; saturation: number; value: number; onChange: (next: { hue: number; saturation: number; value: number }) => void }) {
@@ -152,10 +257,37 @@ export function DrawingCanvas({
   const [colourOpen, setColourOpen] = useState(false);
   const sizeRef = useRef(size);
   const draftRef = useRef<DrawingStroke | null>(null);
+  const draftFrameRef = useRef<number | null>(null);
   sizeRef.current = size;
-  draftRef.current = draft;
   const onStrokeRef = useRef(onStroke);
   onStrokeRef.current = onStroke;
+
+  useEffect(() => () => {
+    if (draftFrameRef.current !== null) cancelAnimationFrame(draftFrameRef.current);
+    setScreenScrollLocked(false);
+  }, [setScreenScrollLocked]);
+
+  function scheduleDraftRender() {
+    if (draftFrameRef.current !== null) return;
+    draftFrameRef.current = requestAnimationFrame(() => {
+      draftFrameRef.current = null;
+      setDraft(draftRef.current);
+    });
+  }
+
+  function finishDraft() {
+    setScreenScrollLocked(false);
+    if (draftFrameRef.current !== null) {
+      cancelAnimationFrame(draftFrameRef.current);
+      draftFrameRef.current = null;
+    }
+
+    const current = draftRef.current;
+    draftRef.current = null;
+    setDraft(null);
+    if (!current?.points.length) return;
+    onStrokeRef.current?.({ ...current, points: simplifyPoints(current.points) });
+  }
 
   function normalized(locationX: number, locationY: number) {
     return {
@@ -195,25 +327,13 @@ export function DrawingCanvas({
       if (!editable || !current) return;
       const point = normalized(event.nativeEvent.locationX, event.nativeEvent.locationY);
       const previous = current.points[current.points.length - 1];
-      if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) < 5) return;
-      const next = { ...current, points: [...current.points, point].slice(-500) };
-      draftRef.current = next;
-      setDraft(next);
+      if (previous && distance(point, previous) < MIN_POINT_DISTANCE) return;
+
+      draftRef.current = { ...current, points: [...current.points, point] };
+      scheduleDraftRender();
     },
-    onPanResponderRelease: () => {
-      setScreenScrollLocked(false);
-      const current = draftRef.current;
-      draftRef.current = null;
-      setDraft(null);
-      if (current?.points.length) onStrokeRef.current?.(current);
-    },
-    onPanResponderTerminate: () => {
-      setScreenScrollLocked(false);
-      const current = draftRef.current;
-      draftRef.current = null;
-      setDraft(null);
-      if (current?.points.length) onStrokeRef.current?.(current);
-    },
+    onPanResponderRelease: finishDraft,
+    onPanResponderTerminate: finishDraft,
   }), [brushSize, colour.hue, colour.saturation, colour.value, currentUserId, editable, setScreenScrollLocked, showTools, tool]);
 
   function onLayout(event: LayoutChangeEvent) {
@@ -221,20 +341,6 @@ export function DrawingCanvas({
     sizeRef.current = next;
     setSize(next);
   }
-
-  const renderStroke = (stroke: DrawingStroke, draftStroke = false) => {
-    const erasing = stroke.tool === 'eraser';
-    return <Path
-      key={stroke.id}
-      d={pointPath(stroke.points)}
-      stroke={erasing ? theme.colors.elevatedBackground : stroke.color ?? strokeColorForUser?.(stroke.userId) ?? theme.colors.accent}
-      strokeWidth={stroke.width ?? 7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-      opacity={(stroke.opacity ?? 1) * (draftStroke ? 0.9 : 1)}
-    />;
-  };
 
   const toolButton = (value: BrushTool, label: string) => <Pressable accessibilityRole="button" accessibilityState={{ selected: tool === value }} onPress={() => setTool(value)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: theme.radii.md, borderWidth: 1, borderColor: tool === value ? theme.colors.accent : theme.colors.border, backgroundColor: tool === value ? theme.colors.accentSoft : theme.colors.elevatedBackground, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}><AppText variant="button">{label}</AppText></Pressable>;
   const sizeButton = (value: BrushSize, label: string) => <Pressable accessibilityRole="button" accessibilityState={{ selected: brushSize === value }} onPress={() => setBrushSize(value)} style={({ pressed }) => ({ minHeight: 36, paddingHorizontal: 11, borderRadius: theme.radii.md, borderWidth: 1, borderColor: brushSize === value ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: brushSize === value ? theme.colors.secondarySoft : theme.colors.elevatedBackground, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}><AppText variant="bodySmall">{label}</AppText></Pressable>;
@@ -318,10 +424,18 @@ export function DrawingCanvas({
         backgroundColor: theme.colors.elevatedBackground,
       }}
     >
-      <Svg width="100%" height="100%" viewBox={`0 0 ${SPACE} ${SPACE}`} preserveAspectRatio="none">
-        {strokes.map((stroke) => renderStroke(stroke))}
-        {draft ? renderStroke(draft, true) : null}
-      </Svg>
+      <CommittedStrokeLayer
+        strokes={strokes}
+        strokeColorForUser={strokeColorForUser}
+        fallbackColor={theme.colors.accent}
+        eraserColor={theme.colors.elevatedBackground}
+      />
+      <LiveStrokeLayer
+        stroke={draft}
+        strokeColorForUser={strokeColorForUser}
+        fallbackColor={theme.colors.accent}
+        eraserColor={theme.colors.elevatedBackground}
+      />
     </View>
   </View>;
 }
