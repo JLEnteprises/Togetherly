@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Card } from '@/components/common/Card';
+import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { AppText } from '@/components/common/AppText';
 import { getCountdowns } from '@/services/backend/coreFeatures';
 import { getAvailabilityOverlaps } from '@/services/backend/availability';
@@ -63,10 +64,16 @@ export function LongDistanceOverviewCard() {
   return (
     <Card participantColor="both" tone="secondary" style={{ gap: theme.spacing.md }}>
       <AppText variant="section">Across the distance</AppText>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
-        <AppText accessibilityLabel={`${profile?.display_name ?? 'Your'} local time ${formatTime(profile?.timezone, new Date(now))}`} variant="pageTitle" style={{ flex: 1, color: participantPalette(myColor).accent }}>{formatTime(profile?.timezone, new Date(now))}</AppText>
-        <AppText variant="caption" tone="muted" align="center">{partnerProfile ? timeDifferenceLabel(profile?.timezone, partnerProfile.timezone, new Date(now)) : 'Waiting'}</AppText>
-        <AppText accessibilityLabel={`${partnerProfile?.display_name ?? 'Partner'} local time ${partnerProfile ? formatTime(partnerProfile.timezone, new Date(now)) : 'unavailable'}`} variant="pageTitle" align="right" style={{ flex: 1, color: participantPalette(partnerColor).accent }}>{partnerProfile ? formatTime(partnerProfile.timezone, new Date(now)) : '—'}</AppText>
+      <View style={{ gap: theme.spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+          <AppText accessibilityLabel={`${profile?.display_name ?? 'Your'} local time ${formatTime(profile?.timezone, new Date(now))}`} variant="pageTitle" style={{ flex: 1, color: participantPalette(myColor).accent }}>{formatTime(profile?.timezone, new Date(now))}</AppText>
+          <AppText variant="caption" tone="muted" align="center">{partnerProfile ? timeDifferenceLabel(profile?.timezone, partnerProfile.timezone, new Date(now)) : 'Waiting'}</AppText>
+          <AppText accessibilityLabel={`${partnerProfile?.display_name ?? 'Partner'} local time ${partnerProfile ? formatTime(partnerProfile.timezone, new Date(now)) : 'unavailable'}`} variant="pageTitle" align="right" style={{ flex: 1, color: participantPalette(partnerColor).accent }}>{partnerProfile ? formatTime(partnerProfile.timezone, new Date(now)) : '—'}</AppText>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.sm }}>
+          <ParticipantIdentityBadge userId={profile?.id} compact />
+          <ParticipantIdentityBadge userId={partnerProfile?.id} compact />
+        </View>
       </View>
 
       {members.some((member) => member.sharingEnabled) ? <Pressable accessibilityRole="button" onPress={() => router.push('/features/location' as never)} style={({ pressed }) => ({ minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 7, opacity: pressed ? 0.68 : 1 })}>

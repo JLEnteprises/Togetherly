@@ -18,6 +18,8 @@ export function ParticipantAttribution({ userId, verb = 'Added by', suffix }: { 
       ? partnerProfile.display_name
       : 'Previous member';
   const isMe = Boolean(profile && userId === profile.id);
+  const isPartner = Boolean(partnerProfile && userId === partnerProfile.id);
+  const role = isMe ? 'YOU' : isPartner ? 'PARTNER' : '';
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -29,7 +31,7 @@ export function ParticipantAttribution({ userId, verb = 'Added by', suffix }: { 
         <AppText variant="caption" style={{ color: accent, fontSize: 9, lineHeight: 11 }}>{initial(name)}</AppText>
       </View>
       <AppText variant="caption" style={{ color: accent }}>
-        {verb} {name}{isMe ? ' · YOU' : ''}{suffix ? ` · ${suffix}` : ''}
+        {verb} {name}{role ? ` · ${role}` : ''}{suffix ? ` · ${suffix}` : ''}
       </AppText>
     </View>
   );

@@ -67,7 +67,7 @@ export default function ListsScreen() {
         {lists.map((list) => (
           <Pressable accessibilityRole="button" key={list.id} onPress={() => router.push(`/features/lists/${list.id}` as never)}>
             {({ pressed }) => (
-              <Card participantColor={colorForUser(list.creator_id)} style={{ gap: theme.spacing.sm, opacity: pressed ? 0.75 : 1 }}>
+              <Card participantColor="both" style={{ gap: theme.spacing.sm, opacity: pressed ? 0.75 : 1 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.md }}>
                   <View style={{ flex: 1, gap: 5 }}>
                     <AppText variant="cardTitle">{list.title}</AppText>

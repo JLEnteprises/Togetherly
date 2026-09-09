@@ -85,7 +85,7 @@ export default function ActivitiesScreen() {
         const myInterest = profile ? Boolean(activity.interests?.[profile.id]) : false;
         const partnerInterest = partnerProfile ? Boolean(activity.interests?.[partnerProfile.id]) : false;
         const statusText = myInterest && partnerInterest ? 'Both of you want this' : myInterest ? 'Youâ€™re interested' : partnerInterest ? `${partnerProfile!.display_name} is interested` : 'No interest votes yet';
-        return <Card key={activity.id} participantColor={colorForUser(activity.creator_id)} style={{ gap: theme.spacing.md, opacity: activity.status === 'skip' ? 0.56 : 1 }}>
+        return <Card key={activity.id} participantColor="both" style={{ gap: theme.spacing.md, opacity: activity.status === 'skip' ? 0.56 : 1 }}>
           <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'flex-start' }}>
             <View style={{ flex: 1, gap: 5 }}><AppText variant="section">{activity.title}</AppText><ParticipantAttribution userId={activity.creator_id} />{activity.description ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{activity.description}</AppText> : null}</View>
             <IconButton icon="overflow" label={`More actions for ${activity.title}`} onPress={() => openActivityMenu(activity)} />

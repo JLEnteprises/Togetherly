@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Card } from '@/components/common/Card';
+import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { AppText } from '@/components/common/AppText';
 import { AppIcon, type AppIconName } from '@/components/art/AppIcon';
 import { FadeSlideIn } from '@/components/motion/Motion';
@@ -60,7 +61,7 @@ function Row({ icon, title, value, href, valueTone = 'primary', topBorder = fals
 
 export function HomeTodayCard() {
   const theme = useAppTheme();
-  const { profile, partnerProfile } = useWorkspace();
+  const { profile, partnerProfile, partnerColor } = useWorkspace();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
   const [event, setEvent] = useState<EventOccurrence | null>(null);
   const [question, setQuestion] = useState<DailyQuestionState | null>(null);
@@ -96,11 +97,11 @@ export function HomeTodayCard() {
       {partnerNeedsAttention && partnerMood ? (
         <FadeSlideIn>
           <Pressable accessibilityRole="button" onPress={() => router.push('/features/mood' as never)}>
-            {({ pressed }) => <Card participantColor={undefined} tone="accent" style={{ gap: theme.spacing.sm, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
+            {({ pressed }) => <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
               <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
                 <View style={{ width: 42, height: 42, borderRadius: 15, backgroundColor: theme.colors.partnerAccentSoft, alignItems: 'center', justifyContent: 'center' }}><AppText variant="section">{moodShort[partnerMood.mood]}</AppText></View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <AppText variant="caption" tone="accent">YOUR PERSON</AppText>
+                  <ParticipantIdentityBadge userId={partnerProfile?.id} compact />
                   <AppText variant="cardTitle">{partnerProfile?.display_name ?? 'Your partner'} could use {needText[partnerMood.need]}.</AppText>
                   <AppText variant="bodySmall" tone="secondary">Open their check-in and respond in a way that helps.</AppText>
                 </View>
