@@ -8,7 +8,7 @@ import { ToggleRow } from '@/components/common/ToggleRow';
 import { PartnerMap } from '@/components/location/PartnerMap';
 import { useLocationSharing } from '@/providers/LocationProvider';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 
 function ageLabel(value: string | null, now: number) {
@@ -72,7 +72,7 @@ export default function LocationScreen() {
         <View style={{ gap: theme.spacing.sm }}>
           {members.map((member) => (
             <Card key={member.userId} participantColor={member.participantColor} tone="secondary" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: participantPalettes[member.participantColor].accent }} />
+              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: participantPalette(member.participantColor).accent }} />
               <View style={{ flex: 1 }}>
                 <AppText variant="cardTitle">{member.displayName}</AppText>
                 <AppText variant="caption" tone="muted">{member.sharingEnabled ? ageLabel(member.capturedAt, now) : 'Location off'}</AppText>

@@ -10,7 +10,7 @@ import { ParticipantAttribution } from '@/components/common/ParticipantAttributi
 import { getTimeline } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { CoupleMemory } from '@/types/database';
 
@@ -43,7 +43,7 @@ export default function TimelineScreen() {
         <Card style={{ gap: 0 }}>
           {timeline.map((memory, index) => {
             const participantColor = memory.creator_id ? colorForUser(memory.creator_id) : 'both';
-            const palette = participantColor === 'both' ? null : participantPalettes[participantColor];
+            const palette = participantColor === 'both' ? null : participantPalette(participantColor);
             return (
               <View key={memory.id} style={{ flexDirection: 'row', gap: theme.spacing.md }}>
                 <View style={{ alignItems: 'center' }}>

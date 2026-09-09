@@ -7,10 +7,10 @@ export async function createCoupleWorkspace(input: { relationshipStartDate?: str
   return apiRequest<{ coupleId: string; inviteCode: string; participantColor: ParticipantColor }>('/workspace/create', { method: 'POST', body: input });
 }
 
-export async function joinCoupleWithCode(inviteCode: string) {
+export async function joinCoupleWithCode(inviteCode: string, participantColor?: ParticipantColor) {
   const normalizedCode = inviteCode.trim().toUpperCase();
   if (!normalizedCode) throw new Error('Enter an invite code first.');
-  return apiRequest<{ coupleId: string; participantColor: ParticipantColor }>('/workspace/join', { method: 'POST', body: { inviteCode: normalizedCode } });
+  return apiRequest<{ coupleId: string; participantColor: ParticipantColor }>('/workspace/join', { method: 'POST', body: { inviteCode: normalizedCode, participantColor } });
 }
 
 export async function regenerateCoupleInvite() { return apiRequest<{ inviteCode: string }>('/workspace/invite/regenerate', { method: 'POST', body: {} }); }

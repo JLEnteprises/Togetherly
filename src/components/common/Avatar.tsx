@@ -2,10 +2,10 @@ import { Image, View } from 'react-native';
 import type { ParticipantColor } from '@/types/database';
 import { AppText } from './AppText';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { LEGACY_PURPLE_COLOR, participantPalettes, participantPalette } from '@/theme/tokens';
 
-export function Avatar({ initials, imageUrl, size = 46, participantColor = 'purple' }: { initials: string; imageUrl?: string | null; size?: number; participantColor?: ParticipantColor }) {
-  const palette = participantPalettes[participantColor];
+export function Avatar({ initials, imageUrl, size = 46, participantColor = LEGACY_PURPLE_COLOR }: { initials: string; imageUrl?: string | null; size?: number; participantColor?: ParticipantColor }) {
+  const palette = participantPalette(participantColor);
   const shell = { width: size, height: size, borderRadius: size / 2, backgroundColor: palette.accentSoft, borderWidth: 2, borderColor: palette.accent } as const;
   if (imageUrl) return <Image accessibilityLabel={`${initials} profile photo`} source={{ uri: imageUrl }} resizeMode="cover" style={shell} />;
   return <View accessibilityLabel={`${initials} avatar`} style={{ ...shell, alignItems: 'center', justifyContent: 'center' }}><AppText variant="cardTitle" style={{ color: palette.accent }}>{initials}</AppText></View>;

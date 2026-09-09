@@ -22,7 +22,7 @@ import { getTags } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import type { CoupleTask, Priority, Tag, TaskRecurrence, TaskSubtask } from '@/types/database';
 import { useAppTheme } from '@/theme/useAppTheme';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { dateOnlyFromIso, dateOnlyToLocalIso } from '@/utils/dates';
 import { taskAttentionDate } from '@/utils/taskTiming';
@@ -282,7 +282,7 @@ export default function TasksScreen() {
         {!loading && visibleTasks.length === 0 ? <EmptyState icon="task" title={tasks.length ? "Nothing matches this view" : "Nothing to do yet"} body={tasks.length ? (statusFilter === 'now' ? "Nothing needs attention right now." : "Try a different status or assignment filter.") : "Add your first shared task when there’s something you want to remember together."} actionLabel={tasks.length ? undefined : "Add a task"} onAction={tasks.length ? undefined : () => setComposerOpen(true)} /> : null}
         {visibleTasks.map((task) => {
           const done = task.status === 'completed';
-          const creatorColor = colorForUser(task.creator_id); const creatorPalette = creatorColor === 'both' ? null : participantPalettes[creatorColor];
+          const creatorColor = colorForUser(task.creator_id); const creatorPalette = creatorColor === 'both' ? null : participantPalette(creatorColor);
           const assignmentColor = task.assign_to_both ? 'both' : colorForUser(task.assignee_id);
           return (
             <Card key={task.id} participantColor={creatorColor} style={{ gap: theme.spacing.md, opacity: done ? 0.68 : 1, borderColor: editingId === task.id ? theme.colors.accent : theme.colors.border }}>

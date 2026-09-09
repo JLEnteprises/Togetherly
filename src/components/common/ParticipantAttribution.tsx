@@ -1,18 +1,36 @@
 import { View } from 'react-native';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { AppText } from './AppText';
+
+function initial(name: string) { return name.trim().slice(0, 1).toUpperCase() || '•'; }
 
 export function ParticipantAttribution({ userId, verb = 'Added by', suffix }: { userId: string | null | undefined; verb?: string; suffix?: string }) {
   const theme = useAppTheme();
   const { profile, partnerProfile, colorForUser } = useWorkspace();
   const color = colorForUser(userId);
-  const accent = color === 'both' ? theme.colors.textMuted : participantPalettes[color].accent;
+  const palette = color === 'both' ? null : participantPalette(color);
+  const accent = palette?.accent ?? theme.colors.textMuted;
   const name = profile && userId === profile.id
     ? profile.display_name
     : partnerProfile && userId === partnerProfile.id
       ? partnerProfile.display_name
       : 'Previous member';
-  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: accent }} /><AppText variant="caption" style={{ color: accent }}>{verb} {name}{suffix ? ` · ${suffix}` : ''}</AppText></View>;
+  const isMe = Boolean(profile && userId === profile.id);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <View style={{
+        width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: palette?.border ?? theme.colors.border,
+        backgroundColor: palette?.tint ?? theme.colors.elevatedBackground,
+      }}>
+        <AppText variant="caption" style={{ color: accent, fontSize: 9, lineHeight: 11 }}>{initial(name)}</AppText>
+      </View>
+      <AppText variant="caption" style={{ color: accent }}>
+        {verb} {name}{isMe ? ' · YOU' : ''}{suffix ? ` · ${suffix}` : ''}
+      </AppText>
+    </View>
+  );
 }

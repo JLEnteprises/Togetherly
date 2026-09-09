@@ -11,8 +11,23 @@ private let appGroup: String = {
 }()
 private let contextKey = "togetherly.watch.context"
 private let stateKey = "togetherly.watch.state"
-private let purple = Color(red: 0.61, green: 0.42, blue: 0.96)
-private let green = Color(red: 0.55, green: 0.72, blue: 0.45)
+private let neutralAccent = Color(red: 0.87, green: 0.84, blue: 0.90)
+
+private func identityColor(_ raw: String) -> Color {
+    let legacy: String
+    switch raw.lowercased() {
+    case "purple": legacy = "#BE9AFF"
+    case "green": legacy = "#B7CB7C"
+    default: legacy = raw
+    }
+    let value = legacy.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+    guard value.count == 6, let number = Int(value, radix: 16) else { return neutralAccent }
+    return Color(
+        red: Double((number >> 16) & 0xFF) / 255.0,
+        green: Double((number >> 8) & 0xFF) / 255.0,
+        blue: Double(number & 0xFF) / 255.0
+    )
+}
 
 private struct PhoneWidgetMood: Codable { let id: String?; let mood: String?; let need: String? }
 private struct PhoneWidgetPerson: Codable { let id: String; let name: String; let color: String }
@@ -94,7 +109,7 @@ private struct PhonePartnerView: View {
                 Text("\(state.partner.name) \(moodEmoji(state.partner.mood?.mood)) · \(state.partner.localTime)")
             case .accessoryRectangular:
                 HStack(spacing: 7) {
-                    Circle().fill(state.partner.color == "green" ? green : purple).frame(width: 7, height: 7)
+                    Circle().fill(identityColor(state.partner.color)).frame(width: 7, height: 7)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(state.partner.name).font(.caption).fontWeight(.semibold).lineLimit(1)
                         Text(statusText(state)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -105,7 +120,7 @@ private struct PhonePartnerView: View {
             default:
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Circle().fill(state.partner.color == "green" ? green : purple).frame(width: 10, height: 10)
+                        Circle().fill(identityColor(state.partner.color)).frame(width: 10, height: 10)
                         Text(state.partner.name).font(.headline).lineLimit(1)
                         Spacer()
                         Text(state.partner.localTime).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
@@ -114,7 +129,7 @@ private struct PhonePartnerView: View {
                         .font(.subheadline).lineLimit(1)
                     if let visit = state.nextVisit {
                         Label(daysUntil(visit.target_at), systemImage: "heart.circle.fill")
-                            .font(.caption).foregroundStyle(purple)
+                            .font(.caption).foregroundStyle(neutralAccent)
                     }
                     Spacer(minLength: 0)
                     Button(intent: PhoneLoveIntent()) {
@@ -122,7 +137,7 @@ private struct PhonePartnerView: View {
                             .font(.caption).fontWeight(.semibold)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(purple)
+                    .tint(neutralAccent)
                 }
                 .padding(2)
             }
@@ -169,7 +184,7 @@ private struct PhoneLoveView: View {
         ZStack {
             AccessoryWidgetBackground()
             Button(intent: PhoneLoveIntent()) {
-                Image(systemName: "heart.fill").font(.title2).foregroundStyle(purple)
+                Image(systemName: "heart.fill").font(.title2).foregroundStyle(neutralAccent)
             }
             .buttonStyle(.plain)
         }

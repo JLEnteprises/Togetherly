@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { participantPalettes } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { usePreferences } from '@/providers/PreferencesProvider';
 
@@ -28,17 +27,17 @@ export function CosmicBackdrop() {
     loop.start(); return () => loop.stop();
   }, [drift, minimal, preferences.reduced_motion]);
 
-  const purpleTransform = preferences.reduced_motion ? undefined : [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 8] }) }];
-  const greenTransform = preferences.reduced_motion ? undefined : [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 10] }) }];
+  const firstOrbitTransform = preferences.reduced_motion ? undefined : [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 8] }) }];
+  const secondOrbitTransform = preferences.reduced_motion ? undefined : [{ translateX: drift.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) }, { translateY: drift.interpolate({ inputRange: [0, 1], outputRange: [0, 10] }) }];
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {!minimal ? <Animated.View style={[styles.glow, { backgroundColor: participantPalettes.purple.glow, top: -130, right: -105, opacity: gothic ? 0.6 : 1 }, purpleTransform ? { transform: purpleTransform } : null]} /> : null}
-      {!minimal ? <Animated.View style={[styles.glow, { backgroundColor: participantPalettes.green.glow, top: 250, left: -125, opacity: cottage ? 1 : 0.8 }, greenTransform ? { transform: greenTransform } : null]} /> : null}
+      {!minimal ? <Animated.View style={[styles.glow, { backgroundColor: theme.participants.me.glowSoft, top: -130, right: -105, opacity: gothic ? 0.5 : 0.72 }, firstOrbitTransform ? { transform: firstOrbitTransform } : null]} /> : null}
+      {!minimal ? <Animated.View style={[styles.glow, { backgroundColor: theme.participants.partner.glowSoft, top: 250, left: -125, opacity: cottage ? 0.72 : 0.58 }, secondOrbitTransform ? { transform: secondOrbitTransform } : null]} /> : null}
       {warm ? <View style={[styles.warmGlow, { backgroundColor: 'rgba(222,174,112,0.09)' }]} /> : null}
-      {!minimal ? <View style={[styles.orbit, { borderColor: participantPalettes.purple.border, right: -92, top: 78 }]} /> : null}
-      {!minimal ? <View style={[styles.orbitSmall, { borderColor: participantPalettes.green.border, left: -72, top: 420 }]} /> : null}
-      {cottage ? <View style={[styles.vineArc, { borderColor: participantPalettes.green.border }]} /> : null}
+      {!minimal ? <View style={[styles.orbit, { borderColor: theme.participants.me.border, right: -92, top: 78 }]} /> : null}
+      {!minimal ? <View style={[styles.orbitSmall, { borderColor: theme.participants.partner.border, left: -72, top: 420 }]} /> : null}
+      {cottage ? <View style={[styles.vineArc, { borderColor: theme.colors.vineSoft }]} /> : null}
       {stars.map(([left, top, size], index) => (
         <View key={index} style={{ position: 'absolute', left: `${left * 100}%`, top, width: size, height: size, borderRadius: size, backgroundColor: theme.colors.star, opacity: minimal ? 0.35 : gothic ? 0.85 : 0.62 }} />
       ))}

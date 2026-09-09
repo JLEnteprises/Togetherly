@@ -1,7 +1,22 @@
 import SwiftUI
 
-private let purple = Color(red: 0.61, green: 0.42, blue: 0.96)
-private let green = Color(red: 0.55, green: 0.72, blue: 0.45)
+private let neutralAccent = Color(red: 0.87, green: 0.84, blue: 0.90)
+
+private func identityColor(_ raw: String) -> Color {
+    let legacy: String
+    switch raw.lowercased() {
+    case "purple": legacy = "#BE9AFF"
+    case "green": legacy = "#B7CB7C"
+    default: legacy = raw
+    }
+    let value = legacy.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+    guard value.count == 6, let number = Int(value, radix: 16) else { return neutralAccent }
+    return Color(
+        red: Double((number >> 16) & 0xFF) / 255.0,
+        green: Double((number >> 8) & 0xFF) / 255.0,
+        blue: Double(number & 0xFF) / 255.0
+    )
+}
 private let ink = Color(red: 0.043, green: 0.039, blue: 0.059)
 
 struct TogetherlyWatchHome: View {
@@ -42,13 +57,13 @@ struct TogetherlyWatchHome: View {
             .background(ink)
             .navigationTitle("Togetherly")
         }
-        .tint(purple)
+        .tint(neutralAccent)
     }
 
     private func partnerCard(_ state: WatchState) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                Circle().fill(state.partner.color == "green" ? green : purple).frame(width: 8, height: 8)
+                Circle().fill(identityColor(state.partner.color)).frame(width: 8, height: 8)
                 Text(state.partner.name).font(.headline).lineLimit(1)
                 Spacer()
                 Text(state.partner.localTime).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
@@ -67,9 +82,9 @@ struct TogetherlyWatchHome: View {
     private func loveCard(_ state: WatchState) -> some View {
         VStack(spacing: 9) {
             ZStack {
-                Circle().stroke(purple.opacity(0.35), lineWidth: 1).frame(width: 70, height: 70)
-                Circle().stroke(green.opacity(0.25), lineWidth: 1).frame(width: 54, height: 54)
-                Image(systemName: "heart.fill").font(.system(size: 28, weight: .semibold)).foregroundStyle(purple)
+                Circle().stroke(identityColor(state.me.color).opacity(0.35), lineWidth: 1).frame(width: 70, height: 70)
+                Circle().stroke(identityColor(state.partner.color).opacity(0.28), lineWidth: 1).frame(width: 54, height: 54)
+                Image(systemName: "heart.fill").font(.system(size: 28, weight: .semibold)).foregroundStyle(neutralAccent)
             }
             Button {
                 Task { await model.sendPing("love") }
@@ -77,7 +92,7 @@ struct TogetherlyWatchHome: View {
                 Text("Send love").fontWeight(.semibold).frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .tint(purple)
+            .tint(neutralAccent)
             .disabled(model.isSending)
 
             Button {
@@ -118,7 +133,7 @@ struct TogetherlyWatchHome: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("TODAY").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
             if state.dailyQuestion.bothAnswered {
-                Label("Answers ready to reveal", systemImage: "sparkles").font(.caption).foregroundStyle(purple)
+                Label("Answers ready to reveal", systemImage: "sparkles").font(.caption).foregroundStyle(neutralAccent)
             } else if !state.dailyQuestion.meAnswered {
                 Label("Daily Question is waiting", systemImage: "questionmark.bubble").font(.caption)
             } else if !state.dailyQuestion.partnerAnswered {
@@ -139,7 +154,7 @@ struct TogetherlyWatchHome: View {
                 HStack {
                     Label("Next visit", systemImage: "heart.circle")
                     Spacer()
-                    Text(daysUntil(visit.target_at)).fontWeight(.bold).foregroundStyle(green)
+                    Text(daysUntil(visit.target_at)).fontWeight(.bold).foregroundStyle(neutralAccent)
                 }
                 .font(.caption)
                 Text(visit.title).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -157,7 +172,7 @@ struct TogetherlyWatchHome: View {
 
     private var connectState: some View {
         VStack(spacing: 10) {
-            Image(systemName: "iphone.and.arrow.forward").font(.system(size: 34)).foregroundStyle(purple)
+            Image(systemName: "iphone.and.arrow.forward").font(.system(size: 34)).foregroundStyle(neutralAccent)
             Text("Connect Togetherly").font(.headline)
             Text("Open Togetherly on your iPhone once to pair this Watch and sync your relationship.")
                 .font(.caption2).multilineTextAlignment(.center).foregroundStyle(.secondary)
@@ -215,7 +230,7 @@ private struct QuickCheckInView: View {
                     Task { await model.checkIn(mood: mood, need: need); dismiss() }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(purple)
+                .tint(neutralAccent)
                 .disabled(model.isSending)
             }
         }

@@ -11,8 +11,23 @@ private let appGroup: String = {
 }()
 private let contextKey = "togetherly.watch.context"
 private let stateKey = "togetherly.watch.state"
-private let purple = Color(red: 0.61, green: 0.42, blue: 0.96)
-private let green = Color(red: 0.55, green: 0.72, blue: 0.45)
+private let neutralAccent = Color(red: 0.87, green: 0.84, blue: 0.90)
+
+private func identityColor(_ raw: String) -> Color {
+    let legacy: String
+    switch raw.lowercased() {
+    case "purple": legacy = "#BE9AFF"
+    case "green": legacy = "#B7CB7C"
+    default: legacy = raw
+    }
+    let value = legacy.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+    guard value.count == 6, let number = Int(value, radix: 16) else { return neutralAccent }
+    return Color(
+        red: Double((number >> 16) & 0xFF) / 255.0,
+        green: Double((number >> 8) & 0xFF) / 255.0,
+        blue: Double(number & 0xFF) / 255.0
+    )
+}
 
 private struct WidgetMood: Codable { let id: String?; let mood: String?; let need: String? }
 private struct WidgetPerson: Codable { let id: String; let name: String; let color: String }
@@ -104,7 +119,7 @@ private struct PartnerStatusView: View {
                 Text("\(state.partner.name) \(moodEmoji(state.partner.mood?.mood)) · \(state.partner.localTime)")
             default:
                 HStack(spacing: 7) {
-                    Circle().fill(state.partner.color == "green" ? green : purple).frame(width: 7, height: 7)
+                    Circle().fill(identityColor(state.partner.color)).frame(width: 7, height: 7)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(state.partner.name).font(.caption).fontWeight(.semibold).lineLimit(1)
                         Text(statusText(state)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
@@ -149,7 +164,7 @@ private struct LoveTapView: View {
             Button(intent: WatchLoveIntent()) {
                 Image(systemName: "heart.fill")
                     .font(.title2)
-                    .foregroundStyle(purple)
+                    .foregroundStyle(neutralAccent)
             }
             .buttonStyle(.plain)
         }

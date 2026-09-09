@@ -1,16 +1,16 @@
 import { View } from 'react-native';
 import type { DrawingData, ParticipantColor } from '@/types/database';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { AppText } from './AppText';
 import { DrawnIcon } from './DrawingCanvas';
 import { useAppTheme } from '@/theme/useAppTheme';
 
 export function TagChip({ label, subtle = false, participantColor, icon, iconDrawing }: { label: string; subtle?: boolean; participantColor?: ParticipantColor | 'both'; icon?: string | null; iconDrawing?: DrawingData | null }) {
   const theme = useAppTheme();
-  const palette = participantColor && participantColor !== 'both' ? participantPalettes[participantColor] : null;
+  const palette = participantColor && participantColor !== 'both' ? participantPalette(participantColor) : null;
   const both = participantColor === 'both';
   const backgroundColor = palette?.tint ?? (subtle ? theme.colors.elevatedBackground : theme.colors.accentSoft);
-  const borderColor = palette?.border ?? (both ? participantPalettes.purple.border : theme.colors.border);
+  const borderColor = palette?.border ?? (both ? theme.participants.me.border : theme.colors.border);
   const textColor = palette?.accent ?? (both ? theme.colors.textPrimary : subtle ? theme.colors.textSecondary : theme.colors.accentStrong);
 
   return (
@@ -23,7 +23,7 @@ export function TagChip({ label, subtle = false, participantColor, icon, iconDra
         backgroundColor,
         borderWidth: 1,
         borderColor,
-        ...(both ? { borderRightColor: participantPalettes.green.border, borderRightWidth: 3 } : {}),
+        ...(both ? { borderRightColor: theme.participants.partner.border, borderRightWidth: 3 } : {}),
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>

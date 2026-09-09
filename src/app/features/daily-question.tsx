@@ -16,7 +16,7 @@ import { FadeSlideIn, GentleFloat, RevealScale } from '@/components/motion/Motio
 import { answerDailyQuestion, getDailyQuestion, getDailyQuestionHistory, updateDailyQuestionSettings } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { DailyQuestionHistoryEntry, DailyQuestionState } from '@/types/database';
 
@@ -90,7 +90,7 @@ export default function DailyQuestionScreen() {
           </Card>
 
           {!state.bothAnswered ? <Card participantColor={myColor} style={{ gap: theme.spacing.lg }}>
-            <AppText variant="caption" style={{ color: participantPalettes[myColor].accent }}>{profile?.display_name?.toUpperCase() ?? 'ME'}</AppText>
+            <AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile?.display_name?.toUpperCase() ?? 'ME'}</AppText>
             <FormField label={`${profile?.display_name?.toUpperCase() ?? 'MY'} ANSWER`} value={answer} onChangeText={setAnswer} placeholder="Say the thing you’d actually want them to know…" multiline />
             <AppButton label={busy ? 'Saving…' : state.myAnswer ? 'Update before reveal' : 'Lock in my answer'} disabled={busy || !answer.trim()} onPress={save} />
           </Card> : null}
@@ -101,8 +101,8 @@ export default function DailyQuestionScreen() {
               <View style={{ gap: 4, alignItems: 'center' }}><AppText variant="section" align="center">You’re both ready.</AppText><AppText tone="secondary" align="center">Your answers stayed private until this moment.</AppText></View>
               <AppButton label="Reveal our answers" onPress={() => setRevealed(true)} />
             </Card></FadeSlideIn> : <RevealScale trigger={revealed} style={{ gap: theme.spacing.md }}>
-              <Card participantColor={myColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalettes[myColor].accent }}>{profile?.display_name?.toUpperCase() ?? 'YOU'}</AppText><AppText variant="section">“{state.myAnswer?.answer}”</AppText></Card>
-              <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalettes[partnerColor].accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'}</AppText><AppText variant="section">“{state.partnerAnswer.answer}”</AppText></Card>
+              <Card participantColor={myColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile?.display_name?.toUpperCase() ?? 'YOU'}</AppText><AppText variant="section">“{state.myAnswer?.answer}”</AppText></Card>
+              <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalette(partnerColor).accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'}</AppText><AppText variant="section">“{state.partnerAnswer.answer}”</AppText></Card>
               <AppText variant="caption" tone="muted" align="center">Locked for today · come back tomorrow for a new question</AppText>
             </RevealScale>
           ) : state.myAnswer ? <Card tone="secondary" style={{ gap: theme.spacing.sm }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><AppIcon name="check" size={18} color={theme.colors.success} /><AppText variant="section">Answer locked</AppText></View><AppText tone="secondary">Waiting for {partnerProfile?.display_name ?? 'your partner'}. It reveals only after they answer.</AppText></Card> : <Card tone="secondary"><AppText tone="secondary">Answer first. Their answer stays hidden until you’ve both answered.</AppText></Card>}
@@ -115,7 +115,7 @@ export default function DailyQuestionScreen() {
       </> : <View style={{ gap: theme.spacing.md }}>
         {historyLoading ? <AppText tone="muted">Loading history…</AppText> : null}
         {!historyLoading && history.length === 0 ? <EmptyState icon="question" title="No past answers yet" body="Your past answers will appear here." /> : null}
-        {history.map((entry) => <Card key={`${entry.date}-${entry.question.id}`} participantColor="both" style={{ gap: theme.spacing.md }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md, alignItems: 'center' }}><TagChip subtle label={entry.question.category.toUpperCase().replaceAll('_', ' ')} /><AppText variant="caption" tone="muted">{prettyDate(entry.date)}</AppText></View><AppText variant="cardTitle">{entry.question.question}</AppText><View style={{ gap: theme.spacing.sm }}><View style={{ paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: participantPalettes[myColor].accent }}><AppText variant="caption" style={{ color: participantPalettes[myColor].accent }}>{profile?.display_name?.toUpperCase() ?? 'YOU'}</AppText><AppText variant="bodySmall">“{entry.myAnswer.answer}”</AppText></View>{entry.partnerAnswer ? <View style={{ paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: participantPalettes[partnerColor].accent }}><AppText variant="caption" style={{ color: participantPalettes[partnerColor].accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'}</AppText><AppText variant="bodySmall">“{entry.partnerAnswer.answer}”</AppText></View> : <AppText variant="bodySmall" tone="muted">Only your answer is available for this day.</AppText>}</View></Card>)}
+        {history.map((entry) => <Card key={`${entry.date}-${entry.question.id}`} participantColor="both" style={{ gap: theme.spacing.md }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md, alignItems: 'center' }}><TagChip subtle label={entry.question.category.toUpperCase().replaceAll('_', ' ')} /><AppText variant="caption" tone="muted">{prettyDate(entry.date)}</AppText></View><AppText variant="cardTitle">{entry.question.question}</AppText><View style={{ gap: theme.spacing.sm }}><View style={{ paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: participantPalette(myColor).accent }}><AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile?.display_name?.toUpperCase() ?? 'YOU'}</AppText><AppText variant="bodySmall">“{entry.myAnswer.answer}”</AppText></View>{entry.partnerAnswer ? <View style={{ paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: participantPalette(partnerColor).accent }}><AppText variant="caption" style={{ color: participantPalette(partnerColor).accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'}</AppText><AppText variant="bodySmall">“{entry.partnerAnswer.answer}”</AppText></View> : <AppText variant="bodySmall" tone="muted">Only your answer is available for this day.</AppText>}</View></Card>)}
       </View>}
     </AppScreen>
   );

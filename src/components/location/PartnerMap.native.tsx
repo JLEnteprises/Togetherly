@@ -4,7 +4,7 @@ import MapView, { Marker } from 'react-native-maps';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import type { LiveLocationMember } from '@/types/database';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 
 export function PartnerMap({ members }: { members: LiveLocationMember[] }) {
   const mapRef = useRef<MapView | null>(null);
@@ -41,7 +41,7 @@ export function PartnerMap({ members }: { members: LiveLocationMember[] }) {
             key={member.userId}
             coordinate={{ latitude: member.latitude!, longitude: member.longitude! }}
             title={member.displayName}
-            pinColor={participantPalettes[member.participantColor].accent}
+            pinColor={participantPalette(member.participantColor).accent}
           />
         ))}
       </MapView>

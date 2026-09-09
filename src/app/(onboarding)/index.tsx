@@ -9,12 +9,13 @@ import { TimezonePickerField } from '@/components/common/TimezonePickerField';
 import { useLocationSharing } from '@/providers/LocationProvider';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { PhotoPickerField } from '@/components/common/PhotoPickerField';
+import { ParticipantColorPicker } from '@/components/common/ParticipantColorPicker';
 import { ToggleRow } from '@/components/common/ToggleRow';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { createCoupleWorkspace, joinCoupleWithCode, updateCouple, updateProfile } from '@/services/backend/workspace';
 import { refreshCurrentUser } from '@/services/backend/auth';
 import { useAuth } from '@/providers/AuthProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { LEGACY_PURPLE_COLOR, normalizeParticipantColor, participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { ParticipantColor } from '@/types/database';
 import { ConnectionOrbitArt, TogetherlyMark } from '@/components/art/TogetherlyArt';
@@ -35,7 +36,7 @@ export default function OnboardingScreen() {
   const [timezone, setTimezone] = useState(detectedTimezone);
   const [timezoneMode, setTimezoneMode] = useState<'automatic' | 'manual'>('automatic');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [chosenColor, setChosenColor] = useState<ParticipantColor>('purple');
+  const [chosenColor, setChosenColor] = useState<ParticipantColor>(LEGACY_PURPLE_COLOR);
   const [inviteCode, setInviteCode] = useState('');
   const [startDate, setStartDate] = useState('');
   const [longDistance, setLongDistance] = useState(true);
@@ -47,7 +48,7 @@ export default function OnboardingScreen() {
     setTimezone(profile.timezone || detectedTimezone);
     setTimezoneMode(profile.timezone_mode ?? 'automatic');
     setPhoto(profile.avatar_url);
-    setChosenColor(profile.preferred_participant_color ?? myColor ?? 'purple');
+    setChosenColor(normalizeParticipantColor(profile.preferred_participant_color ?? myColor, LEGACY_PURPLE_COLOR));
     if (couple) {
       setStartDate(couple.relationship_start_date ?? '');
       setLongDistance(Boolean(couple.long_distance_enabled));
@@ -81,7 +82,7 @@ export default function OnboardingScreen() {
   async function joinSpace() {
     setBusy(true);
     try {
-      await joinCoupleWithCode(inviteCode);
+      await joinCoupleWithCode(inviteCode, chosenColor);
       await refresh();
       setStage('finish');
     } catch (error) { Alert.alert('Couldn’t join that space', messageFrom(error)); }
@@ -134,22 +135,14 @@ export default function OnboardingScreen() {
           </View>
           {mode === 'create' ? <Card style={{ gap: theme.spacing.lg }}>
             <AppText variant="section">Start your shared home</AppText>
-            <View style={{ gap: theme.spacing.sm }}>
-              <AppText variant="caption" tone="secondary">CHOOSE YOUR COLOUR</AppText>
-              <AppText variant="bodySmall" tone="secondary">Your colour marks what you add. Your partner gets the other one.</AppText>
-              <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
-                {(['purple', 'green'] as const).map((color) => {
-                  const palette = participantPalettes[color]; const active = chosenColor === color;
-                  return <Pressable key={color} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => setChosenColor(color)} style={{ flex: 1 }}><Card participantColor={color} style={{ gap: 8, borderWidth: active ? 2 : 1, borderColor: active ? palette.accent : theme.colors.border }}><View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: palette.accent }} /><AppText variant="cardTitle" style={{ color: palette.accent }}>{palette.label}</AppText><AppText variant="caption" tone="muted">{active ? 'Selected' : 'Choose'}</AppText></Card></Pressable>;
-                })}
-              </View>
-            </View>
+            <ParticipantColorPicker value={chosenColor} onChange={setChosenColor} label="CHOOSE YOUR COLOUR" />
             <DatePickerField label="RELATIONSHIP START DATE · OPTIONAL" value={startDate} onChange={setStartDate} optional />
             <ToggleRow label="Long-distance relationship" subtitle="Show visits, time difference and shared free time on Home." value={longDistance} onChange={setLongDistance} />
             <AppButton label={busy ? 'Creating…' : 'Create our space'} disabled={busy} onPress={createSpace} />
           </Card> : <Card style={{ gap: theme.spacing.lg }}>
             <AppText variant="section">Join your partner</AppText>
-            <AppText variant="bodySmall" tone="secondary">Enter your partner’s 8-character code. You’ll use the other colour.</AppText>
+            <AppText variant="bodySmall" tone="secondary">Enter your partner’s 8-character code, then choose the colour that will identify you.</AppText>
+            <ParticipantColorPicker value={chosenColor} onChange={setChosenColor} label="YOUR COLOUR BEFORE JOINING" />
             <FormField label="INVITE CODE" value={inviteCode} onChangeText={(value) => setInviteCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))} placeholder="AB12CD34" autoCapitalize="characters" autoCorrect={false} maxLength={8} />
             <AppButton label={busy ? 'Joining…' : 'Join couple space'} disabled={busy || inviteCode.length !== 8} onPress={joinSpace} />
           </Card>}
@@ -165,8 +158,8 @@ export default function OnboardingScreen() {
           <GentleFloat distance={3}><TogetherlyMark size={84} /></GentleFloat>
           <View style={{ gap: 5, alignItems: 'center' }}><AppText variant="caption" tone="accent">YOUR SPACE IS READY</AppText><AppText variant="hero" align="center">{profile?.display_name || name}{partnerProfile ? ` + ${partnerProfile.display_name}` : ''}</AppText><AppText tone="secondary" align="center">Two accounts. One shared space. Everything else can grow from here.</AppText></View>
           <View style={{ flexDirection: 'row', gap: theme.spacing.md, width: '100%' }}>
-            <View style={{ flex: 1, alignItems: 'center' }}><View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: participantPalettes[myColor].accent, marginBottom: 5 }} /><AppText variant="caption" style={{ color: participantPalettes[myColor].accent }}>{profile?.display_name?.toUpperCase() || name.toUpperCase()}</AppText></View>
-            <View style={{ flex: 1, alignItems: 'center' }}><View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: participantPalettes[partnerColor].accent, marginBottom: 5 }} /><AppText variant="caption" style={{ color: participantPalettes[partnerColor].accent }}>{partnerProfile?.display_name?.toUpperCase() || 'INVITED PARTNER'}</AppText></View>
+            <View style={{ flex: 1, alignItems: 'center' }}><View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: participantPalette(myColor).accent, marginBottom: 5 }} /><AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile?.display_name?.toUpperCase() || name.toUpperCase()}</AppText></View>
+            <View style={{ flex: 1, alignItems: 'center' }}><View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: participantPalette(partnerColor).accent, marginBottom: 5 }} /><AppText variant="caption" style={{ color: participantPalette(partnerColor).accent }}>{partnerProfile?.display_name?.toUpperCase() || 'INVITED PARTNER'}</AppText></View>
           </View>
           <View style={{ width: '100%' }}><AppButton icon="heart" label={busy ? 'Finishing…' : 'Enter Togetherly'} disabled={busy} onPress={finish} /></View>
         </Card></FadeSlideIn> : null}

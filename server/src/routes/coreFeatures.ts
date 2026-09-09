@@ -400,7 +400,9 @@ export async function registerCoreFeatureRoutes(app: FastifyInstance, realtime: 
       const pinned = body.pinned === undefined ? note.pinned : body.pinned === true;
       const result = await pool.query(
         `UPDATE notes SET title = $1, body = $2, visibility = $3, pinned = $4, updated_at = now()
-         WHERE id = $5 AND couple_id = $6 AND ($7::timestamptz IS NULL OR updated_at = $7::timestamptz) RETURNING *`,
+         WHERE id = $5 AND couple_id = $6
+           AND ($7::timestamptz IS NULL OR date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', $7::timestamptz))
+         RETURNING *`,
         [title, noteBody, visibility, pinned, params.id, coupleId, expectedUpdatedAt],
       );
       if (!result.rowCount) throw new ApiError(409, 'This note changed after you opened it. Refresh before saving so your partner’s changes are not overwritten.');

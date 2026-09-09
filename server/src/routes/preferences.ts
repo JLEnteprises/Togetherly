@@ -154,8 +154,8 @@ export async function registerPreferenceRoutes(app: FastifyInstance, realtime: R
       const first = members.rows[0];
       const second = members.rows[1];
       await client.query('UPDATE couple_members SET participant_color=NULL WHERE couple_id=$1', [coupleId]);
-      const firstNext = second.participant_color ?? 'green';
-      const secondNext = first.participant_color ?? 'purple';
+      const firstNext = second.participant_color ?? '#B7CB7C';
+      const secondNext = first.participant_color ?? '#BE9AFF';
       await client.query('UPDATE couple_members SET participant_color=$1 WHERE couple_id=$2 AND user_id=$3', [firstNext, coupleId, first.user_id]);
       await client.query('UPDATE couple_members SET participant_color=$1 WHERE couple_id=$2 AND user_id=$3', [secondNext, coupleId, second.user_id]);
       await client.query('UPDATE users SET preferred_participant_color=$1,updated_at=now() WHERE id=$2', [firstNext, first.user_id]);

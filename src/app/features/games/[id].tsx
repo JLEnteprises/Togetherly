@@ -12,7 +12,7 @@ import { DrawingCanvas } from '@/components/common/DrawingCanvas';
 import { abandonGame, gameAction, getGame } from '@/services/backend/games';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { BingoGameState, BingoSquare, DrawTogetherGameState, DrawingStroke, GameSession, HangmanGameState, KnowMeGameState, ThisOrThatGameState } from '@/types/database';
 
@@ -75,14 +75,14 @@ export default function GameDetailScreen() {
       {game.game_type === 'hangman' ? <HangmanGame game={game} me={profile?.id ?? ''} myName={profile?.display_name ?? 'You'} partnerName={partnerProfile?.display_name ?? 'Partner'} busy={busy} act={act} /> : null}
       {game.game_type === 'this_or_that' ? <ThisOrThatGame game={game} me={profile?.id ?? ''} partner={partnerProfile?.id ?? ''} myName={profile?.display_name ?? 'You'} partnerName={partnerProfile?.display_name ?? 'Partner'} busy={busy} act={act} /> : null}
       {game.game_type === 'know_me' ? <KnowMeGame game={game} me={profile?.id ?? ''} partner={partnerProfile?.id ?? ''} nameFor={nameFor} busy={busy} act={act} /> : null}
-      {game.game_type === 'draw_together' ? <DrawTogetherGame game={game} me={profile?.id ?? ''} busy={busy} act={act} colorForUser={(userId) => { const color = colorForUser(userId); return color === 'purple' || color === 'green' ? participantPalettes[color].accent : theme.colors.textPrimary; }} /> : null}
+      {game.game_type === 'draw_together' ? <DrawTogetherGame game={game} me={profile?.id ?? ''} busy={busy} act={act} colorForUser={(userId) => { const color = colorForUser(userId); return color === 'both' ? theme.colors.textPrimary : participantPalette(color).accent; }} /> : null}
     </AppScreen>
   );
 }
 
 type SharedGameProps = { game: GameSession; me: string; busy: boolean; act: (input: Record<string, unknown>) => Promise<void> };
 
-function BingoGame({ game, me, partner, myName, partnerName, myColor, partnerColor, busy, act }: SharedGameProps & { partner: string; myName: string; partnerName: string; myColor: 'purple' | 'green'; partnerColor: 'purple' | 'green' }) {
+function BingoGame({ game, me, partner, myName, partnerName, myColor, partnerColor, busy, act }: SharedGameProps & { partner: string; myName: string; partnerName: string; myColor: string; partnerColor: string }) {
   const theme = useAppTheme();
   const state = game.state as BingoGameState;
   const myCard = state.cards[me] ?? [];
@@ -104,13 +104,13 @@ function BingoGame({ game, me, partner, myName, partnerName, myColor, partnerCol
     else if (!mine && square.kind === 'partner') void act({ action: 'give', ownerUserId, squareId: square.id });
   }
 
-  const renderCard = (card: BingoSquare[], ownerUserId: string, ownerName: string, mine: boolean, color: 'purple' | 'green') => (
+  const renderCard = (card: BingoSquare[], ownerUserId: string, ownerName: string, mine: boolean, color: string) => (
     <Card participantColor={color} style={{ gap: theme.spacing.md }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><AppText variant="section">{ownerName}’s card</AppText><TagChip subtle label={mine ? 'YOUR CARD' : 'THEIR CARD'} participantColor={color} /></View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {card.map((square) => {
           const actionable = game.status === 'active' && !square.completed && !square.pending && ((mine && square.kind === 'claim') || (!mine && square.kind === 'partner'));
-          return <Pressable key={square.id} accessibilityRole="button" accessibilityLabel={`${square.text}. ${squareStatus(square, mine)}`} disabled={!actionable || busy} onPress={() => pressSquare(square, ownerUserId, mine)} style={({ pressed }) => ({ width: '18.4%', minHeight: 92, marginBottom: 7, borderRadius: theme.radii.sm, borderWidth: 1, borderColor: square.completed ? participantPalettes[color].accent : square.pending ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: square.completed ? participantPalettes[color].tint : square.pending ? theme.colors.secondarySoft : theme.colors.elevatedBackground, padding: 6, justifyContent: 'space-between', opacity: pressed ? 0.7 : actionable ? 1 : 0.8 })}><AppText variant="caption" align="center" style={{ fontSize: 10, lineHeight: 13 }}>{square.text}</AppText><AppText variant="caption" align="center" style={{ color: square.completed ? participantPalettes[color].accent : theme.colors.textMuted }}>{squareStatus(square, mine)}</AppText></Pressable>;
+          return <Pressable key={square.id} accessibilityRole="button" accessibilityLabel={`${square.text}. ${squareStatus(square, mine)}`} disabled={!actionable || busy} onPress={() => pressSquare(square, ownerUserId, mine)} style={({ pressed }) => ({ width: '18.4%', minHeight: 92, marginBottom: 7, borderRadius: theme.radii.sm, borderWidth: 1, borderColor: square.completed ? participantPalette(color).accent : square.pending ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: square.completed ? participantPalette(color).tint : square.pending ? theme.colors.secondarySoft : theme.colors.elevatedBackground, padding: 6, justifyContent: 'space-between', opacity: pressed ? 0.7 : actionable ? 1 : 0.8 })}><AppText variant="caption" align="center" style={{ fontSize: 10, lineHeight: 13 }}>{square.text}</AppText><AppText variant="caption" align="center" style={{ color: square.completed ? participantPalette(color).accent : theme.colors.textMuted }}>{squareStatus(square, mine)}</AppText></Pressable>;
         })}
       </View>
     </Card>

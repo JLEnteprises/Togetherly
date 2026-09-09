@@ -1,4 +1,4 @@
-export type ParticipantColor = 'purple' | 'green';
+export type ParticipantColor = string;
 
 export type DrawingPoint = { x: number; y: number };
 export type DrawingStroke = { id: string; userId?: string; points: DrawingPoint[]; width?: number; color?: string; opacity?: number; tool?: 'pen' | 'marker' | 'highlighter' | 'eraser' };

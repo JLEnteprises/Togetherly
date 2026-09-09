@@ -5,12 +5,43 @@ import type { RealtimeHub } from '../realtime/hub.js';
 import { pool } from '../db/pool.js';
 import { authenticate } from '../auth/middleware.js';
 import { ApiError, sendError } from '../utils/http.js';
-import { dateOnlyOrNull, imageDataOrUrl, isValidTimezone, oneOf } from './helpers.js';
+import { dateOnlyOrNull, imageDataOrUrl, isValidTimezone } from './helpers.js';
 import { toPublicUser } from '../auth/session.js';
 
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-type ParticipantColor = 'purple' | 'green';
-const opposite = (color: ParticipantColor): ParticipantColor => color === 'purple' ? 'green' : 'purple';
+type ParticipantColor = string;
+const LEGACY_PURPLE = '#BE9AFF';
+const LEGACY_GREEN = '#B7CB7C';
+const COLOR_RE = /^#[0-9A-F]{6}$/;
+const COLOR_DISTANCE_MIN = 72;
+const colorPresets = ['#BE9AFF','#78A9FF','#74C7EC','#6FD3E8','#69D1BE','#77D69C','#B7CB7C','#E7B76A','#F39A6B','#F08383','#F08FB1','#E79AE8'];
+
+function normalizeColor(value: unknown, fallback: ParticipantColor): ParticipantColor {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'PURPLE') return LEGACY_PURPLE;
+  if (normalized === 'GREEN') return LEGACY_GREEN;
+  return COLOR_RE.test(normalized) ? normalized : fallback;
+}
+function requiredColor(value: unknown): ParticipantColor {
+  if (typeof value !== 'string') throw new ApiError(400, 'Choose a valid identity colour.');
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'PURPLE') return LEGACY_PURPLE;
+  if (normalized === 'GREEN') return LEGACY_GREEN;
+  if (!COLOR_RE.test(normalized)) throw new ApiError(400, 'Identity colour must use #RRGGBB format.');
+  return normalized;
+}
+function colorRgb(value: ParticipantColor) {
+  const color = normalizeColor(value, LEGACY_PURPLE);
+  return [parseInt(color.slice(1,3),16), parseInt(color.slice(3,5),16), parseInt(color.slice(5,7),16)] as const;
+}
+function colorsTooClose(left: ParticipantColor, right: ParticipantColor) {
+  const a = colorRgb(left), b = colorRgb(right);
+  return Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2) < COLOR_DISTANCE_MIN;
+}
+function distinctFallback(taken: ParticipantColor) {
+  return colorPresets.find((candidate) => !colorsTooClose(candidate, taken)) ?? LEGACY_GREEN;
+}
 
 function toPartnerProfile(row: Record<string, unknown>) {
   return { ...toPublicUser(row), email: '' };
@@ -82,8 +113,8 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, realtime: Re
       ]);
       const partnerRow = membersResult.rows.find((row) => String(row.id) !== request.userId);
       const currentRow = membersResult.rows.find((row) => String(row.id) === request.userId);
-      const myColor: ParticipantColor = currentRow?.participant_color === 'green' ? 'green' : 'purple';
-      const partnerColor: ParticipantColor = partnerRow?.participant_color === 'purple' ? 'purple' : partnerRow?.participant_color === 'green' ? 'green' : opposite(myColor);
+      const myColor: ParticipantColor = normalizeColor(currentRow?.participant_color, LEGACY_PURPLE);
+      const partnerColor: ParticipantColor = normalizeColor(partnerRow?.participant_color, distinctFallback(myColor));
       return reply.send({
         profile,
         couple: coupleResult.rows[0] ?? null,
@@ -107,8 +138,8 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, realtime: Re
       if (existing.rowCount) throw new ApiError(409, 'This account is already linked to a couple.');
       const profile = await client.query('SELECT preferred_participant_color FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [request.userId]);
       if (!profile.rows[0]) throw new ApiError(404, 'Profile not found.');
-      const requested = oneOf(body.participantColor, ['purple', 'green'] as const,
-        profile.rows[0].preferred_participant_color === 'green' ? 'green' : 'purple');
+      const fallback = normalizeColor(profile.rows[0].preferred_participant_color, LEGACY_PURPLE);
+      const requested = body.participantColor === undefined ? fallback : requiredColor(body.participantColor);
 
       const coupleId = randomUUID();
       await client.query(
@@ -142,8 +173,9 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, realtime: Re
       if (invite.created_by === request.userId) throw new ApiError(400, 'You cannot join your own invite.');
       const members = await client.query('SELECT user_id,participant_color FROM couple_members WHERE couple_id=$1 ORDER BY joined_at ASC FOR UPDATE', [invite.couple_id]);
       if ((members.rowCount ?? 0) >= 2) throw new ApiError(409, 'That couple space already has two members.');
-      const taken: ParticipantColor = members.rows[0]?.participant_color === 'green' ? 'green' : 'purple';
-      const assigned = opposite(taken);
+      const taken: ParticipantColor = normalizeColor(members.rows[0]?.participant_color, LEGACY_PURPLE);
+      const assigned = body.participantColor === undefined ? distinctFallback(taken) : requiredColor(body.participantColor);
+      if (colorsTooClose(assigned, taken)) throw new ApiError(409, 'Choose a colour that is more distinct from your partner’s colour.');
       await client.query('INSERT INTO couple_members(couple_id, user_id, participant_color) VALUES($1, $2, $3)', [invite.couple_id, request.userId, assigned]);
       await client.query('UPDATE users SET preferred_participant_color=$1,updated_at=now() WHERE id=$2', [assigned, request.userId]);
       await client.query('UPDATE couple_invites SET accepted_at = now(), accepted_by = $1 WHERE id = $2', [request.userId, invite.id]);
@@ -191,14 +223,15 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, realtime: Re
       if (!timezone || !isValidTimezone(timezone)) throw new ApiError(400, 'Timezone must be a valid timezone such as Australia/Brisbane.');
       const avatarUrl = body.avatarUrl === undefined ? current.avatar_url : imageDataOrUrl(body.avatarUrl, 'Profile photo');
       const preferredColor = body.preferredColor === undefined
-        ? (current.preferred_participant_color === 'green' ? 'green' : current.preferred_participant_color === 'purple' ? 'purple' : null)
-        : oneOf(body.preferredColor, ['purple', 'green'] as const, 'purple');
+        ? (current.preferred_participant_color ? normalizeColor(current.preferred_participant_color, LEGACY_PURPLE) : null)
+        : requiredColor(body.preferredColor);
       const onboardingComplete = body.onboardingComplete === undefined ? current.onboarding_complete === true : body.onboardingComplete === true;
 
       const membership = await client.query('SELECT couple_id,participant_color FROM couple_members WHERE user_id=$1 FOR UPDATE', [request.userId]);
-      if (membership.rows[0] && preferredColor && preferredColor !== membership.rows[0].participant_color) {
-        const count = await client.query('SELECT count(*)::int AS count FROM couple_members WHERE couple_id=$1', [membership.rows[0].couple_id]);
-        if (Number(count.rows[0]?.count ?? 0) > 1) throw new ApiError(409, 'Both colours are already in use. Use “Swap our colours” to change them together.');
+      if (membership.rows[0] && preferredColor && preferredColor !== normalizeColor(membership.rows[0].participant_color, LEGACY_PURPLE)) {
+        const partnerColorResult = await client.query('SELECT participant_color FROM couple_members WHERE couple_id=$1 AND user_id<>$2 LIMIT 1', [membership.rows[0].couple_id, request.userId]);
+        const partnerColor = partnerColorResult.rows[0]?.participant_color ? normalizeColor(partnerColorResult.rows[0].participant_color, distinctFallback(preferredColor)) : null;
+        if (partnerColor && colorsTooClose(preferredColor, partnerColor)) throw new ApiError(409, 'Choose a colour that is more distinct from your partner’s colour.');
         await client.query('UPDATE couple_members SET participant_color=$1 WHERE user_id=$2', [preferredColor, request.userId]);
       }
       const result = await client.query(

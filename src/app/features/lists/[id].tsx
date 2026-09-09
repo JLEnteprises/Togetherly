@@ -20,7 +20,7 @@ import { getTags } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import type { CoupleList, CoupleListItem, Priority, Tag } from '@/types/database';
 import { useAppTheme } from '@/theme/useAppTheme';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong. Please try again.'; }
@@ -112,7 +112,7 @@ export default function ListDetailScreen() {
   function openItemMenu(item: CoupleListItem) { Alert.alert(item.title, 'Manage this item', [{ text: 'Edit item', onPress: () => editItem(item) }, { text: 'Delete item', style: 'destructive', onPress: () => setDeleteItemTarget(item) }, { text: 'Cancel', style: 'cancel' }]); }
 
   function renderItem(item: CoupleListItem) {
-    const creatorColor = colorForUser(item.creator_id); const palette = creatorColor === 'both' ? null : participantPalettes[creatorColor];
+    const creatorColor = colorForUser(item.creator_id); const palette = creatorColor === 'both' ? null : participantPalette(creatorColor);
     return (
       <View key={item.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.md, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: theme.colors.border, opacity: item.completed ? 0.62 : 1 }}>
         <Pressable accessibilityRole="checkbox" onPress={() => toggle(item)} accessibilityState={{ checked: item.completed }} style={{ width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: palette?.accent ?? theme.colors.textMuted, backgroundColor: item.completed ? (palette?.accentSoft ?? theme.colors.elevatedBackground) : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>{item.completed ? <AppIcon name="check" size={15} color={palette?.accent ?? theme.colors.textMuted} /> : null}</Pressable>

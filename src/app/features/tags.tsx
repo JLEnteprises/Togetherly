@@ -85,7 +85,7 @@ export default function TagsScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
           {tags.map((tag) => (
             <Pressable key={tag.id} accessibilityRole="button" accessibilityHint="Tap to edit. Long press to delete this tag." onLongPress={() => remove(tag.id)} onPress={() => edit(tag)}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: theme.radii.pill, borderWidth: 1, borderColor: theme.colors.border, borderLeftWidth: 3, borderLeftColor: colorForUser(tag.creator_id) === 'purple' ? theme.participantPalettes.purple.accent : colorForUser(tag.creator_id) === 'green' ? theme.participantPalettes.green.accent : theme.colors.textMuted, backgroundColor: theme.colors.card, paddingHorizontal: 13, paddingVertical: 9, opacity: pressed ? 0.72 : 1 })}>
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: theme.radii.pill, borderWidth: 1, borderColor: theme.colors.border, borderLeftWidth: 3, borderLeftColor: colorForUser(tag.creator_id) === 'both' ? theme.colors.textMuted : theme.participantPalette(colorForUser(tag.creator_id)).accent, backgroundColor: theme.colors.card, paddingHorizontal: 13, paddingVertical: 9, opacity: pressed ? 0.72 : 1 })}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>{tag.icon_drawing?.strokes?.length ? <DrawnIcon strokes={tag.icon_drawing.strokes} size={17} /> : tag.icon ? <AppText>{tag.icon}</AppText> : null}<AppText>{tag.name}</AppText></View><IconButton icon="close" label={`Delete ${tag.name}`} onPress={() => remove(tag.id)} />
             </Pressable>
           ))}

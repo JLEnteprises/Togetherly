@@ -11,7 +11,7 @@ import { getSharedScratchpad, saveSharedScratchpad, type ScratchpadMode } from '
 import { realtimeClient } from '@/services/backend/realtime';
 import type { DrawingData, DrawingStroke, SharedItem } from '@/types/database';
 import { useAppTheme } from '@/theme/useAppTheme';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 
 function messageFrom(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -131,7 +131,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
   }
 
   const ownerColor = item ? colorForUser(item.updated_by) : myColor;
-  const ownerPalette = ownerColor === 'both' ? null : participantPalettes[ownerColor];
+  const ownerPalette = ownerColor === 'both' ? null : participantPalette(ownerColor);
   const previewMode = dirty ? mode : savedMode;
   const previewStrokes = dirty ? strokes : drawingFromItem(item).strokes;
   const previewBody = dirty ? body : (item?.body ?? '');
@@ -158,7 +158,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
                 height={86}
                 strokeColorForUser={(userId) => {
                   const participant = colorForUser(userId);
-                  return participant === 'both' ? theme.colors.accent : participantPalettes[participant].accent;
+                  return participant === 'both' ? theme.colors.accent : participantPalette(participant).accent;
                 }}
               />
             ) : (
@@ -214,7 +214,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
                 onStroke={addStroke}
                 strokeColorForUser={(userId) => {
                   const participant = colorForUser(userId);
-                  return participant === 'both' ? theme.colors.accent : participantPalettes[participant].accent;
+                  return participant === 'both' ? theme.colors.accent : participantPalette(participant).accent;
                 }}
               />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

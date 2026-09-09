@@ -3,8 +3,7 @@ import type { Couple, CoupleInvite, ParticipantColor, Profile } from '@/types/da
 import { useAuth } from './AuthProvider';
 import { getWorkspace } from '@/services/backend/workspace';
 import { realtimeClient } from '@/services/backend/realtime';
-
-const oppositeColor = (color: ParticipantColor): ParticipantColor => color === 'purple' ? 'green' : 'purple';
+import { LEGACY_GREEN_COLOR, LEGACY_PURPLE_COLOR, normalizeParticipantColor, suggestDistinctParticipantColor } from '@/theme/tokens';
 
 type WorkspaceContextValue = {
   profile: Profile | null;
@@ -29,8 +28,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   const [activeInvite, setActiveInvite] = useState<CoupleInvite | null>(null);
   const [memberCount, setMemberCount] = useState(0);
   const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null);
-  const [myColor, setMyColor] = useState<ParticipantColor>('purple');
-  const [partnerColor, setPartnerColor] = useState<ParticipantColor>('green');
+  const [myColor, setMyColor] = useState<ParticipantColor>(LEGACY_PURPLE_COLOR);
+  const [partnerColor, setPartnerColor] = useState<ParticipantColor>(LEGACY_GREEN_COLOR);
   const [isLoading, setIsLoading] = useState(Boolean(user && isConfigured));
   const [error, setError] = useState<string | null>(null);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
@@ -41,8 +40,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     setActiveInvite(null);
     setMemberCount(0);
     setPartnerProfile(null);
-    setMyColor('purple');
-    setPartnerColor('green');
+    setMyColor(LEGACY_PURPLE_COLOR);
+    setPartnerColor(LEGACY_GREEN_COLOR);
     setError(null);
   }, []);
 
@@ -63,9 +62,14 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       setActiveInvite(snapshot.activeInvite);
       setMemberCount(snapshot.memberCount);
       setPartnerProfile(snapshot.partnerProfile);
-      const nextMyColor = snapshot.myColor ?? snapshot.profile.preferred_participant_color ?? 'purple';
+
+      const nextMyColor = normalizeParticipantColor(
+        snapshot.myColor ?? snapshot.profile.preferred_participant_color,
+        LEGACY_PURPLE_COLOR,
+      );
+      const fallbackPartner = suggestDistinctParticipantColor(nextMyColor);
       setMyColor(nextMyColor);
-      setPartnerColor(snapshot.partnerColor ?? oppositeColor(nextMyColor));
+      setPartnerColor(normalizeParticipantColor(snapshot.partnerColor, fallbackPartner));
     } catch (refreshError) {
       const message = refreshError instanceof Error ? refreshError.message : 'Unable to reach the Togetherly backend.';
       setError(message);

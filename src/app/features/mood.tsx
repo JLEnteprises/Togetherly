@@ -11,7 +11,7 @@ import { FadeSlideIn } from '@/components/motion/Motion';
 import { acknowledgeMood, createMood, getLatestMoods } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes } from '@/theme/tokens';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { MoodEntry, MoodValue, NeedValue } from '@/types/database';
 
@@ -64,7 +64,7 @@ export default function MoodScreen() {
     <AppScreen>
       <BackHeader eyebrow="Together" title="Mood check-in" subtitle="Say how you are — and what would actually help." />
       <Card participantColor={myColor} style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xxl }}>
-        <AppText variant="caption" style={{ color: participantPalettes[myColor].accent }}>{profile!.display_name.toUpperCase()}</AppText>
+        <AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile!.display_name.toUpperCase()}</AppText>
         <View style={{ gap: theme.spacing.sm }}><AppText variant="section">How are you feeling?</AppText><AppText variant="bodySmall" tone="secondary">Choose it deliberately. Nothing is pre-selected for you.</AppText></View>
         <ChoiceChips value={mood} onChange={setMood} options={(Object.keys(moodLabels) as MoodValue[]).map((value) => ({ value, label: moodLabels[value] }))} />
         <View style={{ gap: theme.spacing.sm }}><AppText variant="section">What do you need?</AppText><AppText variant="bodySmall" tone="secondary">Give your partner something useful to respond to.</AppText></View>
@@ -76,10 +76,10 @@ export default function MoodScreen() {
       <View style={{ gap: theme.spacing.md }}>
         <AppText variant="section">Latest</AppText>
         {partner ? <FadeSlideIn><Card participantColor={partnerColor} style={{ gap: theme.spacing.md }}>
-          <View style={{ gap: 5 }}><AppText variant="caption" style={{ color: participantPalettes[partnerColor].accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'} · {relative(partner).toUpperCase()}</AppText><AppText variant="section">{moodLabels[partner.mood]}</AppText><TagChip participantColor={partnerColor} label={`NEEDS: ${needLabels[partner.need].toUpperCase()}`} /></View>
+          <View style={{ gap: 5 }}><AppText variant="caption" style={{ color: participantPalette(partnerColor).accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'} · {relative(partner).toUpperCase()}</AppText><AppText variant="section">{moodLabels[partner.mood]}</AppText><TagChip participantColor={partnerColor} label={`NEEDS: ${needLabels[partner.need].toUpperCase()}`} /></View>
           {partner.need !== 'nothing' ? <AppButton compact variant={acknowledgedId === partner.id ? 'secondary' : 'primary'} label={acknowledgedId === partner.id ? 'Support sent' : ackBusy ? 'Sending…' : 'I’m here for you'} disabled={ackBusy || acknowledgedId === partner.id} onPress={acknowledge} /> : <AppText variant="bodySmall" tone="muted">No response needed — they just wanted you to know.</AppText>}
         </Card></FadeSlideIn> : <Card tone="secondary"><AppText tone="secondary">{partnerProfile ? `${partnerProfile.display_name} hasn’t shared a check-in yet. Private check-ins never appear here.` : 'Invite your partner to share check-ins together.'}</AppText></Card>}
-        {mine ? <Card participantColor={myColor} tone="secondary" style={{ gap: 7 }}><AppText variant="caption" style={{ color: participantPalettes[myColor].accent }}>{profile!.display_name.toUpperCase()} · {relative(mine).toUpperCase()}</AppText><AppText variant="cardTitle">{moodLabels[mine.mood]}</AppText><AppText variant="bodySmall" tone="secondary">Needs: {needLabels[mine.need]}{mine.visibility === 'private' ? ' · private' : ''}</AppText></Card> : null}
+        {mine ? <Card participantColor={myColor} tone="secondary" style={{ gap: 7 }}><AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile!.display_name.toUpperCase()} · {relative(mine).toUpperCase()}</AppText><AppText variant="cardTitle">{moodLabels[mine.mood]}</AppText><AppText variant="bodySmall" tone="secondary">Needs: {needLabels[mine.need]}{mine.visibility === 'private' ? ' · private' : ''}</AppText></Card> : null}
       </View>
     </AppScreen>
   );
