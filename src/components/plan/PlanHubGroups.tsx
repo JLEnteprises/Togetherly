@@ -42,13 +42,13 @@ function nextFutureCountdown(countdowns: CoupleCountdown[], now = Date.now()) {
 
 function nextTrip(trips: CoupleTrip[]) {
   const today = new Date().toISOString().slice(0, 10);
-  const dated = trips
+  return trips
     .filter((trip) => trip.start_date && trip.start_date >= today)
-    .sort((a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''));
-  return dated[0] ?? trips[0] ?? null;
+    .sort((a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''))[0] ?? null;
 }
 
 // G4_PLAN_EXPANDABLE_GROUPS: Plan keeps its existing feature ownership while revealing one practical group at a time.
+// CONTEXT_COMPOUNDING: realtime changes now refresh only the domain that changed instead of reloading every Plan summary.
 export function PlanHubGroups() {
   const { isExpanded, setExpanded } = useExclusiveExpandedGroup<PlanGroupKey>();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
@@ -60,42 +60,43 @@ export function PlanHubGroups() {
   const [trips, setTrips] = useState<CoupleTrip[]>([]);
   const [goals, setGoals] = useState<CoupleGoal[]>([]);
 
-  const refresh = useCallback(async () => {
-    const results = await Promise.allSettled([
-      getTasks(),
-      getLists(),
-      getNotes(),
-      getEvents(),
-      getCountdowns(),
-      getAvailabilityOverlaps(14, 30),
-      getTrips(),
-      getGoals(),
-    ]);
-
-    const [taskResult, listResult, noteResult, eventResult, countdownResult, overlapResult, tripResult, goalResult] = results;
-
-    if (taskResult.status === 'fulfilled') setTasks(taskResult.value);
-    if (listResult.status === 'fulfilled') setLists(listResult.value);
-    if (noteResult.status === 'fulfilled') setNotes(noteResult.value);
-    if (eventResult.status === 'fulfilled') setEvents(eventResult.value);
-    if (countdownResult.status === 'fulfilled') setCountdowns(countdownResult.value);
-    if (overlapResult.status === 'fulfilled') setOverlap(overlapResult.value.overlaps[0] ?? null);
-    if (tripResult.status === 'fulfilled') setTrips(tripResult.value);
-    if (goalResult.status === 'fulfilled') setGoals(goalResult.value);
+  const refreshTasks = useCallback(async () => { setTasks(await getTasks()); }, []);
+  const refreshLists = useCallback(async () => { setLists(await getLists()); }, []);
+  const refreshNotes = useCallback(async () => { setNotes(await getNotes()); }, []);
+  const refreshEvents = useCallback(async () => { setEvents(await getEvents()); }, []);
+  const refreshCountdowns = useCallback(async () => { setCountdowns(await getCountdowns()); }, []);
+  const refreshAvailability = useCallback(async () => {
+    const result = await getAvailabilityOverlaps(14, 30);
+    setOverlap(result.overlaps[0] ?? null);
   }, []);
+  const refreshTrips = useCallback(async () => { setTrips(await getTrips()); }, []);
+  const refreshGoals = useCallback(async () => { setGoals(await getGoals()); }, []);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([
+      refreshTasks(),
+      refreshLists(),
+      refreshNotes(),
+      refreshEvents(),
+      refreshCountdowns(),
+      refreshAvailability(),
+      refreshTrips(),
+      refreshGoals(),
+    ]);
+  }, [refreshAvailability, refreshCountdowns, refreshEvents, refreshGoals, refreshLists, refreshNotes, refreshTasks, refreshTrips]);
 
   useEffect(() => {
-    refresh().catch(() => undefined);
-  }, [refresh]);
+    refreshAll().catch(() => undefined);
+  }, [refreshAll]);
 
-  useRealtimeRefresh('tasks', refresh);
-  useRealtimeRefresh('lists', refresh);
-  useRealtimeRefresh('notes', refresh);
-  useRealtimeRefresh('events', refresh);
-  useRealtimeRefresh('countdowns', refresh);
-  useRealtimeRefresh('schedules', refresh);
-  useRealtimeRefresh('trips', refresh);
-  useRealtimeRefresh('goals', refresh);
+  useRealtimeRefresh('tasks', refreshTasks);
+  useRealtimeRefresh('lists', refreshLists);
+  useRealtimeRefresh('notes', refreshNotes);
+  useRealtimeRefresh('events', refreshEvents);
+  useRealtimeRefresh('countdowns', refreshCountdowns);
+  useRealtimeRefresh('schedules', refreshAvailability);
+  useRealtimeRefresh('trips', refreshTrips);
+  useRealtimeRefresh('goals', refreshGoals);
 
   const openTasks = useMemo(
     () => tasks.filter((task) => task.status !== 'completed' && task.status !== 'skipped'),
@@ -132,7 +133,7 @@ export function PlanHubGroups() {
 
   const aheadSummary = upcomingTrip
     ? `${upcomingTrip.title}${upcomingTrip.start_date ? ` · ${shortWhen(new Date(`${upcomingTrip.start_date}T12:00:00`))}` : ''} · ${plural(activeGoals.length, 'active goal')}`
-    : `${plural(activeGoals.length, 'active goal')} · no trip planned`;
+    : `${plural(activeGoals.length, 'active goal')} · no upcoming trip planned`;
 
   const organiseItems = useMemo<ExpandableFeatureGroupItem[]>(() => [
     {
