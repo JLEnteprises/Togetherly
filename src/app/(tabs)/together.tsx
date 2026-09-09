@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
 import { CoupleIdentitySignature } from '@/components/common/CoupleIdentitySignature';
 import { HomeConnectionActions } from '@/components/dashboard/HomeConnectionActions';
+import { RightNowActivityCard } from '@/components/together/RightNowActivityCard';
 import { TogetherHubGroups } from '@/components/together/TogetherHubGroups';
 import { useAppTheme } from '@/theme/useAppTheme';
 
@@ -21,6 +22,7 @@ export default function TogetherScreen() {
         <PartnerPresencePill scope="together" />
 
         <HomeConnectionActions context="together" />
+        <RightNowActivityCard />
         <TogetherHubGroups />
       </View>
     </AppScreen>

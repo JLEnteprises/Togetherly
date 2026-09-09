@@ -148,8 +148,8 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
         return rawRequest<T>(path, { ...options, retryAfterConfig: false });
       }
     }
+    if (authenticated && method === 'GET') reportFreshness(path, false);
     if (authenticated && method === 'GET' && options.cache !== false) {
-      reportFreshness(path, false);
       const cached = await readCachedResponse<T>(path);
       if (cached !== null) return cached;
     }

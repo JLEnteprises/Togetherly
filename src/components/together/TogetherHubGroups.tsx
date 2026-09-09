@@ -1,3 +1,5 @@
+import { AppText } from '@/components/common/AppText';
+import { SyncStatus } from '@/components/common/SyncStatus';
 import { router } from 'expo-router';
 import { AppButton } from '@/components/common/AppButton';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,6 +10,7 @@ import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { getGames } from '@/services/backend/games';
 import { getActivities, getDailyQuestion, getLatestMoods } from '@/services/backend/mvpFeatures';
 import type { CoupleActivity, DailyQuestionState, GameSession, MoodEntry } from '@/types/database';
+import { moodSupportForNeed } from '@/utils/moodSupport';
 
 type TogetherGroupKey = 'checkIn' | 'play' | 'thingsToDo';
 
@@ -30,7 +33,9 @@ function questionStatus(question: DailyQuestionState | null, partnerName: string
 }
 
 // G3_TOGETHER_CONSOLIDATION: Together exposes one compact hierarchy for check-in, play, and things to do.
+// CONTEXT_COMPOUNDING: realtime updates are domain-specific and check-in summaries carry the partner's stated need.
 export function TogetherHubGroups() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const { partnerProfile } = useWorkspace();
   const { isExpanded, setExpanded } = useExclusiveExpandedGroup<TogetherGroupKey>();
   const [question, setQuestion] = useState<DailyQuestionState | null>(null);
@@ -38,28 +43,23 @@ export function TogetherHubGroups() {
   const [games, setGames] = useState<GameSession[]>([]);
   const [activities, setActivities] = useState<CoupleActivity[]>([]);
 
-  const refresh = useCallback(async () => {
-    const [questionResult, moodsResult, gamesResult, activitiesResult] = await Promise.allSettled([
-      getDailyQuestion(),
-      getLatestMoods(),
-      getGames(),
-      getActivities(),
-    ]);
-
-    if (questionResult.status === 'fulfilled') setQuestion(questionResult.value);
-    if (moodsResult.status === 'fulfilled') setPartnerMood(moodsResult.value.partner);
-    if (gamesResult.status === 'fulfilled') setGames(gamesResult.value);
-    if (activitiesResult.status === 'fulfilled') setActivities(activitiesResult.value);
-  }, []);
+  const refreshQuestion = useCallback(async () => { setQuestion(await getDailyQuestion()); }, []);
+  const refreshMood = useCallback(async () => { setPartnerMood((await getLatestMoods()).partner); }, []);
+  const refreshGames = useCallback(async () => { setGames(await getGames()); }, []);
+  const refreshActivities = useCallback(async () => { setActivities(await getActivities()); }, []);
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([refreshQuestion(), refreshMood(), refreshGames(), refreshActivities()]);
+    setInitialLoading(false);
+  }, [refreshActivities, refreshGames, refreshMood, refreshQuestion]);
 
   useEffect(() => {
-    refresh().catch(() => undefined);
-  }, [refresh]);
+    refreshAll().catch(() => undefined);
+  }, [refreshAll]);
 
-  useRealtimeRefresh('questions', refresh);
-  useRealtimeRefresh('moods', refresh);
-  useRealtimeRefresh('games', refresh);
-  useRealtimeRefresh('activities', refresh);
+  useRealtimeRefresh('questions', refreshQuestion);
+  useRealtimeRefresh('moods', refreshMood);
+  useRealtimeRefresh('games', refreshGames);
+  useRealtimeRefresh('activities', refreshActivities);
 
   const partnerName = partnerProfile?.display_name ?? 'Your partner';
   const activeGames = useMemo(() => games.filter((game) => game.status === 'active'), [games]);
@@ -70,7 +70,8 @@ export function TogetherHubGroups() {
 
   const checkInSummary = useMemo(() => {
     const moodTime = relative(partnerMood);
-    const moodText = moodTime ? `${partnerName} checked in ${moodTime}` : `${partnerName} hasn’t checked in yet`;
+    const moodNeed = partnerMood && partnerMood.need !== 'nothing' ? ` · needs ${moodSupportForNeed(partnerMood.need).needLabel}` : '';
+    const moodText = moodTime ? `${partnerName} checked in ${moodTime}${moodNeed}` : `${partnerName} hasn’t checked in yet`;
     return `${questionStatus(question, partnerName)} · ${moodText}`;
   }, [partnerMood, partnerName, question]);
 
@@ -113,13 +114,21 @@ export function TogetherHubGroups() {
       href: '/features/daily-question',
     },
     {
+      key: 'mood',
+      icon: 'mood',
+      title: 'Mood check-in',
+      subtitle: 'Say how you feel and what would actually help',
+      status: partnerMood?.need && partnerMood.need !== 'nothing' ? `Needs ${moodSupportForNeed(partnerMood.need).needLabel}` : undefined,
+      href: '/features/mood',
+    },
+    {
       key: 'live-location',
       icon: 'location',
       title: 'Live location',
       subtitle: 'See each other on the map when you choose',
       href: '/features/location',
     },
-  ], []);
+  ], [partnerMood]);
 
   const thingsItems = useMemo<ExpandableFeatureGroupItem[]>(() => [
     {
@@ -130,22 +139,29 @@ export function TogetherHubGroups() {
       status: savedIdeas.length ? String(savedIdeas.length) : undefined,
       href: '/features/activities',
     },
+    {
+      key: 'right-now',
+      icon: 'spark',
+      title: 'What should we do right now?',
+      subtitle: 'Use the randomizer when you want Togetherly to narrow the choice',
+      href: '/features/activity-randomizer?context=right-now',
+    },
   ], [savedIdeas.length]);
 
   return (
     <>
-      <AppButton label="Plan time together" onPress={() => router.push('/features/date-plans' as never)} />
-      <AppButton variant="secondary" label="Open together · time capsules" onPress={() => router.push('/features/time-capsules' as never)} />
+      <SyncStatus resources={['daily-question', 'moods', 'games', 'activities']} retry={refreshAll} />
+      <AppButton variant="secondary" label="Plan time together" onPress={() => router.push('/features/date-plans' as never)} />
       <ExpandableFeatureGroup
         eyebrow="CHECK IN"
         icon="mood"
         title="Check in"
-        summary={checkInSummary}
+        summary={initialLoading ? 'Loading…' : checkInSummary}
         items={checkInItems}
         expanded={isExpanded('checkIn')}
         onExpandedChange={(expanded) => setExpanded('checkIn', expanded)}
         participantColor="both"
-        accessibilityHint="Expand to open the daily question or live location. Mood check-in is available above."
+        accessibilityHint="Expand to open your daily question, mood check-in or live location."
       />
 
       <ExpandableFeatureGroup

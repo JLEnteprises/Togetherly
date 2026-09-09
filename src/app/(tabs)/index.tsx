@@ -2,7 +2,6 @@ import { HomeHeader } from '@/components/dashboard/HomeHeader';
 import { RecentMemoryCard } from '@/components/dashboard/RecentMemoryCard';
 import { View } from 'react-native';
 import { AppScreen } from '@/components/common/AppScreen';
-import { CoupleHero } from '@/components/dashboard/CoupleHero';
 import { InvitePartnerCard } from '@/components/dashboard/InvitePartnerCard';
 import { HomeTodayCard } from '@/components/dashboard/HomeTodayCard';
 import { HomeConnectionActions } from '@/components/dashboard/HomeConnectionActions';
@@ -33,12 +32,11 @@ export default function HomeScreen() {
         <HomeHeader />
 
         <InvitePartnerCard />
-        <CoupleHero />
         <FirstTimeGuideCard />
 
-        {couple && partnerProfile ? <HomeConnectionActions /> : null}
         {orderedVisible.map((item) => renderSection(item.key))}
         <RecentMemoryCard />
+        {couple && partnerProfile ? <HomeConnectionActions /> : null}
       </View>
     </AppScreen>
   );

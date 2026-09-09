@@ -1,3 +1,4 @@
+import { moodIsCurrent } from '@/utils/experience';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -30,9 +31,9 @@ function durationLabel(minutes: number | null) {
   return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hr`;
 }
 function moodNeedsSoftPlan(entry: MoodEntry | null) {
-  return Boolean(entry && ['low', 'frustrated', 'overwhelmed', 'tired', 'stressed'].includes(entry.mood));
+  return Boolean(moodIsCurrent(entry) && entry && ['low', 'frustrated', 'overwhelmed', 'tired', 'stressed'].includes(entry.mood));
 }
-function moodNeedsDistraction(entry: MoodEntry | null) { return entry?.need === 'distraction'; }
+function moodNeedsDistraction(entry: MoodEntry | null) { return moodIsCurrent(entry) && entry?.need === 'distraction'; }
 
 type ContextPlan = {
   locationType?: ActivityLocationType;
@@ -81,7 +82,7 @@ export default function ActivityNowScreen() {
     const timeOfDay = timeOfDayNow();
     reasons.push(`It’s ${timeOfDay === 'night' ? 'evening' : timeOfDay} where you are, so the pick matches the moment.`);
 
-    const maxMinutes = nearOverlap ? Math.max(15, Math.min(360, Math.floor(nearOverlap.durationMinutes))) : undefined;
+    const maxMinutes = nearOverlap ? Math.max(15, Math.min(360, Math.floor((Date.parse(nearOverlap.endAt) - Math.max(now, Date.parse(nearOverlap.startAt))) / 60000))) : undefined;
     if (maxMinutes) reasons.push(`Your shared free-time window gives you about ${durationLabel(maxMinutes)} to work with.`);
 
     return { locationType, mood, timeOfDay, maxMinutes, reasons };
@@ -101,10 +102,10 @@ export default function ActivityNowScreen() {
         maxMinutes: nextPlan.maxMinutes,
       };
       let nextPick = await randomActivity(contextualFilters);
-      if (!nextPick && (nextPlan.mood || nextPlan.maxMinutes)) {
-        nextPick = await randomActivity({ locationType: nextPlan.locationType, timeOfDay: nextPlan.timeOfDay });
+      if (!nextPick && nextPlan.mood) {
+        nextPick = await randomActivity({ locationType: nextPlan.locationType, timeOfDay: nextPlan.timeOfDay, maxMinutes: nextPlan.maxMinutes });
+        if (nextPick) setPlan({ ...nextPlan, reasons: [...nextPlan.reasons.filter((reason) => !reason.includes('check-in') && !reason.includes('distraction')), 'No saved idea matched the mood preference. This alternative still fits the time and location filters.'] });
       }
-      if (!nextPick) nextPick = await randomActivity({ locationType: nextPlan.locationType });
       setPick(nextPick);
     } catch (error) {
       Alert.alert('Couldn’t choose something for right now', messageFrom(error));
@@ -130,13 +131,8 @@ export default function ActivityNowScreen() {
 
   function planPick() {
     if (!pick) return;
-    const query = new URLSearchParams({
-      prefillTitle: pick.title,
-      prefillDescription: pick.description || '',
-      prefillDuration: String(pick.duration_minutes ?? 120),
-      sourceActivityId: pick.id,
-    });
-    router.push(`/features/calendar?${query.toString()}` as never);
+    const query = new URLSearchParams({ title: pick.title, activityId: pick.id });
+    router.push(`/features/date-plans?${query.toString()}` as never);
   }
 
   const intro = useMemo(() => {
@@ -147,7 +143,7 @@ export default function ActivityNowScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Together" title="What fits right now?" subtitle="One suggestion based on the moment you’re already in." />
+      <BackHeader eyebrow="Connect" title="What fits right now?" subtitle="One suggestion based on the moment you’re already in." />
       <PartnerPresencePill scope="activity-now" />
 
       <Card participantColor="both" tone="secondary" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xl }}>
@@ -169,7 +165,7 @@ export default function ActivityNowScreen() {
           <TagChip subtle label={durationLabel(pick.duration_minutes).toUpperCase()} />
           {pick.mood !== 'any' ? <TagChip subtle label={pick.mood.toUpperCase()} /> : null}
         </View>
-        <AppButton icon="heart" label="Make this the plan" onPress={planPick} />
+        <AppButton icon="heart" label="Suggest this to my partner" onPress={planPick} />
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
           <View style={{ flex: 1 }}><AppButton variant="secondary" label="Another one" disabled={busy} onPress={() => void notNow()} /></View>
           <View style={{ flex: 1 }}><AppButton variant="ghost" label="Tune filters" onPress={() => router.push('/features/activity-randomizer' as never)} /></View>

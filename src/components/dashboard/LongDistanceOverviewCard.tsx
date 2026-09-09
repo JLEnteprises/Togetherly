@@ -1,3 +1,4 @@
+import { SyncStatus } from '@/components/common/SyncStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { DataStatus } from '@/components/common/DataStatus';
@@ -117,6 +118,7 @@ export function LongDistanceOverviewCard() {
   return (
     <Card participantColor="both" tone="secondary" style={{ gap: theme.spacing.lg, padding: theme.spacing.lg }}>
       <DataStatus loading={loading} error={loadError} retry={() => { void refresh(); }} />
+      <SyncStatus resources={['countdowns', 'trips', 'availability']} retry={refresh} />
       <View style={{ gap: 3 }}>
         <AppText variant="section">Across the distance</AppText>
         <AppText variant="bodySmall" tone="muted">Your two days, in one shared view.</AppText>

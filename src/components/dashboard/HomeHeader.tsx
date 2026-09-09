@@ -14,17 +14,18 @@ export function HomeHeader() {
   const [now, setNow] = useState(() => new Date());
   const refresh = useCallback(() => { getNotifications().then((result) => setUnread(result.unreadCount)).catch(() => undefined); }, []);
   useFocusEffect(refresh);
-  useEffect(() => realtimeClient.subscribe((event) => { if (event.type === 'feature.updated') refresh(); }), [refresh]);
+  useEffect(() => realtimeClient.subscribe((event) => { if (event.type === 'feature.updated' && ['date_proposals','time_capsules','relationship_pings','moods','questions','events'].includes(event.resource)) refresh(); }), [refresh]);
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(timer); }, []);
   let partnerTime = '';
   try { if (partnerProfile) partnerTime = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: partnerProfile.timezone }).format(now); } catch { /* Missing timezone is optional. */ }
   return <View style={{ gap: 10 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <AppText variant="pageTitle" style={{ flex: 1 }}>Hi, {profile?.display_name || 'you'}</AppText>
+      <AppText variant="caption" tone="secondary" style={{ flex: 1 }}>OUR SHARED SPACE</AppText>
       <IconButton icon="search" label="Search your shared space" onPress={() => router.push('/features/search')} />
       <IconButton icon="notification" label={`Inbox${unread ? `, ${unread} unread` : ''}`} onPress={() => router.push('/features/inbox' as never)} />
       <IconButton icon="settings" label="Account and settings" onPress={() => router.push('/(tabs)/more')} />
     </View>
+    <AppText variant="pageTitle">{profile?.display_name || 'You'}{partnerProfile ? ` + ${partnerProfile.display_name}` : ''}</AppText>
     {unread > 0 ? <AppText variant="caption" tone="accent" onPress={() => router.push('/features/inbox' as never)}>{unread} unread in your inbox</AppText> : null}
     {partnerTime ? <AppText variant="bodySmall" tone="secondary">{partnerProfile?.display_name}’s time · {partnerTime}</AppText> : null}
   </View>;

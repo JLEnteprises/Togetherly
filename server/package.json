@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "migrate": "tsx src/db/migrate.ts",
     "smoke": "tsx src/smoke.ts",
-    "logic": "node --import tsx ../src/utils/logicSmoke.ts",
+    "logic": "node --import tsx ../src/utils/logicSmoke.ts && node --import tsx ../src/utils/draftSmoke.ts",
     "test:experience": "node --import tsx src/experienceSmoke.ts"
   },
   "dependencies": {

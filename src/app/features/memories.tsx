@@ -1,3 +1,6 @@
+import { getCapsules } from '@/services/backend/experience';
+import { useDurableDraft } from '@/hooks/useDurableDraft';
+import { DraftStatus } from '@/components/common/DraftStatus';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -38,8 +41,8 @@ type Filter = 'all' | 'milestones' | 'mine' | 'partner';
 // H3_MEMORY_PHOTO_INTEGRATION: Memories link to first-class Photos, can choose existing images, and photo taps open PhotoViewer.
 export default function MemoriesScreen() {
   const theme = useAppTheme();
-  const params = useLocalSearchParams<{ focus?: string; edit?: string; sourceEvent?: string; sourceTrip?: string }>();
-  const { profile, partnerProfile } = useWorkspace();
+  const params = useLocalSearchParams<{ focus?: string; edit?: string; sourceEvent?: string; sourceTrip?: string; sourceCapsule?: string }>();
+  const { profile, partnerProfile, couple } = useWorkspace();
 
   const [memories, setMemories] = useState<CoupleMemory[]>([]);
   const [photos, setPhotos] = useState<CouplePhoto[]>([]);
@@ -68,6 +71,21 @@ export default function MemoriesScreen() {
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerPhotos, setViewerPhotos] = useState<CouplePhoto[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
+
+  const draft = useDurableDraft(profile && couple ? `togetherly:draft:memories:${profile.id}:${couple.id}` : null,
+    { title, date, description, location, emoji, selectedPhotoIds, uploadUrls, milestone, selectedTags, editingId, source }, (saved) => {
+      setTitle(saved.title);
+      setDate(saved.date);
+      setDescription(saved.description);
+      setLocation(saved.location);
+      setEmoji(saved.emoji);
+      setSelectedPhotoIds(saved.selectedPhotoIds);
+      setUploadUrls(saved.uploadUrls);
+      setMilestone(saved.milestone);
+      setSelectedTags(saved.selectedTags);
+      setEditingId(saved.editingId);
+      setSource(saved.source);
+    }, Boolean(title || description));
 
   const refresh = useCallback(async () => {
     try {
@@ -102,6 +120,7 @@ export default function MemoriesScreen() {
   );
 
   function resetForm(close = true) {
+    void draft.clear().catch(() => Alert.alert('Draft cleanup failed', 'Your saved draft could not be removed.'));
     setSource({});
     setEditingId(null);
     setTitle('');
@@ -166,12 +185,16 @@ export default function MemoriesScreen() {
   }, [params.edit, memories, editingId]);
 
   useEffect(() => {
-    const key = params.sourceEvent || params.sourceTrip || '';
-    if (!key || hydratedSource.current === key) return;
+    const key = params.sourceEvent || params.sourceTrip || params.sourceCapsule || '';
+    if (!draft.ready || !key || hydratedSource.current === key) return;
     let active = true;
     async function loadSource() {
       try {
-        if (params.sourceEvent) {
+        if (params.sourceCapsule) {
+          const capsule = (await getCapsules()).find((item) => item.id === params.sourceCapsule && item.opened && item.opened_by_me);
+          if (!capsule) throw new Error('Open this capsule before saving it into your story.');
+          setTitle(capsule.title); setDescription(capsule.body || ''); setDate(localDateKey(new Date())); setUploadUrls(capsule.photo_url ? [capsule.photo_url] : []);
+        } else if (params.sourceEvent) {
           const event = (await getEvents()).find((item) => item.id === params.sourceEvent);
           if (!event) throw new Error('The calendar event is no longer available.');
           if (!active) return;
@@ -185,7 +208,7 @@ export default function MemoriesScreen() {
       } catch (error) { if (active) Alert.alert('Couldn’t open the plan', messageFrom(error)); }
     }
     void loadSource(); return () => { active = false; };
-  }, [params.sourceEvent, params.sourceTrip]);
+  }, [params.sourceEvent, params.sourceTrip, params.sourceCapsule, draft.ready]);
 
   async function save() {
     if (!title.trim() || !date) {
@@ -255,7 +278,8 @@ export default function MemoriesScreen() {
   return <AppScreen>
     <BackHeader eyebrow="Our story" title="Memories" subtitle="The moments you chose to keep, all in one place." />
 
-    <ComposerSheet
+    {draft.status === 'error' ? <AppButton compact variant="secondary" label="Retry restoring or saving draft" onPress={draft.retry} /> : null}
+      <ComposerSheet
       title={editingId ? 'Edit memory' : 'Add a memory'}
       subtitle={`${memories.length} memories saved`}
       open={composerOpen}
@@ -263,9 +287,10 @@ export default function MemoriesScreen() {
       closeLabel={editingId ? 'Cancel edit' : 'Close'}
       tone="accent"
       style={{ marginBottom: theme.spacing.lg }}
-      dirty={Boolean(title || description || uploadUrls.length || selectedPhotoIds.length)} onDiscard={() => resetForm()} busy={busy} onToggle={() => setComposerOpen(!composerOpen)}
+      dirty={Boolean(title || description || uploadUrls.length || selectedPhotoIds.length)} onDiscard={() => resetForm()} busy={busy || !draft.ready} onToggle={() => setComposerOpen(!composerOpen)}
     >
-      <FormField label="What happened?" value={title} onChangeText={setTitle} placeholder="First meeting" />
+      <DraftStatus status={draft.status} />
+        <FormField label="What happened?" value={title} onChangeText={setTitle} placeholder="First meeting" />
       <DatePickerField label="When was it?" value={date} onChange={setDate} />
       <MemoryPhotoField
         photos={photos}

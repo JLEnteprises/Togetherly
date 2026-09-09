@@ -37,6 +37,38 @@ try {
   await call(userA, 'POST', '/date-proposals', { ...input, id: randomUUID(), endAt: startAt }, 400);
   console.log('PASS conflicting times, counterproposals, and invalid intervals');
 
+  const rescheduleId = randomUUID();
+  const rescheduleStart = new Date(Date.now()+5*86400000).toISOString();
+  const rescheduleEnd = new Date(Date.now()+5*86400000+3600000).toISOString();
+  await call(userA,'POST','/date-proposals',{id:rescheduleId,title:'Our new time',startAt:rescheduleStart,endAt:rescheduleEnd,replacesEventId:accepted.proposal.event_id},201);
+  const beforeMove = (await db.query<{start_at:Date}>('SELECT start_at FROM events WHERE id=$1',[accepted.proposal.event_id])).rows[0]!;
+  assert.equal(new Date(beforeMove.start_at).toISOString(),startAt,'Original booking stays until accepted');
+  await call(userC,'POST','/date-proposals',{id:randomUUID(),title:'Intrusion',startAt:rescheduleStart,endAt:rescheduleEnd,replacesEventId:accepted.proposal.event_id},404);
+  const moved = await call(userB,'POST',`/date-proposals/${rescheduleId}/respond`,{action:'accept',revision:1});
+  assert.equal(moved.proposal.event_id,accepted.proposal.event_id);
+  const original = (await call(userA,'GET','/date-proposals')).proposals.find((p:{id:string})=>p.id===proposalId);
+  assert.equal(original.start_at,rescheduleStart);
+  assert.equal((await db.query('SELECT id FROM events WHERE couple_id=$1',[couple])).rows.length,2,'Rescheduling never duplicates the event');
+  console.log('PASS rescheduling preserves the old booking until agreement and keeps both records aligned');
+
+  async function recurringConflict(recurrence:string,anchor:string,end:string,proposed:string,zone='Australia/Brisbane',allDay=false,date:string|null=null) {
+    const eventId=randomUUID(); const id=randomUUID();
+    await db.query('UPDATE users SET timezone=$1 WHERE id=$2',[zone,userA]);
+    await db.query(`INSERT INTO events(id,couple_id,creator_id,title,start_at,end_at,recurrence,all_day,start_date,assign_to_both)
+      VALUES($1,$2,$3,'Recurring commitment',$4,$5,$6,$7,$8,true)`,[eventId,couple,userA,anchor,end,recurrence,allDay,date]);
+    await call(userA,'POST','/date-proposals',{id,title:'Conflict check',startAt:proposed,endAt:new Date(Date.parse(proposed)+1800000).toISOString()},201);
+    await call(userB,'POST',`/date-proposals/${id}/respond`,{action:'accept',revision:1},409);
+    await db.query('DELETE FROM events WHERE id=$1',[eventId]);
+  }
+  await recurringConflict('daily','2020-01-01T08:00:00Z','2020-01-01T09:00:00Z','2035-06-15T08:15:00Z');
+  await recurringConflict('monthly','2035-01-31T08:00:00Z','2035-01-31T09:00:00Z','2035-02-28T08:15:00Z');
+  await recurringConflict('yearly','2032-02-29T08:00:00Z','2032-02-29T09:00:00Z','2035-02-28T08:15:00Z');
+  await recurringConflict('weekly','2035-03-04T16:00:00Z','2035-03-04T17:00:00Z','2035-03-11T15:15:00Z','America/Chicago');
+  await recurringConflict('none','2035-05-12T02:00:00Z','2035-05-12T02:00:00Z','2035-05-11T15:00:00Z','Australia/Brisbane',true,'2035-05-12');
+  await db.query("UPDATE users SET timezone='Australia/Brisbane' WHERE id=$1",[userA]);
+  console.log('PASS daily, month-end, leap-day, DST recurrence, and local all-day conflicts');
+
+
   const memory = await call(userA, 'POST', '/memories', { title: 'That night', memoryDate: '2026-01-01', sourceEventId: accepted.proposal.event_id }, 201);
   assert.equal(memory.memory.source_event_id, accepted.proposal.event_id);
   await call(userC, 'POST', '/memories', { title: 'Wrong space', memoryDate: '2026-01-01', sourceEventId: accepted.proposal.event_id }, 404);
@@ -60,9 +92,23 @@ try {
   }
   assert.equal((await call(userC, 'GET', '/time-capsules')).capsules.length, 0);
   await call(userB, 'DELETE', `/time-capsules/${capsuleId}`, undefined, 404);
+  await call(userB,'POST',`/time-capsules/${capsuleId}/open`,{},409);
+  await call(userC,'POST',`/time-capsules/${capsuleId}/open`,{},404);
+  await call(userB,'PUT',`/time-capsules/${capsuleId}/reaction`,{body:'Too soon'},404);
   await db.query("UPDATE time_capsules SET opens_at=now()-interval '1 minute' WHERE id=$1", [capsuleId]);
   assert.equal((await call(userB, 'GET', '/time-capsules')).capsules[0].body, secret);
+  const {runReminderSweepForUser}=await import('./reminders/scheduler.js');
+  await runReminderSweepForUser(userA); await runReminderSweepForUser(userA);
+  assert.equal((await db.query('SELECT id FROM notifications WHERE recipient_user_id=$1 AND dedupe_key=$2',[userA,`capsule-ready:${capsuleId}`])).rows.length,1);
+  await call(userB,'POST',`/time-capsules/${capsuleId}/open`,{});
+  await call(userB,'POST',`/time-capsules/${capsuleId}/open`,{});
+  await call(userB,'PUT',`/time-capsules/${capsuleId}/reaction`,{body:'I love this'});
+  const ready=(await call(userB,'GET','/time-capsules')).capsules[0];
+  assert.equal(ready.opened_by_me,true); assert.equal(ready.responses[0].body,'I love this');
+  assert.equal((await call(userA,'GET','/time-capsules')).capsules[0].opened_by_me,false);
+  await call(userC,'PUT',`/time-capsules/${capsuleId}/reaction`,{body:'Intrusion'},404);
   await call(userA, 'DELETE', `/time-capsules/${capsuleId}`, undefined, 204);
+  console.log('PASS explicit capsule opening, independent reads, partner responses, and reminder deduplication');
   console.log('PASS sealed content stays server-side, timed reveal, and deletion ownership');
 
   const checkIn = await call(userA, 'POST', '/moods', { mood: 'tired', need: 'space', visibility: 'private', context: 'After work', validForHours: 4 }, 201);
@@ -73,6 +119,7 @@ try {
   console.log('PASS private check-in context and expiry validation');
   const replaySql = await (await import('node:fs/promises')).readFile(new URL('../migrations/020_connected_experience.sql', import.meta.url), 'utf8');
   await db.exec(replaySql);
+  await db.exec(await (await import('node:fs/promises')).readFile(new URL('../migrations/021_experience_followthrough.sql',import.meta.url),'utf8'));
   console.log('PASS additive migration can be replayed without losing data');
   console.log('All connected-experience checks passed. All migrations applied to isolated PostgreSQL.');
 } finally { await app.close(); await db.close(); await f.pool.end(); }

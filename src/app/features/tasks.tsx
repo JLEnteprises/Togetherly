@@ -1,3 +1,5 @@
+import { useDurableDraft } from '@/hooks/useDurableDraft';
+import { DraftStatus } from '@/components/common/DraftStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -75,7 +77,7 @@ export default function TasksScreen() {
   const theme = useAppTheme();
   const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
   const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
-  const { colorForUser, profile, partnerProfile } = useWorkspace();
+  const { colorForUser, profile, partnerProfile, couple } = useWorkspace();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -107,6 +109,27 @@ export default function TasksScreen() {
   const [deleteTarget, setDeleteTarget] = useState<CoupleTask | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const draft = useDurableDraft(profile && couple ? `togetherly:draft:tasks:${profile.id}:${couple.id}` : null,
+    { title, description, dueDate, startDate, durationAmount, durationUnit, priority, recurrence, draftSteps, assignee, editingId, editingUpdatedAt, selectedTagIds, newSubtaskTitle, newSubtaskDueDate, newSubtaskDurationAmount, newSubtaskDurationUnit }, (saved) => {
+      setTitle(saved.title);
+      setDescription(saved.description);
+      setDueDate(saved.dueDate);
+      setStartDate(saved.startDate);
+      setDurationAmount(saved.durationAmount);
+      setDurationUnit(saved.durationUnit);
+      setPriority(saved.priority);
+      setRecurrence(saved.recurrence);
+      setDraftSteps(saved.draftSteps);
+      setAssignee(saved.assignee);
+      setEditingId(saved.editingId);
+      setEditingUpdatedAt(saved.editingUpdatedAt);
+      setSelectedTagIds(saved.selectedTagIds);
+      setNewSubtaskTitle(saved.newSubtaskTitle);
+      setNewSubtaskDueDate(saved.newSubtaskDueDate);
+      setNewSubtaskDurationAmount(saved.newSubtaskDurationAmount);
+      setNewSubtaskDurationUnit(saved.newSubtaskDurationUnit);
+    }, Boolean(title || description));
 
   const refresh = useCallback(async () => {
     try {
@@ -150,6 +173,7 @@ export default function TasksScreen() {
   }, [assignmentFilter, partnerProfile?.id, profile?.id, statusFilter, tasks]);
 
   function resetEditor(close = true) {
+    void draft.clear().catch(() => Alert.alert('Draft cleanup failed', 'Your saved draft could not be removed.'));
     setEditingId(null); setEditingUpdatedAt(null); setTitle(''); setDescription(''); setDueDate(''); setStartDate(''); setDurationAmount(''); setDurationUnit('hours'); setPriority('normal'); setRecurrence('none'); setDraftSteps([]); setNewSubtaskTitle(''); setNewSubtaskDueDate(''); setNewSubtaskDurationAmount(''); setNewSubtaskDurationUnit('hours'); setTimingStepId(null); setAssignee('both'); setSelectedTagIds([]); setAdvancedOpen(false);
     if (close) setComposerOpen(false);
   }
@@ -262,6 +286,7 @@ export default function TasksScreen() {
         </View>
       </Card>
 
+      {draft.status === 'error' ? <AppButton compact variant="secondary" label="Retry restoring or saving draft" onPress={draft.retry} /> : null}
       <ComposerSheet
         title={editingId ? 'Edit task' : 'Add something to do'}
         subtitle={editingId ? undefined : `${tasks.length - completed} still open`}
@@ -270,8 +295,9 @@ export default function TasksScreen() {
         closeLabel={editingId ? 'Cancel edit' : 'Close'}
         tone="accent"
         style={{ marginBottom: theme.spacing.lg }}
-        busy={busy} dirty={Boolean(title.trim() || description.trim() || draftSteps.length)} onDiscard={() => resetEditor()} onToggle={() => setComposerOpen((value) => !value)}
+        busy={busy || !draft.ready} dirty={Boolean(title.trim() || description.trim() || draftSteps.length)} onDiscard={() => resetEditor()} onToggle={() => setComposerOpen((value) => !value)}
       >
+        <DraftStatus status={draft.status} />
         <FormField label="What needs doing?" value={title} onChangeText={setTitle} placeholder="Book dinner for Saturday" returnKeyType="done" />
         <View style={{ gap: theme.spacing.sm }}><AppText variant="bodySmall" tone="secondary">Who’s doing it?</AppText><ChoiceChips value={assignee} onChange={setAssignee} options={[{ value: 'both', label: 'Both of us' }, { value: 'me', label: profile?.display_name ? `Me · ${profile.display_name}` : 'Me' }, ...(partnerProfile ? [{ value: 'partner' as const, label: partnerProfile.display_name }] : [])]} /></View>
         <DetailsToggle open={advancedOpen} onToggle={() => setAdvancedOpen((value) => !value)} closedLabel="Add dates & details" openLabel="Hide dates & details" hint="Due dates, steps, priority, repeat and tags." />

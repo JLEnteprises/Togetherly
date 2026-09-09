@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
+import { router } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
 import { CelebrationMoment } from '@/components/common/CelebrationMoment';
@@ -14,11 +15,11 @@ import { ChoiceChips } from '@/components/common/ChoiceChips';
 import { AppIcon } from '@/components/art/AppIcon';
 import { ConnectionOrbitArt } from '@/components/art/TogetherlyArt';
 import { FadeSlideIn, GentleFloat, RevealScale } from '@/components/motion/Motion';
-import { answerDailyQuestion, getDailyQuestion, getDailyQuestionHistory, revealDailyQuestion, updateDailyQuestionSettings } from '@/services/backend/mvpFeatures';
+import { answerDailyQuestion, createMemory, getDailyQuestion, getDailyQuestionHistory, revealDailyQuestion, updateDailyQuestionSettings } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useCelebrationMoment } from '@/hooks/useCelebrationMoment';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
-import { participantPalettes, participantPalette } from '@/theme/tokens';
+import { participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { DailyQuestionHistoryEntry, DailyQuestionState } from '@/types/database';
 
@@ -43,6 +44,8 @@ export default function DailyQuestionScreen() {
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [revealBusy, setRevealBusy] = useState(false);
+  const [memoryBusy, setMemoryBusy] = useState(false);
+  const [savedAsMemory, setSavedAsMemory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -60,7 +63,7 @@ export default function DailyQuestionScreen() {
 
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
   useEffect(() => { if (view === 'history') refreshHistory().catch(() => undefined); }, [refreshHistory, view]);
-  useEffect(() => { setRevealed(Boolean(state?.revealed)); }, [state?.date, state?.question?.id, state?.revealed]);
+  useEffect(() => { setRevealed(Boolean(state?.revealed)); setSavedAsMemory(false); }, [state?.date, state?.question?.id, state?.revealed]);
   useRealtimeRefresh('questions', () => Promise.all([refresh(), view === 'history' ? refreshHistory() : Promise.resolve()]).then(() => undefined));
 
   async function save() {
@@ -82,6 +85,27 @@ export default function DailyQuestionScreen() {
       Alert.alert('Couldn’t reveal answers', messageFrom(error));
     } finally {
       setRevealBusy(false);
+    }
+  }
+  async function keepAsMemory() {
+    if (!state?.question || !state.myAnswer || !state.partnerAnswer || memoryBusy || savedAsMemory) return;
+    const memoryDate = state.date ?? new Date().toISOString().slice(0, 10);
+    const mineName = profile?.display_name ?? 'Me';
+    const partnerName = partnerProfile?.display_name ?? 'Partner';
+    setMemoryBusy(true);
+    try {
+      await createMemory({
+        title: `Our answers · ${state.question.question}`,
+        description: `${mineName}: “${state.myAnswer.answer}”\n\n${partnerName}: “${state.partnerAnswer.answer}”`,
+        memoryDate,
+        emoji: '💬',
+      });
+      setSavedAsMemory(true);
+      celebrate({ title: 'Kept for later ♥', body: 'This answer pair is now part of your story.', icon: 'memory' });
+    } catch (error) {
+      Alert.alert('Couldn’t save this moment', messageFrom(error));
+    } finally {
+      setMemoryBusy(false);
     }
   }
   async function toggleCategory(category: string, enabled: boolean) {
@@ -121,7 +145,12 @@ export default function DailyQuestionScreen() {
             </Card></FadeSlideIn> : <RevealScale trigger={revealed} style={{ gap: theme.spacing.md }}>
               <Card participantColor={myColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile?.display_name?.toUpperCase() ?? 'YOU'}</AppText><AppText variant="section">“{state.myAnswer?.answer}”</AppText></Card>
               <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalette(partnerColor).accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'}</AppText><AppText variant="section">“{state.partnerAnswer.answer}”</AppText></Card>
-              <AppText variant="caption" tone="muted" align="center">Locked for today · come back tomorrow for a new question</AppText>
+              <Card tone="secondary" participantColor="both" style={{ gap: theme.spacing.md }}>
+                <View style={{ gap: 3 }}><AppText variant="section">Let this one go somewhere</AppText><AppText variant="bodySmall" tone="secondary">Good answers can become part of your story or turn into something you do together.</AppText></View>
+                <AppButton compact icon="memory" variant={savedAsMemory ? 'secondary' : 'primary'} label={savedAsMemory ? 'Saved to Memories' : memoryBusy ? 'Saving…' : 'Keep this as a memory'} disabled={memoryBusy || savedAsMemory} onPress={() => void keepAsMemory()} />
+                <AppButton compact icon="spark" variant="secondary" label="Find something to do together" onPress={() => router.push('/features/activity-randomizer?context=question' as never)} />
+              </Card>
+              <AppText variant="caption" tone="muted" align="center">Locked for today · a new question arrives tomorrow</AppText>
             </RevealScale>
           ) : state.myAnswer ? <Card tone="secondary" style={{ gap: theme.spacing.sm }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><AppIcon name="check" size={18} color={theme.colors.success} /><AppText variant="section">Answer locked</AppText></View><AppText tone="secondary">Waiting for {partnerProfile?.display_name ?? 'your partner'}. It reveals only after they answer.</AppText></Card> : <Card tone="secondary"><AppText tone="secondary">Answer first. Their answer stays hidden until you’ve both answered.</AppText></Card>}
 
