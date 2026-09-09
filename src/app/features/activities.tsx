@@ -27,7 +27,8 @@ import type { ActivityCost, ActivityEnvironment, ActivityLocationType, ActivityM
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 function durationLabel(minutes: number | null) { if (!minutes) return 'Flexible'; if (minutes < 60) return `${minutes} min`; const hours = minutes / 60; return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hr`; }
-type Filter = 'all' | 'want_to_do' | 'planned' | 'favourite' | 'completed';
+function planActivityHref(activity: CoupleActivity) { return `/features/calendar?prefillTitle=${encodeURIComponent(activity.title)}&prefillDescription=${encodeURIComponent(activity.description ?? '')}&prefillDuration=${activity.duration_minutes ?? 120}&sourceActivityId=${encodeURIComponent(activity.id)}`; }
+type Filter = 'all' | 'matches' | 'want_to_do' | 'planned' | 'favourite' | 'completed';
 
 export default function ActivitiesScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { profile, partnerProfile, colorForUser } = useWorkspace();
@@ -36,13 +37,48 @@ export default function ActivitiesScreen() {
 
   const refresh = useCallback(async () => { try { const [nextActivities, nextTags] = await Promise.all([getActivities(), getTags()]); setActivities(nextActivities); setTags(nextTags); } catch (error) { Alert.alert('Couldnâ€™t load activities', messageFrom(error)); } finally { setLoading(false); } }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('activities', refresh); useRealtimeRefresh('tags', refresh);
-  const visible = useMemo(() => activities.filter((activity) => filter === 'all' || (filter === 'favourite' ? activity.is_favourite : activity.status === filter)), [activities, filter]);
+  const visible = useMemo(() => activities.filter((activity) => {
+    if (filter === 'all') return true;
+    if (filter === 'matches') return profile && partnerProfile
+      ? Boolean(activity.interests?.[profile.id]) && Boolean(activity.interests?.[partnerProfile.id])
+      : false;
+    return filter === 'favourite' ? activity.is_favourite : activity.status === filter;
+  }), [activities, filter, profile, partnerProfile]);
+  const mutualMatches = useMemo(() => {
+    if (!profile || !partnerProfile) return [];
+    return activities
+      .filter((activity) => Boolean(activity.interests?.[profile.id]) && Boolean(activity.interests?.[partnerProfile.id]))
+      .filter((activity) => activity.status !== 'completed' && activity.status !== 'skip')
+      .sort((a, b) => Number(Boolean(b.is_favourite)) - Number(Boolean(a.is_favourite)) || a.title.localeCompare(b.title));
+  }, [activities, profile, partnerProfile]);
+  const topMatch = mutualMatches[0] ?? null;
   function resetForm(close = true) { setEditingId(null); setTitle(''); setDescription(''); setCost('free'); setLocationType('anywhere'); setLocation(''); setEnvironment('either'); setMood('any'); setTimeOfDay('any'); setRating(''); setDuration(''); setKidFriendly(false); setBooking(false); setSelectedTags([]); setAdvancedOpen(false); if (close) setComposerOpen(false); }
   function beginEdit(activity: CoupleActivity) { setEditingId(activity.id); setTitle(activity.title); setDescription(activity.description ?? ''); setCost(activity.cost_level); setLocationType(activity.location_type); setLocation(activity.location ?? ''); setEnvironment(activity.environment); setMood(activity.mood); setTimeOfDay(activity.time_of_day); setRating(activity.rating == null ? '' : String(activity.rating)); setDuration(activity.duration_minutes == null ? '' : String(activity.duration_minutes)); setKidFriendly(Boolean(activity.kid_friendly)); setBooking(Boolean(activity.booking_required)); setSelectedTags((activity.tags ?? []).map((tag) => tag.id)); setAdvancedOpen(true); setComposerOpen(true); }
   useEffect(() => { if (!params.focus || !activities.length) return; const focused = activities.find((activity) => activity.id === params.focus); if (focused) setViewTarget(focused); }, [params.focus, activities]);
   useEffect(() => { if (!params.edit || editingId === params.edit || !activities.length) return; const target = activities.find((activity) => activity.id === params.edit); if (target) beginEdit(target); }, [params.edit, editingId, activities]);
   async function save() { const durationMinutes = duration.trim() ? Number(duration) : null; if (!title.trim() || (durationMinutes != null && (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > 1440))) { Alert.alert('Check the activity', 'Add a title and, if used, a duration between 1 and 1,440 minutes.'); return; } setBusy(true); try { const parsedRating = rating.trim() ? Number(rating) : null; if (parsedRating != null && (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5)) throw new Error('Rating must be a whole number from 1 to 5.'); const input = { title: title.trim(), description, costLevel: cost, locationType, location, environment, mood, timeOfDay, durationMinutes, kidFriendly, bookingRequired: booking, rating: parsedRating, tagIds: selectedTags }; if (editingId) await updateActivity(editingId, input); else await createActivity(input); resetForm(); await refresh(); } catch (error) { Alert.alert(editingId ? 'Couldnâ€™t update activity' : 'Couldnâ€™t add activity', messageFrom(error)); } finally { setBusy(false); } }
-  async function toggleInterest(activity: CoupleActivity) { if (!profile) return; const current = activity.interests?.[profile.id] ?? false; try { await setActivityInterest(activity.id, !current); await refresh(); } catch (error) { Alert.alert('Couldnâ€™t update interest', messageFrom(error)); } }
+  async function toggleInterest(activity: CoupleActivity) {
+    if (!profile) return;
+    const current = Boolean(activity.interests?.[profile.id]);
+    const partnerAlreadyInterested = partnerProfile ? Boolean(activity.interests?.[partnerProfile.id]) : false;
+    try {
+      await setActivityInterest(activity.id, !current);
+      await refresh();
+      if (!current && partnerAlreadyInterested) {
+        const partnerName = partnerProfile?.display_name || 'your partner';
+        Alert.alert(
+          'It’s a match ❤️',
+          `You and ${partnerName} both want to do “${activity.title}”.`,
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Plan it', onPress: () => router.push(planActivityHref(activity) as never) },
+          ],
+        );
+      }
+    } catch (error) {
+      Alert.alert('Couldn’t update interest', messageFrom(error));
+    }
+  }
   async function toggleFavourite(activity: CoupleActivity) {
     try {
       await setActivityFavourite(activity.id, !activity.is_favourite);
@@ -87,7 +123,17 @@ export default function ActivitiesScreen() {
       <AppButton label={busy ? 'Savingâ€¦' : editingId ? 'Save changes' : 'Save idea'} disabled={busy || !title.trim()} onPress={save} />
     </CollapsibleComposer>
 
-    <View style={{ marginBottom: theme.spacing.xl }}><ChoiceChips value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, { value: 'want_to_do', label: 'Want to do' }, { value: 'planned', label: 'Planned' }, { value: 'favourite', label: 'Favourites' }, { value: 'completed', label: 'Done' }]} /></View>
+    {topMatch ? <Card tone="accent" participantColor="both" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.lg, padding: theme.spacing.xl }}>
+      <AppText variant="caption" tone="accent">YOU BOTH PICKED THIS ❤️</AppText>
+      <AppText variant="hero">{topMatch.title}</AppText>
+      <AppText tone="secondary">{mutualMatches.length === 1 ? `You and ${partnerProfile?.display_name || 'your partner'} matched on this date idea.` : `You have ${mutualMatches.length} date ideas you both want.`}</AppText>
+      <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+        <View style={{ flex: 1 }}><AppButton compact icon="heart" label="Plan this date" onPress={() => router.push(planActivityHref(topMatch) as never)} /></View>
+        <View style={{ flex: 1 }}><AppButton compact variant="secondary" label={mutualMatches.length === 1 ? 'See the idea' : `See all ${mutualMatches.length}`} onPress={() => mutualMatches.length === 1 ? setViewTarget(topMatch) : setFilter('matches')} /></View>
+      </View>
+    </Card> : null}
+
+    <View style={{ marginBottom: theme.spacing.xl }}><ChoiceChips value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, { value: 'matches', label: 'Matches ❤️' }, { value: 'want_to_do', label: 'Want to do' }, { value: 'planned', label: 'Planned' }, { value: 'favourite', label: 'Favourites' }, { value: 'completed', label: 'Done' }]} /></View>
 
     <View style={{ gap: theme.spacing.md }}>
       {loading ? <AppText tone="muted">Loading ideasâ€¦</AppText> : null}
@@ -95,7 +141,7 @@ export default function ActivitiesScreen() {
       {visible.map((activity) => {
         const myInterest = profile ? Boolean(activity.interests?.[profile.id]) : false;
         const partnerInterest = partnerProfile ? Boolean(activity.interests?.[partnerProfile.id]) : false;
-        const statusText = myInterest && partnerInterest ? 'Both of you want this' : myInterest ? 'Youâ€™re interested' : partnerInterest ? `${partnerProfile!.display_name} is interested` : 'No interest votes yet';
+        const statusText = myInterest && partnerInterest ? 'Both want this ❤️' : myInterest ? 'Youâ€™re interested' : partnerInterest ? `${partnerProfile!.display_name} is interested` : 'No interest votes yet';
         return <Card key={activity.id} participantColor="both" style={{ gap: theme.spacing.md, opacity: activity.status === 'skip' ? 0.56 : 1 }}>
           <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'flex-start' }}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open date idea ${activity.title}`} onPress={() => setViewTarget(activity)} style={({ pressed }) => ({ flex: 1, gap: 5, opacity: pressed ? 0.76 : 1 })}><AppText variant="section">{activity.title}</AppText><ParticipantAttribution userId={activity.creator_id} />{activity.description ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{activity.description}</AppText> : <AppText variant="bodySmall" tone="muted">Tap to see the idea.</AppText>}</Pressable>
@@ -107,10 +153,10 @@ export default function ActivitiesScreen() {
             {(activity.tags ?? []).slice(0, 1).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
             {(activity.tags ?? []).length > 1 ? <TagChip subtle label={`+${(activity.tags ?? []).length - 1} TAGS`} /> : null}
           </View>
-          <AppText variant="caption" tone={myInterest && partnerInterest ? 'success' : 'secondary'}>{statusText.toUpperCase()}</AppText>
+          <AppText variant="caption" tone={myInterest && partnerInterest ? 'success' : 'secondary'}>{statusText.toUpperCase()}</AppText>{myInterest && partnerInterest ? <TagChip label="❤️ MATCH" /> : null}
           <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
             <View style={{ flex: 1 }}><AppButton compact variant={myInterest ? 'secondary' : 'ghost'} label={myInterest ? 'Interested âœ“' : 'Interested'} onPress={() => toggleInterest(activity)} /></View>
-            <View style={{ flex: 1 }}><AppButton compact label={activity.status === 'planned' ? 'Planned' : 'Plan this'} onPress={() => router.push(`/features/calendar?prefillTitle=${encodeURIComponent(activity.title)}&prefillDescription=${encodeURIComponent(activity.description ?? '')}&prefillDuration=${activity.duration_minutes ?? 120}&sourceActivityId=${encodeURIComponent(activity.id)}` as never)} /></View>
+            <View style={{ flex: 1 }}><AppButton compact label={activity.status === 'planned' ? 'Planned' : 'Plan this'} onPress={() => router.push(planActivityHref(activity) as never)} /></View>
           </View>
         </Card>;
       })}
