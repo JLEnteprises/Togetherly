@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExpandableFeatureGroup, type ExpandableFeatureGroupItem } from '@/components/navigation/ExpandableFeatureGroup';
 import { useExclusiveExpandedGroup } from '@/hooks/useExclusiveExpandedGroup';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { getAvailabilityOverlaps } from '@/services/backend/availability';
 import { getCountdowns, getLists, getNotes, getTasks } from '@/services/backend/coreFeatures';
 import { getEvents, getGoals, getTrips } from '@/services/backend/mvpFeatures';
@@ -42,15 +43,16 @@ function nextFutureCountdown(countdowns: CoupleCountdown[], now = Date.now()) {
 
 function nextTrip(trips: CoupleTrip[]) {
   const today = new Date().toISOString().slice(0, 10);
-  const dated = trips
+  return trips
     .filter((trip) => trip.start_date && trip.start_date >= today)
-    .sort((a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''));
-  return dated[0] ?? trips[0] ?? null;
+    .sort((a, b) => (a.start_date ?? '').localeCompare(b.start_date ?? ''))[0] ?? null;
 }
 
 // G4_PLAN_EXPANDABLE_GROUPS: Plan keeps its existing feature ownership while revealing one practical group at a time.
+// CONTEXT_COMPOUNDING: realtime changes now refresh only the domain that changed instead of reloading every Plan summary.
 export function PlanHubGroups() {
   const { isExpanded, setExpanded } = useExclusiveExpandedGroup<PlanGroupKey>();
+  const { profile, partnerProfile } = useWorkspace();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
   const [lists, setLists] = useState<CoupleList[]>([]);
   const [notes, setNotes] = useState<CoupleNote[]>([]);
@@ -60,47 +62,60 @@ export function PlanHubGroups() {
   const [trips, setTrips] = useState<CoupleTrip[]>([]);
   const [goals, setGoals] = useState<CoupleGoal[]>([]);
 
-  const refresh = useCallback(async () => {
-    const results = await Promise.allSettled([
-      getTasks(),
-      getLists(),
-      getNotes(),
-      getEvents(),
-      getCountdowns(),
-      getAvailabilityOverlaps(14, 30),
-      getTrips(),
-      getGoals(),
-    ]);
-
-    const [taskResult, listResult, noteResult, eventResult, countdownResult, overlapResult, tripResult, goalResult] = results;
-
-    if (taskResult.status === 'fulfilled') setTasks(taskResult.value);
-    if (listResult.status === 'fulfilled') setLists(listResult.value);
-    if (noteResult.status === 'fulfilled') setNotes(noteResult.value);
-    if (eventResult.status === 'fulfilled') setEvents(eventResult.value);
-    if (countdownResult.status === 'fulfilled') setCountdowns(countdownResult.value);
-    if (overlapResult.status === 'fulfilled') setOverlap(overlapResult.value.overlaps[0] ?? null);
-    if (tripResult.status === 'fulfilled') setTrips(tripResult.value);
-    if (goalResult.status === 'fulfilled') setGoals(goalResult.value);
+  const refreshTasks = useCallback(async () => { setTasks(await getTasks()); }, []);
+  const refreshLists = useCallback(async () => { setLists(await getLists()); }, []);
+  const refreshNotes = useCallback(async () => { setNotes(await getNotes()); }, []);
+  const refreshEvents = useCallback(async () => { setEvents(await getEvents()); }, []);
+  const refreshCountdowns = useCallback(async () => { setCountdowns(await getCountdowns()); }, []);
+  const refreshAvailability = useCallback(async () => {
+    const result = await getAvailabilityOverlaps(14, 30);
+    setOverlap(result.overlaps[0] ?? null);
   }, []);
+  const refreshTrips = useCallback(async () => { setTrips(await getTrips()); }, []);
+  const refreshGoals = useCallback(async () => { setGoals(await getGoals()); }, []);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([
+      refreshTasks(),
+      refreshLists(),
+      refreshNotes(),
+      refreshEvents(),
+      refreshCountdowns(),
+      refreshAvailability(),
+      refreshTrips(),
+      refreshGoals(),
+    ]);
+  }, [refreshAvailability, refreshCountdowns, refreshEvents, refreshGoals, refreshLists, refreshNotes, refreshTasks, refreshTrips]);
 
   useEffect(() => {
-    refresh().catch(() => undefined);
-  }, [refresh]);
+    refreshAll().catch(() => undefined);
+  }, [refreshAll]);
 
-  useRealtimeRefresh('tasks', refresh);
-  useRealtimeRefresh('lists', refresh);
-  useRealtimeRefresh('notes', refresh);
-  useRealtimeRefresh('events', refresh);
-  useRealtimeRefresh('countdowns', refresh);
-  useRealtimeRefresh('schedules', refresh);
-  useRealtimeRefresh('trips', refresh);
-  useRealtimeRefresh('goals', refresh);
+  useRealtimeRefresh('tasks', refreshTasks);
+  useRealtimeRefresh('lists', refreshLists);
+  useRealtimeRefresh('notes', refreshNotes);
+  useRealtimeRefresh('events', refreshEvents);
+  useRealtimeRefresh('countdowns', refreshCountdowns);
+  useRealtimeRefresh('schedules', refreshAvailability);
+  useRealtimeRefresh('trips', refreshTrips);
+  useRealtimeRefresh('goals', refreshGoals);
 
   const openTasks = useMemo(
     () => tasks.filter((task) => task.status !== 'completed' && task.status !== 'skipped'),
     [tasks],
   );
+
+  const taskOwnership = useMemo(() => {
+    const mine = openTasks.filter((task) => !task.assign_to_both && task.assignee_id === profile?.id).length;
+    const partner = openTasks.filter((task) => !task.assign_to_both && task.assignee_id === partnerProfile?.id).length;
+    const shared = openTasks.filter((task) => task.assign_to_both).length;
+    const mineName = profile?.display_name ?? 'You';
+    const partnerName = partnerProfile?.display_name ?? 'Partner';
+    if (!partnerProfile) return `${shared} shared · ${mine} yours`;
+    if (mine >= partner + 3 && mine >= 4) return `Most assigned tasks currently sit with ${mineName} · worth a quick handoff check`;
+    if (partner >= mine + 3 && partner >= 4) return `Most assigned tasks currently sit with ${partnerName} · worth a quick handoff check`;
+    return `${mine} ${mineName} · ${partner} ${partnerName} · ${shared} together`;
+  }, [openTasks, partnerProfile, profile]);
 
   const futureCountdowns = useMemo(
     () => countdowns.filter((item) => new Date(item.target_at).getTime() >= Date.now()),
@@ -132,14 +147,14 @@ export function PlanHubGroups() {
 
   const aheadSummary = upcomingTrip
     ? `${upcomingTrip.title}${upcomingTrip.start_date ? ` · ${shortWhen(new Date(`${upcomingTrip.start_date}T12:00:00`))}` : ''} · ${plural(activeGoals.length, 'active goal')}`
-    : `${plural(activeGoals.length, 'active goal')} · no trip planned`;
+    : `${plural(activeGoals.length, 'active goal')} · no upcoming trip planned`;
 
   const organiseItems = useMemo<ExpandableFeatureGroupItem[]>(() => [
     {
       key: 'tasks',
       icon: 'task',
       title: 'Tasks',
-      subtitle: 'What needs doing, without the mental load',
+      subtitle: taskOwnership,
       status: openTasks.length ? `${openTasks.length} open` : 'Clear',
       href: '/features/tasks',
     },
@@ -159,7 +174,7 @@ export function PlanHubGroups() {
       status: notes.length ? String(notes.length) : undefined,
       href: '/features/notes',
     },
-  ], [lists.length, notes.length, openTasks.length]);
+  ], [lists.length, notes.length, openTasks.length, taskOwnership]);
 
   const dateItems = useMemo<ExpandableFeatureGroupItem[]>(() => [
     {

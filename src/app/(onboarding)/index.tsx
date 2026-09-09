@@ -16,7 +16,7 @@ import { createCoupleWorkspace, joinCoupleWithCode, updateCouple, updateProfile 
 import { refreshCurrentUser } from '@/services/backend/auth';
 import { queueFirstTimeGuide } from '@/services/firstTimeGuide';
 import { useAuth } from '@/providers/AuthProvider';
-import { LEGACY_PURPLE_COLOR, normalizeParticipantColor, participantPalettes, participantPalette } from '@/theme/tokens';
+import { LEGACY_PURPLE_COLOR, normalizeParticipantColor, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { ParticipantColor } from '@/types/database';
 import { ConnectionOrbitArt, TogetherlyMark } from '@/components/art/TogetherlyArt';
@@ -40,7 +40,7 @@ export default function OnboardingScreen() {
   const [chosenColor, setChosenColor] = useState<ParticipantColor>(LEGACY_PURPLE_COLOR);
   const [inviteCode, setInviteCode] = useState('');
   const [startDate, setStartDate] = useState('');
-  const [longDistance, setLongDistance] = useState(true);
+  const [longDistance, setLongDistance] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -140,11 +140,11 @@ export default function OnboardingScreen() {
             <AppText variant="section">Start your shared home</AppText>
             <ParticipantColorPicker value={chosenColor} onChange={setChosenColor} label="CHOOSE YOUR COLOUR" />
             <DatePickerField label="RELATIONSHIP START DATE · OPTIONAL" value={startDate} onChange={setStartDate} optional />
-            <ToggleRow label="Long-distance relationship" subtitle="Show visits, time difference and shared free time on Home." value={longDistance} onChange={setLongDistance} />
+            <ToggleRow label="Long-distance relationship" subtitle="Turn this on if you want visits, time difference and shared free time surfaced on Home." value={longDistance} onChange={setLongDistance} />
             <AppButton label={busy ? 'Creating…' : 'Create our space'} disabled={busy} onPress={createSpace} />
           </Card> : <Card style={{ gap: theme.spacing.lg }}>
             <AppText variant="section">Join your partner</AppText>
-            <AppText variant="bodySmall" tone="secondary">Enter your partner’s 8-character code, then choose the colour that will identify you.</AppText>
+            <AppText variant="bodySmall" tone="secondary">Use the 8-character fallback code your partner shared. Link-based joining can be added once the app’s production universal-link domain is configured.</AppText>
             <ParticipantColorPicker value={chosenColor} onChange={setChosenColor} label="YOUR COLOUR BEFORE JOINING" />
             <FormField label="INVITE CODE" value={inviteCode} onChangeText={(value) => setInviteCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))} placeholder="AB12CD34" autoCapitalize="characters" autoCorrect={false} maxLength={8} />
             <AppButton label={busy ? 'Joining…' : 'Join couple space'} disabled={busy || inviteCode.length !== 8} onPress={joinSpace} />
@@ -153,7 +153,7 @@ export default function OnboardingScreen() {
 
         {stage === 'relationship' ? <Card style={{ gap: theme.spacing.lg }}>
           <DatePickerField label="RELATIONSHIP START DATE · OPTIONAL" value={startDate || couple?.relationship_start_date || ''} onChange={setStartDate} optional />
-          <ToggleRow label="Long-distance relationship" subtitle="Show visits, time difference and shared free time on Home." value={longDistance} onChange={setLongDistance} />
+          <ToggleRow label="Long-distance relationship" subtitle="Turn this on if you want visits, time difference and shared free time surfaced on Home." value={longDistance} onChange={setLongDistance} />
           <AppButton label={busy ? 'Saving…' : 'Continue'} disabled={busy} onPress={saveRelationship} />
         </Card> : null}
 
