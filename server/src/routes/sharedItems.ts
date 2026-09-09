@@ -43,6 +43,12 @@ function scratchpadDrawing(value: unknown) {
   return { version: 1, strokes };
 }
 
+function expectedVersion(value: unknown) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || !Number.isFinite(new Date(value).getTime())) throw new ApiError(400, 'Scratchpad version is invalid.');
+  return value;
+}
+
 export async function registerSharedItemRoutes(app: FastifyInstance, realtime: RealtimeHub) {
   app.get('/shared-items/scratchpad', { preHandler: authenticate }, async (request, reply) => {
     try {
@@ -60,6 +66,7 @@ export async function registerSharedItemRoutes(app: FastifyInstance, realtime: R
   });
 
   app.put('/shared-items/scratchpad', { preHandler: authenticate }, async (request, reply) => {
+    const client = await pool.connect();
     try {
       const body = request.body as JsonObject;
       if (typeof body.body !== 'string') throw new ApiError(400, 'Scratchpad body must be text.');
@@ -68,20 +75,55 @@ export async function registerSharedItemRoutes(app: FastifyInstance, realtime: R
       if (!mode) throw new ApiError(400, 'Scratchpad mode is invalid.');
       const drawing = scratchpadDrawing(body.drawing);
       const metadata = { mode, drawing };
+      const expectedUpdatedAt = expectedVersion(body.updatedAt);
       const coupleId = await requireCoupleId(request.userId);
-      const result = await pool.query(
-        `INSERT INTO shared_items(id, couple_id, creator_id, updated_by, item_type, shared_key, title, body, metadata)
-         VALUES($1, $2, $3, $3, 'note', 'scratchpad', 'Shared scratchpad', $4, $5::jsonb)
-         ON CONFLICT (couple_id, shared_key) WHERE shared_key IS NOT NULL
-         DO UPDATE SET body = EXCLUDED.body, metadata = EXCLUDED.metadata, updated_by = EXCLUDED.updated_by, updated_at = now()
-         RETURNING *`,
-        [randomUUID(), coupleId, request.userId, body.body, JSON.stringify(metadata)],
+
+      await client.query('BEGIN');
+      const current = await client.query(
+        `SELECT * FROM shared_items
+         WHERE couple_id = $1 AND shared_key = 'scratchpad'
+         LIMIT 1
+         FOR UPDATE`,
+        [coupleId],
       );
-      const item = result.rows[0];
+
+      let item;
+      if (current.rows[0]) {
+        if (!expectedUpdatedAt) {
+          throw new ApiError(409, 'This scratchpad changed after you opened it. Reload before saving so your partner’s changes are not overwritten.');
+        }
+        const serverVersion = new Date(current.rows[0].updated_at).getTime();
+        const clientVersion = new Date(expectedUpdatedAt).getTime();
+        if (serverVersion !== clientVersion) {
+          throw new ApiError(409, 'This scratchpad changed after you opened it. Your draft is still on this device. Reload the latest version before saving.');
+        }
+
+        const updated = await client.query(
+          `UPDATE shared_items
+           SET body = $1, metadata = $2::jsonb, updated_by = $3, updated_at = now()
+           WHERE id = $4 AND couple_id = $5
+           RETURNING *`,
+          [body.body, JSON.stringify(metadata), request.userId, current.rows[0].id, coupleId],
+        );
+        item = updated.rows[0];
+      } else {
+        const inserted = await client.query(
+          `INSERT INTO shared_items(id, couple_id, creator_id, updated_by, item_type, shared_key, title, body, metadata)
+           VALUES($1, $2, $3, $3, 'note', 'scratchpad', 'Shared scratchpad', $4, $5::jsonb)
+           RETURNING *`,
+          [randomUUID(), coupleId, request.userId, body.body, JSON.stringify(metadata)],
+        );
+        item = inserted.rows[0];
+      }
+
+      await client.query('COMMIT');
       realtime.broadcastCouple(coupleId, { type: 'shared_item.updated', sharedKey: 'scratchpad', itemId: item.id });
       return reply.send({ item });
     } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
       return sendError(reply, error);
+    } finally {
+      client.release();
     }
   });
 }

@@ -14,10 +14,16 @@ export async function saveSharedScratchpad(input: {
   mode: ScratchpadMode;
   drawing?: DrawingData | null;
   existingId?: string;
+  updatedAt?: string | null;
 }): Promise<SharedItem> {
   const result = await apiRequest<{ item: SharedItem }>('/shared-items/scratchpad', {
     method: 'PUT',
-    body: { body: input.body, mode: input.mode, drawing: input.drawing ?? null },
+    body: {
+      body: input.body,
+      mode: input.mode,
+      drawing: input.drawing ?? null,
+      updatedAt: input.updatedAt ?? null,
+    },
   });
   return result.item;
 }

@@ -11,7 +11,7 @@ import { getSharedScratchpad, saveSharedScratchpad, type ScratchpadMode } from '
 import { realtimeClient } from '@/services/backend/realtime';
 import type { DrawingData, DrawingStroke, SharedItem } from '@/types/database';
 import { useAppTheme } from '@/theme/useAppTheme';
-import { participantPalettes, participantPalette } from '@/theme/tokens';
+import { participantPalette } from '@/theme/tokens';
 
 function messageFrom(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -87,8 +87,35 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
   const dirty = body !== savedBody || mode !== savedMode || currentDrawingKey !== savedDrawingKey;
   dirtyRef.current = dirty;
 
+  function reloadLatest() {
+    if (!dirty) {
+      load().catch(() => undefined);
+      return;
+    }
+    Alert.alert(
+      'Reload the latest scratchpad?',
+      'Your unsaved draft is still on this device. Reloading will discard it and show your partner’s latest version.',
+      [
+        { text: 'Keep my draft', style: 'cancel' },
+        { text: 'Discard & reload', style: 'destructive', onPress: () => load().catch(() => undefined) },
+      ],
+    );
+  }
+
   async function save() {
     if (!couple?.id) return;
+    if (remoteUpdate) {
+      Alert.alert(
+        'Partner changed the scratchpad',
+        'Your draft has not been lost, but Togetherly will not overwrite your partner’s newer version. Keep your draft here or reload their latest version.',
+        [
+          { text: 'Keep editing', style: 'cancel' },
+          { text: 'Reload latest', onPress: reloadLatest },
+        ],
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       const nextItem = await saveSharedScratchpad({
@@ -97,11 +124,28 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
         mode,
         drawing: { version: 1, strokes },
         existingId: item?.id,
+        updatedAt: item?.updated_at ?? null,
       });
       applyItem(nextItem);
       if (compact) setExpanded(false);
-    } catch (error) { Alert.alert('Couldn’t save scratchpad', messageFrom(error)); }
-    finally { setSaving(false); }
+    } catch (error) {
+      const message = messageFrom(error);
+      if (/scratchpad changed|changed after you opened/i.test(message)) {
+        setRemoteUpdate(true);
+        Alert.alert(
+          'Partner changed the scratchpad',
+          'Your draft is still here. Togetherly blocked the save so their newer changes were not overwritten.',
+          [
+            { text: 'Keep my draft', style: 'cancel' },
+            { text: 'Reload latest', onPress: reloadLatest },
+          ],
+        );
+      } else {
+        Alert.alert('Couldn’t save scratchpad', message);
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   function addStroke(stroke: DrawingStroke) {
@@ -118,6 +162,18 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
       if (index >= 0) next.splice(index, 1);
       return next;
     });
+  }
+
+  function clearDrawing() {
+    if (!strokes.length) return;
+    Alert.alert(
+      'Clear the drawing?',
+      'This removes every stroke from the shared canvas after you save.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear drawing', style: 'destructive', onPress: () => setStrokes([]) },
+      ],
+    );
   }
 
   function begin(nextMode: ScratchpadMode) {
@@ -196,7 +252,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
                 padding: theme.spacing.md,
                 borderRadius: theme.radii.md,
                 borderWidth: 1,
-                borderColor: dirty ? theme.colors.accent : item ? (ownerPalette?.border ?? theme.colors.border) : theme.colors.border,
+                borderColor: remoteUpdate ? theme.colors.warning : dirty ? theme.colors.accent : item ? (ownerPalette?.border ?? theme.colors.border) : theme.colors.border,
                 backgroundColor: theme.colors.elevatedBackground,
                 color: theme.colors.textPrimary,
                 fontSize: 15,
@@ -218,18 +274,25 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
                 }}
               />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                <AppButton compact variant="ghost" label="Undo" disabled={!strokes.length || saving} onPress={undoMine} />
-                <AppButton compact variant="ghost" label="Clear" disabled={!strokes.length || saving} onPress={() => setStrokes([])} />
+                <AppButton compact variant="ghost" label="Undo mine" disabled={!strokes.length || saving} onPress={undoMine} />
+                <AppButton compact variant="ghost" label="Clear all" disabled={!strokes.length || saving} onPress={clearDrawing} />
               </View>
             </View>
           )}
 
+          {remoteUpdate ? (
+            <Card tone="secondary" style={{ gap: 7 }}>
+              <AppText variant="bodySmall" style={{ color: theme.colors.warning, fontWeight: '700' }}>Your partner changed this while you were editing.</AppText>
+              <AppText variant="caption" tone="muted">Your draft is still here. Saving is paused so neither person’s work gets silently overwritten.</AppText>
+            </Card>
+          ) : null}
+
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-            <AppText variant="caption" style={{ color: remoteUpdate ? theme.colors.warning : dirty ? theme.colors.accent : theme.colors.textMuted }}>{remoteUpdate ? 'Updated by partner' : dirty ? 'Unsaved' : ''}</AppText>
+            <AppText variant="caption" style={{ color: remoteUpdate ? theme.colors.warning : dirty ? theme.colors.accent : theme.colors.textMuted }}>{remoteUpdate ? 'Newer version available' : dirty ? 'Unsaved' : ''}</AppText>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {remoteUpdate ? <AppButton compact variant="ghost" label="Reload" onPress={() => load().catch(() => undefined)} /> : null}
+              {remoteUpdate ? <AppButton compact variant="secondary" label="Reload latest" onPress={reloadLatest} /> : null}
               {compact ? <AppButton compact variant="ghost" label={dirty ? 'Cancel' : 'Close'} onPress={cancelCompactEdit} /> : null}
-              <AppButton compact label={saving ? 'Saving…' : 'Save'} disabled={saving || loading || !dirty} onPress={save} />
+              <AppButton compact label={saving ? 'Saving…' : 'Save'} disabled={saving || loading || !dirty || remoteUpdate} onPress={save} />
             </View>
           </View>
         </>
