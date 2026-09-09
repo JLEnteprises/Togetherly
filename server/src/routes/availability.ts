@@ -59,14 +59,35 @@ function zonedLocalToUtc(dateKey: string, minuteOfDay: number, timezone: string)
   return guess;
 }
 
-function freeIntervals(rows: ScheduleRow[], timezone: string, days: number, now: Date) {
+type Interval = { start: Date; end: Date };
+
+function mergeIntervals(intervals: Interval[]) {
+  const sorted = intervals
+    .filter((interval) => interval.end > interval.start)
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+  const merged: Interval[] = [];
+  for (const interval of sorted) {
+    const previous = merged[merged.length - 1];
+    if (previous && interval.start.getTime() <= previous.end.getTime()) {
+      if (interval.end > previous.end) previous.end = new Date(interval.end);
+    } else {
+      merged.push({ start: new Date(interval.start), end: new Date(interval.end) });
+    }
+  }
+  return merged;
+}
+
+function scheduleIntervals(rows: ScheduleRow[], timezone: string, days: number, now: Date, kinds: readonly ScheduleKind[]) {
   const startDate = dateKeyInZone(now, timezone);
-  const intervals: Array<{ start: Date; end: Date }> = [];
-  for (let offset = 0; offset <= days; offset += 1) {
+  const intervals: Interval[] = [];
+
+  // Start one local day early so an overnight window from yesterday can
+  // correctly carry into today.
+  for (let offset = -1; offset <= days; offset += 1) {
     const dateKey = addDays(startDate, offset);
     const dow = weekday(dateKey);
     for (const row of rows) {
-      if (!row.enabled || row.kind !== 'free' || Number(row.day_of_week) !== dow) continue;
+      if (!row.enabled || !kinds.includes(row.kind) || Number(row.day_of_week) !== dow) continue;
       const startMinute = Number(row.start_minute);
       const endMinute = Number(row.end_minute);
       const start = zonedLocalToUtc(dateKey, startMinute, timezone);
@@ -74,18 +95,40 @@ function freeIntervals(rows: ScheduleRow[], timezone: string, days: number, now:
       const normalizedEndMinute = endMinute === 1440 ? 0 : endMinute;
       const normalizedEndDateKey = endMinute === 1440 ? addDays(dateKey, 1) : endDateKey;
       const end = zonedLocalToUtc(normalizedEndDateKey, normalizedEndMinute, timezone);
-      if (end > now) intervals.push({ start: start < now ? new Date(now) : start, end });
+      if (end <= now) continue;
+      intervals.push({ start: start < now ? new Date(now) : start, end });
     }
   }
-  const sorted = intervals.sort((a, b) => a.start.getTime() - b.start.getTime());
-  const merged: Array<{ start: Date; end: Date }> = [];
-  for (const interval of sorted) {
-    const previous = merged[merged.length - 1];
-    if (previous && interval.start.getTime() <= previous.end.getTime()) {
-      if (interval.end > previous.end) previous.end = interval.end;
-    } else merged.push({ start: new Date(interval.start), end: new Date(interval.end) });
+  return mergeIntervals(intervals);
+}
+
+function subtractIntervals(base: Interval[], blockers: Interval[]) {
+  if (!blockers.length) return base;
+  const result: Interval[] = [];
+  for (const source of base) {
+    let pieces: Interval[] = [{ start: new Date(source.start), end: new Date(source.end) }];
+    for (const blocker of blockers) {
+      const next: Interval[] = [];
+      for (const piece of pieces) {
+        if (blocker.end <= piece.start || blocker.start >= piece.end) {
+          next.push(piece);
+          continue;
+        }
+        if (blocker.start > piece.start) next.push({ start: piece.start, end: new Date(blocker.start) });
+        if (blocker.end < piece.end) next.push({ start: new Date(blocker.end), end: piece.end });
+      }
+      pieces = next;
+      if (!pieces.length) break;
+    }
+    result.push(...pieces);
   }
-  return merged;
+  return mergeIntervals(result);
+}
+
+function effectiveFreeIntervals(rows: ScheduleRow[], timezone: string, days: number, now: Date) {
+  const free = scheduleIntervals(rows, timezone, days, now, ['free']);
+  const blockers = scheduleIntervals(rows, timezone, days, now, ['work', 'sleep', 'busy']);
+  return subtractIntervals(free, blockers);
 }
 
 function overlaps(a: Array<{ start: Date; end: Date }>, b: Array<{ start: Date; end: Date }>, minMinutes: number) {
@@ -176,14 +219,24 @@ export async function registerAvailabilityRoutes(app: FastifyInstance, realtime:
       const membersResult = await pool.query(
         `SELECT cm.user_id,u.display_name,u.timezone,cm.participant_color FROM couple_members cm JOIN users u ON u.id=cm.user_id WHERE cm.couple_id=$1 ORDER BY cm.joined_at`, [coupleId]);
       if (membersResult.rows.length < 2) return reply.send({ overlaps: [], reason: 'Link your partner to compare free time.' });
-      const rowsResult = await pool.query(`SELECT * FROM user_schedules WHERE couple_id=$1 AND enabled=true AND kind='free'`, [coupleId]);
+      const rowsResult = await pool.query(`SELECT * FROM user_schedules WHERE couple_id=$1 AND enabled=true`, [coupleId]);
       const [first, second] = membersResult.rows;
       const firstRows = rowsResult.rows.filter((row) => String(row.user_id) === String(first.user_id)) as ScheduleRow[];
       const secondRows = rowsResult.rows.filter((row) => String(row.user_id) === String(second.user_id)) as ScheduleRow[];
-      if (!firstRows.length || !secondRows.length) return reply.send({ overlaps: [], reason: 'Both of you need at least one Free window before Togetherly can find overlap.' });
+      if (!firstRows.some((row) => row.kind === 'free') || !secondRows.some((row) => row.kind === 'free')) {
+        return reply.send({ overlaps: [], reason: 'Both of you need at least one Free window before Togetherly can find overlap.' });
+      }
       const now = new Date();
-      const result = overlaps(freeIntervals(firstRows, String(first.timezone), days, now), freeIntervals(secondRows, String(second.timezone), days, now), minMinutes);
-      return reply.send({ overlaps: result, members: membersResult.rows });
+      const result = overlaps(
+        effectiveFreeIntervals(firstRows, String(first.timezone), days, now),
+        effectiveFreeIntervals(secondRows, String(second.timezone), days, now),
+        minMinutes,
+      );
+      return reply.send({
+        overlaps: result,
+        reason: result.length ? undefined : 'No shared free time remains after Work, Sleep and Busy windows are taken into account.',
+        members: membersResult.rows,
+      });
     } catch (error) { return sendError(reply, error); }
   });
 }

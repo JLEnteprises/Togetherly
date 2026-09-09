@@ -13,6 +13,7 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import type { AvailabilityOverlap, CoupleCountdown } from '@/types/database';
 import { useLocationSharing } from '@/providers/LocationProvider';
 import { AppIcon } from '@/components/art/AppIcon';
+import { countdownRemaining } from '@/utils/countdown';
 
 function formatTime(timezone: string | undefined, date = new Date()) {
   try { return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: timezone || 'UTC' }).format(date); }
@@ -50,7 +51,7 @@ export function LongDistanceOverviewCard() {
 
   const refresh = useCallback(async () => {
     const [countdownsResult, overlapResult] = await Promise.allSettled([getCountdowns(), getAvailabilityOverlaps(14, 30)]);
-    if (countdownsResult.status === 'fulfilled') setCountdown(countdownsResult.value.find((item) => new Date(item.target_at).getTime() >= Date.now()) ?? null);
+    if (countdownsResult.status === 'fulfilled') setCountdown(countdownsResult.value.find((item) => !countdownRemaining(item.target_at, Date.now()).passed) ?? null);
     if (overlapResult.status === 'fulfilled') setOverlap(overlapResult.value.overlaps[0] ?? null);
   }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
@@ -82,7 +83,7 @@ export function LongDistanceOverviewCard() {
       <Pressable accessibilityRole="button" onPress={() => router.push('/features/countdowns' as never)} style={({ pressed }) => ({ minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 7, opacity: pressed ? 0.68 : 1 })}>
         <AppIcon name="countdown" size={18} color={theme.colors.accent} />
         <View style={{ flex: 1 }}><AppText variant="bodySmall" style={{ fontWeight: '600' }}>{countdown?.title ?? 'Next visit'}</AppText><AppText variant="caption" tone="muted">Countdown</AppText></View>
-        <AppText variant="cardTitle">{countdown ? `${daysUntil(countdown.target_at, now)} days` : 'Add'}</AppText><AppIcon name="chevron" size={15} color={theme.colors.textMuted} />
+        <AppText variant="cardTitle">{countdown ? `${countdownRemaining(countdown.target_at, now).days} days` : 'Add'}</AppText><AppIcon name="chevron" size={15} color={theme.colors.textMuted} />
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.push('/features/availability' as never)} style={({ pressed }) => ({ minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 7, opacity: pressed ? 0.68 : 1 })}>
         <AppIcon name="availability" size={18} color={theme.colors.accent} />

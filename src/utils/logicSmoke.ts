@@ -2,6 +2,7 @@ import { expandEvent } from './calendar';
 import { isValidDateOnly, parseLocalDateTimeInput } from './dates';
 import type { CoupleEvent } from '../types/database';
 import { taskAttentionDate } from './taskTiming';
+import { calendarDaysBetween, countdownProgress, countdownRemaining, countdownStorageIso } from './countdown';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -64,6 +65,16 @@ function run() {
   assert(taskAttentionDate({ start_date: null, due_date: '2026-08-29', estimated_minutes: 10080 }) === '2026-08-22', 'One-week task estimate should surface one week before its due date.');
   assert(taskAttentionDate({ start_date: null, due_date: '2026-08-29', estimated_minutes: 120 }) === '2026-08-29', 'Sub-day task estimates should surface on the due date rather than a full day early.');
 
+  assert(calendarDaysBetween('2026-03-07', '2026-03-09') === 2, 'Calendar-day math must not depend on daylight-saving hour length.');
+  const countdownTarget = countdownStorageIso('2026-10-22');
+  const countdownStart = countdownStorageIso('2026-10-20');
+  assert(Boolean(countdownTarget && countdownStart), 'Countdown storage dates should parse.');
+  const beforeMidnight = new Date(2026, 9, 20, 23, 59, 0, 0).getTime();
+  const afterMidnight = new Date(2026, 9, 21, 0, 1, 0, 0).getTime();
+  assert(countdownRemaining(countdownTarget!, beforeMidnight).days === 2, 'Countdown should use calendar dates before local midnight.');
+  assert(countdownRemaining(countdownTarget!, afterMidnight).days === 1, 'Countdown should decrement at local date rollover, not at an arbitrary timestamp.');
+  assert(countdownProgress(countdownStart!, countdownTarget!, new Date(2026, 9, 21, 12, 0, 0, 0).getTime()) === 50, 'Two-day countdown should be 50% complete on the middle calendar day.');
+
   const leapDay = new Date(2028, 1, 29, 9, 0, 0, 0);
   const yearly = expandEvent(eventAt(leapDay, 'yearly'), new Date(2028, 0, 1), new Date(2030, 11, 31));
   const yearlyParts = yearly.map((item) => dateParts(item.start));
@@ -77,6 +88,7 @@ function run() {
   console.log('PASS timezone-free all-day calendar dates');
   console.log('PASS yearly leap-day recurrence clamping');
   console.log('PASS smart task attention windows');
+  console.log('PASS countdown calendar-day consistency');
   console.log('Logic smoke checks passed.');
 }
 
