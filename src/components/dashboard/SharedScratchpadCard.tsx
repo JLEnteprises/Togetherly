@@ -15,6 +15,7 @@ import type { DrawingData, DrawingStroke, SharedItem } from '@/types/database';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { participantPalette } from '@/theme/tokens';
 import { GentleFloat } from '@/components/motion/Motion';
+import { FullscreenScratchpadDrawing } from '@/components/scratchpad/FullscreenScratchpadDrawing';
 
 function messageFrom(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -53,6 +54,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
   const [saving, setSaving] = useState(false);
   const [remoteUpdate, setRemoteUpdate] = useState(false);
   const [expanded, setExpanded] = useState(!compact);
+  const [fullscreenDrawing, setFullscreenDrawing] = useState(false);
   const dirtyRef = useRef(false);
   const presenceActive = !compact || expanded;
   const presenceScope = `scratchpad:${mode}`;
@@ -204,7 +206,9 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
   const previewStrokes = dirty ? strokes : drawingFromItem(item).strokes;
   const previewBody = dirty ? body : (item?.body ?? '');
 
+  // I1_FULLSCREEN_SCRATCHPAD_DRAWING: fullscreen drawing shares this exact draft/save/conflict/presence state.
   return (
+    <>
     <Card participantColor={compact ? 'both' : item ? ownerColor : 'both'} style={{ gap: theme.spacing.md }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.md }}>
         <View style={{ flex: 1 }}>
@@ -342,6 +346,7 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 <AppButton compact variant="ghost" label="Undo mine" disabled={!strokes.length || saving} onPress={undoMine} />
                 <AppButton compact variant="ghost" label="Clear all" disabled={!strokes.length || saving} onPress={clearDrawing} />
+                {!compact ? <AppButton compact variant="secondary" label="Full screen" onPress={() => setFullscreenDrawing(true)} /> : null}
               </View>
             </View>
           )}
@@ -364,5 +369,29 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
         </>
       )}
     </Card>
+
+    <FullscreenScratchpadDrawing
+      visible={fullscreenDrawing && mode === 'draw'}
+      strokes={strokes}
+      currentUserId={profile?.id}
+      partnerName={partnerName}
+      partnerInScratchpad={partnerInScratchpad}
+      partnerSameMode={partnerSameMode}
+      saving={saving}
+      loading={loading}
+      dirty={dirty}
+      remoteUpdate={remoteUpdate}
+      onClose={() => setFullscreenDrawing(false)}
+      onSave={save}
+      onReloadLatest={reloadLatest}
+      onStroke={addStroke}
+      onUndoMine={undoMine}
+      onClear={clearDrawing}
+      strokeColorForUser={(userId) => {
+        const participant = colorForUser(userId);
+        return participant === 'both' ? theme.colors.accent : participantPalette(participant).accent;
+      }}
+    />
+    </>
   );
 }

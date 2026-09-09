@@ -129,6 +129,7 @@ export function DrawingCanvas({
   strokeColorForUser,
   onStroke,
   showTools = false,
+  compactTools = false,
 }: {
   strokes: DrawingStroke[];
   currentUserId?: string;
@@ -137,7 +138,9 @@ export function DrawingCanvas({
   strokeColorForUser?: (userId: string | undefined) => string;
   onStroke?: (stroke: DrawingStroke) => void;
   showTools?: boolean;
+  compactTools?: boolean;
 }) {
+  // I1_FULLSCREEN_SCRATCHPAD_DRAWING: fullscreen drawing can use a compact brush/size/colour toolbar without changing stroke behavior.
   const theme = useAppTheme();
   const setScreenScrollLocked = useAppScreenScrollLock();
   useEffect(() => () => setScreenScrollLocked(false), [setScreenScrollLocked]);
@@ -146,6 +149,7 @@ export function DrawingCanvas({
   const [tool, setTool] = useState<BrushTool>('pen');
   const [brushSize, setBrushSize] = useState<BrushSize>('medium');
   const [colour, setColour] = useState({ hue: 285, saturation: 0.75, value: 1 });
+  const [colourOpen, setColourOpen] = useState(false);
   const sizeRef = useRef(size);
   const draftRef = useRef<DrawingStroke | null>(null);
   sizeRef.current = size;
@@ -234,13 +238,71 @@ export function DrawingCanvas({
 
   const toolButton = (value: BrushTool, label: string) => <Pressable accessibilityRole="button" accessibilityState={{ selected: tool === value }} onPress={() => setTool(value)} style={({ pressed }) => ({ minHeight: 38, paddingHorizontal: 12, borderRadius: theme.radii.md, borderWidth: 1, borderColor: tool === value ? theme.colors.accent : theme.colors.border, backgroundColor: tool === value ? theme.colors.accentSoft : theme.colors.elevatedBackground, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}><AppText variant="button">{label}</AppText></Pressable>;
   const sizeButton = (value: BrushSize, label: string) => <Pressable accessibilityRole="button" accessibilityState={{ selected: brushSize === value }} onPress={() => setBrushSize(value)} style={({ pressed }) => ({ minHeight: 36, paddingHorizontal: 11, borderRadius: theme.radii.md, borderWidth: 1, borderColor: brushSize === value ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: brushSize === value ? theme.colors.secondarySoft : theme.colors.elevatedBackground, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}><AppText variant="bodySmall">{label}</AppText></Pressable>;
+  const compactToolButton = (value: BrushTool, label: string) => <Pressable accessibilityRole="button" accessibilityState={{ selected: tool === value }} onPress={() => setTool(value)} style={({ pressed }) => ({ minHeight: 34, paddingHorizontal: 9, borderRadius: theme.radii.md, borderWidth: 1, borderColor: tool === value ? theme.colors.accent : theme.colors.border, backgroundColor: tool === value ? theme.colors.accentSoft : theme.colors.elevatedBackground, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}><AppText variant="bodySmall">{label}</AppText></Pressable>;
+  const cycleSize = () => setBrushSize((current) => current === 'thin' ? 'medium' : current === 'medium' ? 'thick' : 'thin');
+  const compactSizeLabel = brushSize === 'thin' ? 'S' : brushSize === 'medium' ? 'M' : 'L';
 
-  return <View style={{ gap: showTools && editable ? theme.spacing.md : 0 }}>
-    {showTools && editable ? <View style={{ gap: theme.spacing.sm }}>
-      <ColourWheel hue={colour.hue} saturation={colour.saturation} value={colour.value} onChange={setColour} />
-      <View style={{ gap: 7 }}><AppText variant="caption" tone="secondary">BRUSH</AppText><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{toolButton('pen', 'Pen')}{toolButton('marker', 'Marker')}{toolButton('highlighter', 'Highlighter')}{toolButton('eraser', 'Eraser')}</View></View>
-      <View style={{ gap: 7 }}><AppText variant="caption" tone="secondary">SIZE</AppText><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{sizeButton('thin', 'Thin')}{sizeButton('medium', 'Medium')}{sizeButton('thick', 'Thick')}</View></View>
-    </View> : null}
+  return <View style={{ gap: showTools && editable ? theme.spacing.sm : 0 }}>
+    {showTools && editable ? compactTools ? (
+      <View style={{ position: 'relative', zIndex: 4 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          {compactToolButton('pen', 'Pen')}
+          {compactToolButton('marker', 'Marker')}
+          {compactToolButton('highlighter', 'Highlighter')}
+          {compactToolButton('eraser', 'Eraser')}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Brush size ${brushSize}. Tap to change.`}
+            onPress={cycleSize}
+            style={({ pressed }) => ({
+              minHeight: 34,
+              paddingHorizontal: 10,
+              borderRadius: theme.radii.md,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.elevatedBackground,
+              justifyContent: 'center',
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <AppText variant="bodySmall">Size {compactSizeLabel}</AppText>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Choose drawing colour"
+            accessibilityState={{ expanded: colourOpen }}
+            onPress={() => setColourOpen((value) => !value)}
+            style={({ pressed }) => ({
+              minHeight: 34,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 10,
+              borderRadius: theme.radii.md,
+              borderWidth: 1,
+              borderColor: colourOpen ? theme.colors.accent : theme.colors.border,
+              backgroundColor: theme.colors.elevatedBackground,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: hsvToHex(colour.hue, colour.saturation, colour.value), borderWidth: 1, borderColor: theme.colors.border }} />
+            <AppText variant="bodySmall">Colour</AppText>
+          </Pressable>
+        </View>
+
+        {colourOpen ? (
+          <View style={{ position: 'absolute', top: 42, left: 0, right: 0, zIndex: 20, padding: theme.spacing.md, borderRadius: theme.radii.lg, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.card }}>
+            <ColourWheel hue={colour.hue} saturation={colour.saturation} value={colour.value} onChange={setColour} />
+          </View>
+        ) : null}
+      </View>
+    ) : (
+      <View style={{ gap: theme.spacing.sm }}>
+        <ColourWheel hue={colour.hue} saturation={colour.saturation} value={colour.value} onChange={setColour} />
+        <View style={{ gap: 7 }}><AppText variant="caption" tone="secondary">BRUSH</AppText><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{toolButton('pen', 'Pen')}{toolButton('marker', 'Marker')}{toolButton('highlighter', 'Highlighter')}{toolButton('eraser', 'Eraser')}</View></View>
+        <View style={{ gap: 7 }}><AppText variant="caption" tone="secondary">SIZE</AppText><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{sizeButton('thin', 'Thin')}{sizeButton('medium', 'Medium')}{sizeButton('thick', 'Thick')}</View></View>
+      </View>
+    ) : null}
     <View
       accessibilityRole="image"
       accessibilityLabel={editable ? 'Shared drawing canvas. Drag a finger or mouse to draw.' : 'Drawing preview'}
