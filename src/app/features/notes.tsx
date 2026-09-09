@@ -16,10 +16,13 @@ import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { IconButton } from '@/components/common/IconButton';
+import { AppIcon } from '@/components/art/AppIcon';
+import { GentleFloat } from '@/components/motion/Motion';
 import { FeatureGroupCard } from '@/components/navigation/FeatureGroupCard';
 import { createNote, deleteNote, getNotes, updateNote } from '@/services/backend/coreFeatures';
 import { getTags } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { usePartnerPresence } from '@/hooks/usePartnerPresence';
 import type { CoupleNote, Tag } from '@/types/database';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -30,6 +33,61 @@ type Filter = 'all' | 'shared' | 'private' | 'pinned';
 const noteTools = [
   { icon: 'draw', title: 'Shared scratchpad', subtitle: 'Quick, shared and intentionally unorganised', href: '/features/scratchpad' },
 ] as const;
+
+function SharedNotePresence({
+  partnerName,
+  partnerMode,
+}: {
+  partnerName: string;
+  partnerMode: 'view' | 'edit';
+}) {
+  const theme = useAppTheme();
+  return (
+    <Card
+      tone="accent"
+      participantColor="both"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.md,
+        paddingVertical: theme.spacing.md,
+      }}
+    >
+      <GentleFloat distance={2} duration={1900}>
+        <View
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.accentSoft,
+            borderWidth: 1,
+            borderColor: theme.colors.accent,
+          }}
+        >
+          <AppIcon name={partnerMode === 'edit' ? 'note' : 'heart'} size={18} color={theme.colors.accentStrong} />
+        </View>
+      </GentleFloat>
+      <View style={{ flex: 1, gap: 2 }}>
+        <AppText variant="caption" tone="accent">YOU’RE BOTH IN THIS NOTE</AppText>
+        <AppText variant="bodySmall">
+          {partnerMode === 'edit'
+            ? `${partnerName} is editing this shared note ♥`
+            : `${partnerName} has this shared note open ♥`}
+        </AppText>
+      </View>
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: theme.colors.accentStrong,
+        }}
+      />
+    </Card>
+  );
+}
 
 export default function NotesScreen() {
   const theme = useAppTheme();
@@ -44,6 +102,29 @@ export default function NotesScreen() {
   const visible = useMemo(() => notes.filter((note) => filter === 'all' || (filter === 'pinned' ? note.pinned : note.visibility === filter)), [filter, notes]);
   const selectedNote = selectedId ? notes.find((note) => note.id === selectedId) ?? null : null;
   const canMakePrivate = !selectedNote || selectedNote.creator_id === profile?.id;
+
+  const editingSharedNote = Boolean(
+    composerOpen &&
+    selectedNote &&
+    selectedNote.visibility === 'shared' &&
+    visibility === 'shared',
+  );
+  const presenceNote = editingSharedNote
+    ? selectedNote
+    : viewTarget?.visibility === 'shared'
+      ? viewTarget
+      : null;
+  const notePresenceMode: 'view' | 'edit' = editingSharedNote ? 'edit' : 'view';
+  const notePresenceScope = presenceNote ? `note:${presenceNote.id}:${notePresenceMode}` : 'note:none';
+  const {
+    partnerName: livePartnerName,
+    partnerScope,
+  } = usePartnerPresence(notePresenceScope, Boolean(presenceNote));
+  const partnerOnSameNote = Boolean(
+    presenceNote &&
+    partnerScope?.startsWith(`note:${presenceNote.id}:`),
+  );
+  const partnerNoteMode: 'view' | 'edit' = partnerScope?.endsWith(':edit') ? 'edit' : 'view';
 
   function resetEditor(close = true) { setSelectedId(null); setSelectedUpdatedAt(null); setTitle(''); setBody(''); setVisibility('shared'); setPinned(false); setSelectedTagIds([]); setDetailsOpen(false); if (close) setComposerOpen(false); }
   function select(note: CoupleNote) { setSelectedId(note.id); setSelectedUpdatedAt(note.updated_at); setTitle(note.title); setBody(note.body); setVisibility(note.visibility); setPinned(note.pinned); setSelectedTagIds((note.tags ?? []).map((tag) => tag.id)); setDetailsOpen(true); setComposerOpen(true); }
@@ -64,6 +145,7 @@ export default function NotesScreen() {
     <BackHeader eyebrow="Plan" title="Notes" subtitle="Saved writing you want to keep. Scratchpad stays quick and shared." />
     <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard title="Scratchpad" items={noteTools} /></View>
     <CollapsibleComposer title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="New note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
+      {editingSharedNote && partnerOnSameNote ? <SharedNotePresence partnerName={livePartnerName} partnerMode={partnerNoteMode} /> : null}
       <FormField label="What is this note about?" value={title} onChangeText={setTitle} placeholder="Flight details" />
       <FormField label="Write it down" value={body} onChangeText={setBody} placeholder="Keep the useful bits in one place…" multiline />
       <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add note options" openLabel="Hide note options" hint="Privacy, pinning and tags." />
@@ -100,6 +182,9 @@ export default function NotesScreen() {
     </View>
     <RecordViewSheet visible={!!viewTarget} onClose={() => setViewTarget(null)} eyebrow={viewTarget?.visibility === 'private' ? 'Private note' : 'Shared note'} title={viewTarget?.title ?? ''}>
       {viewTarget ? <View style={{ gap: theme.spacing.md }}>
+        {viewTarget.visibility === 'shared' && presenceNote?.id === viewTarget.id && partnerOnSameNote
+          ? <SharedNotePresence partnerName={livePartnerName} partnerMode={partnerNoteMode} />
+          : null}
         <ParticipantAttribution userId={viewTarget.creator_id} suffix={new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(viewTarget.updated_at))} />
         <AppText tone={viewTarget.body ? 'primary' : 'muted'}>{viewTarget.body || 'This note has no body.'}</AppText>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
