@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { router } from 'expo-router';
+import { View } from 'react-native';
 import { Card } from '@/components/common/Card';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { AppText } from '@/components/common/AppText';
@@ -60,17 +59,17 @@ function durationLabel(minutes: number) {
   return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }
 
-function ActionRow({ icon, title, detail, onPress }: { icon: 'availability' | 'location'; title: string; detail: string; onPress: () => void }) {
+function StatusRow({ icon, title, detail }: { icon: 'availability' | 'location'; title: string; detail: string }) {
   const theme = useAppTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${title}. ${detail}`} onPress={onPress} style={({ pressed }) => ({ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 8, opacity: pressed ? 0.68 : 1 })}>
-      <View style={{ width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={18} color={theme.colors.accent} /></View>
+    <View accessible accessibilityLabel={`${title}. ${detail}`} style={{ minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 8 }}>
+      <View style={{ width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={17} color={theme.colors.accent} /></View>
       <View style={{ flex: 1, gap: 2 }}><AppText variant="bodySmall" style={{ fontWeight: '700' }}>{title}</AppText><AppText variant="caption" tone="muted" numberOfLines={2}>{detail}</AppText></View>
-      <AppIcon name="chevron" size={15} color={theme.colors.textMuted} />
-    </Pressable>
+    </View>
   );
 }
 
+// G2_HOME_DECLUTTER: long-distance Home content reports useful shared context instead of acting as a second feature directory.
 export function LongDistanceOverviewCard() {
   const theme = useAppTheme();
   const { profile, partnerProfile, myColor, partnerColor } = useWorkspace();
@@ -131,28 +130,24 @@ export function LongDistanceOverviewCard() {
         </View>
       </View>
 
-      <Pressable accessibilityRole="button" onPress={() => router.push('/features/countdowns' as never)}>
-        {({ pressed }) => (
-          <View style={{ borderRadius: theme.radii.lg, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.accentSoft, padding: theme.spacing.lg, gap: 4, opacity: pressed ? 0.78 : 1 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.sm }}>
-              <AppText variant="caption" tone="secondary">{countdown ? 'UNTIL YOU’RE TOGETHER' : 'NEXT TIME TOGETHER'}</AppText>
-              <AppIcon name="chevron" size={15} color={theme.colors.textMuted} />
-            </View>
-            <AppText variant="pageTitle">{remaining ? `${remaining.days} ${remaining.days === 1 ? 'day' : 'days'}` : 'Add a countdown'}</AppText>
-            <AppText variant="bodySmall" tone="secondary">{countdown?.title ?? 'Give your next visit something to count down to.'}</AppText>
-          </View>
-        )}
-      </Pressable>
+      <View
+        accessible
+        accessibilityLabel={remaining ? `${remaining.days} ${remaining.days === 1 ? 'day' : 'days'} until ${countdown?.title ?? 'you are together'}` : 'No upcoming countdown'}
+        style={{ borderRadius: theme.radii.lg, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.accentSoft, padding: theme.spacing.md, gap: 3 }}
+      >
+        <AppText variant="caption" tone="secondary">{countdown ? 'UNTIL YOU’RE TOGETHER' : 'NEXT TIME TOGETHER'}</AppText>
+        <AppText variant="section">{remaining ? `${remaining.days} ${remaining.days === 1 ? 'day' : 'days'}` : 'Nothing planned yet'}</AppText>
+        <AppText variant="bodySmall" tone="secondary">{countdown?.title ?? 'Your next shared countdown will appear here.'}</AppText>
+      </View>
 
       <View style={{ gap: 0 }}>
-        <ActionRow icon="availability" title="Next free together" detail={overlapDetail} onPress={() => router.push('/features/availability' as never)} />
+        <StatusRow icon="availability" title="Next free together" detail={overlapDetail} />
         {anySharing ? (
           <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.border }}>
-            <ActionRow
+            <StatusRow
               icon="location"
               title={separationKm != null && bothSharing ? `${separationKm.toLocaleString()} km apart` : 'Live location'}
               detail={bothSharing ? 'Both of you are sharing your current location.' : 'One of you is sharing a live location.'}
-              onPress={() => router.push('/features/location' as never)}
             />
           </View>
         ) : null}

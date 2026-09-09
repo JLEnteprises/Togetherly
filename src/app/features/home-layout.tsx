@@ -10,11 +10,12 @@ import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useHomeLayout, type HomeCardKey } from '@/hooks/useHomeLayout';
 import { useAppTheme } from '@/theme/useAppTheme';
 
+// G2_HOME_DECLUTTER: Home layout labels describe status widgets, not duplicate feature launchers.
 const labels: Record<HomeCardKey, { title: string; body: string }> = {
-  today: { title: 'Today', body: 'Events, tasks, question and check-in.' },
+  today: { title: 'Today', body: 'Events, tasks, question and mood status.' },
   scratchpad: { title: 'Scratchpad', body: 'Shared text or drawing.' },
   distance: { title: 'Long distance', body: 'Local times, countdown and shared free time.' },
-  quickActions: { title: 'Quick actions', body: 'Play, Date ideas, Tasks and Memories.' },
+  quickActions: { title: 'Active game', body: 'Appears only when a shared game is already in progress.' },
 };
 
 export default function HomeLayoutScreen() {

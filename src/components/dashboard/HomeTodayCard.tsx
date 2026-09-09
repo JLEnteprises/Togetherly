@@ -50,17 +50,21 @@ function smartTaskSummary(tasks: CoupleTask[]) {
 }
 function isRecent(entry: MoodEntry | null, hours = 12) { return !!entry && Date.now() - new Date(entry.created_at).getTime() < hours * 3_600_000; }
 
-function Row({ icon, title, value, href, valueTone = 'primary', topBorder = false }: { icon: AppIconName; title: string; value: string; href: string; valueTone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error'; topBorder?: boolean }) {
+function StatusRow({ icon, title, value, valueTone = 'primary', topBorder = false }: { icon: AppIconName; title: string; value: string; valueTone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error'; topBorder?: boolean }) {
   const theme = useAppTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${title}. ${value}`} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 10, borderTopWidth: topBorder ? 1 : 0, borderTopColor: theme.colors.border, opacity: pressed ? 0.7 : 1 })}>
-      <View style={{ width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={19} color={theme.colors.textSecondary} /></View>
+    <View
+      accessible
+      accessibilityLabel={`${title}. ${value}`}
+      style={{ minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 9, borderTopWidth: topBorder ? 1 : 0, borderTopColor: theme.colors.border }}
+    >
+      <View style={{ width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={18} color={theme.colors.textSecondary} /></View>
       <View style={{ flex: 1, gap: 2 }}><AppText variant="bodySmall" tone="secondary" style={{ fontWeight: '700' }}>{title}</AppText><AppText variant="bodySmall" tone={valueTone} numberOfLines={2}>{value}</AppText></View>
-      <AppIcon name="chevron" size={16} color={theme.colors.textMuted} />
-    </Pressable>
+    </View>
   );
 }
 
+// G2_HOME_DECLUTTER: routine Home rows are glanceable status; only genuinely important moments remain actionable.
 export function HomeTodayCard() {
   const theme = useAppTheme();
   const { profile, partnerProfile, partnerColor } = useWorkspace();
@@ -106,15 +110,15 @@ export function HomeTodayCard() {
     }
   }
 
-  const regularRows: Array<{ icon: AppIconName; title: string; value: string; href: string; tone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error' }> = [
-    { icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: '/features/calendar' },
-    { icon: 'task', title: 'Tasks', value: taskSummary.text, href: '/features/tasks', tone: taskSummary.tone },
+  const regularRows: Array<{ icon: AppIconName; title: string; value: string; tone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error' }> = [
+    { icon: 'calendar', title: 'Calendar', value: formatEvent(event) },
+    { icon: 'task', title: 'Tasks', value: taskSummary.text, tone: taskSummary.tone },
   ];
   if (!priority) {
-    regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary, href: '/features/daily-question' });
-    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary, href: '/features/mood' });
+    regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary });
+    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary });
   } else if (priority !== 'partner_mood') {
-    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary, href: '/features/mood' });
+    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary });
   }
 
   return (
@@ -199,7 +203,7 @@ export function HomeTodayCard() {
           <AppText variant="bodySmall" tone="muted">The practical bits around your day.</AppText>
         </View>
         <View style={{ paddingHorizontal: theme.spacing.sm }}>
-          {regularRows.map((row, index) => <Row key={row.title} icon={row.icon} title={row.title} value={row.value} href={row.href} valueTone={row.tone} topBorder={index > 0} />)}
+          {regularRows.map((row, index) => <StatusRow key={row.title} icon={row.icon} title={row.title} value={row.value} valueTone={row.tone} topBorder={index > 0} />)}
         </View>
       </View>
     </View>

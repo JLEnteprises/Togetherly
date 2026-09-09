@@ -1,61 +1,68 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText } from '@/components/common/AppText';
-import { AppIcon, type AppIconName } from '@/components/art/AppIcon';
+import { AppIcon } from '@/components/art/AppIcon';
+import { Card } from '@/components/common/Card';
 import { getGames } from '@/services/backend/games';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { GameSession } from '@/types/database';
 
+// G2_HOME_DECLUTTER: this legacy Home-layout slot is contextual now; it renders only when a shared game is already active.
 export function HomeQuickActions() {
   const theme = useAppTheme();
   const [activeGame, setActiveGame] = useState<GameSession | null>(null);
-  const refresh = useCallback(async () => { try { setActiveGame((await getGames()).find((game) => game.status === 'active') ?? null); } catch { setActiveGame(null); } }, []);
-  useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('games', refresh);
 
-  const actions = useMemo(() => [
-    { icon: 'game' as AppIconName, label: activeGame ? `Continue ${activeGame.title}` : 'Play together', detail: activeGame ? 'Your game is waiting' : 'Start something together', href: activeGame ? `/features/games/${activeGame.id}` : '/features/play-together' },
-    { icon: 'date' as AppIconName, label: 'Pick a date', detail: 'Find something to do', href: '/features/activities' },
-    { icon: 'memory' as AppIconName, label: 'Save a memory', detail: 'Keep this moment', href: '/features/memories' },
-  ], [activeGame]);
+  const refresh = useCallback(async () => {
+    try {
+      setActiveGame((await getGames()).find((game) => game.status === 'active') ?? null);
+    } catch {
+      setActiveGame(null);
+    }
+  }, []);
+
+  useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
+  useRealtimeRefresh('games', refresh);
+
+  if (!activeGame) return null;
 
   return (
     <View style={{ gap: theme.spacing.sm }}>
       <View style={{ gap: 2 }}>
-        <AppText variant="section">Do something together</AppText>
-        <AppText variant="bodySmall" tone="muted">Play, plan or keep a moment.</AppText>
+        <AppText variant="section">In progress</AppText>
+        <AppText variant="bodySmall" tone="muted">Something you’re already doing together.</AppText>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-        {actions.map((action, index) => (
-          <Pressable
-            key={action.label}
-            accessibilityRole="button"
-            accessibilityLabel={`${action.label}. ${action.detail}`}
-            onPress={() => router.push(action.href as never)}
-            style={({ pressed }) => ({
-              minHeight: 74,
-              flexGrow: index === 0 && activeGame ? 2 : 1,
-              minWidth: index === 0 && activeGame ? '100%' : '30%',
-              borderRadius: theme.radii.md,
-              borderWidth: 1,
-              borderColor: theme.colors.border,
-              backgroundColor: pressed ? theme.colors.cardElevated : theme.colors.elevatedBackground,
-              paddingHorizontal: theme.spacing.md,
-              paddingVertical: 12,
-              gap: 8,
-              opacity: pressed ? 0.76 : 1,
-              transform: [{ scale: pressed ? 0.985 : 1 }],
-            })}
-          >
-            <AppIcon name={action.icon} size={18} color={theme.colors.textSecondary} />
-            <View style={{ gap: 1 }}>
-              <AppText variant="bodySmall" style={{ fontWeight: '700' }} numberOfLines={1}>{action.label}</AppText>
-              <AppText variant="caption" tone="muted" numberOfLines={1}>{action.detail}</AppText>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Continue ${activeGame.title}. Your shared game is waiting.`}
+        onPress={() => router.push(`/features/games/${activeGame.id}` as never)}
+      >
+        {({ pressed }) => (
+          <Card participantColor="both" style={{ padding: theme.spacing.md, opacity: pressed ? 0.78 : 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 13,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: theme.colors.elevatedBackground,
+                }}
+              >
+                <AppIcon name="game" size={19} color={theme.colors.textSecondary} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <AppText variant="cardTitle" numberOfLines={1}>Continue {activeGame.title}</AppText>
+                <AppText variant="caption" tone="muted">Your shared game is waiting.</AppText>
+              </View>
+              <AppIcon name="chevron" size={16} color={theme.colors.textMuted} />
             </View>
-          </Pressable>
-        ))}
-      </View>
+          </Card>
+        )}
+      </Pressable>
     </View>
   );
 }
