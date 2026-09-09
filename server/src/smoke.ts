@@ -6,6 +6,10 @@ import { pool } from './db/pool.js';
 type Session = { user: { id: string; email: string; display_name: string }; accessToken: string; refreshToken: string };
 type Json = Record<string, any>;
 
+// RC_PARTICIPANT_COLOR_SMOKE_REPAIR: workspace legacy colour names are normalized to canonical #RRGGBB values.
+const LEGACY_PURPLE = '#BE9AFF';
+const LEGACY_GREEN = '#B7CB7C';
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
@@ -92,7 +96,7 @@ async function main() {
     const aSnapshot = await request<Json>('/workspace', { token: a.accessToken });
     const bSnapshot = await request<Json>('/workspace', { token: b.accessToken });
     assert(aSnapshot.couple.id === bSnapshot.couple.id, 'Linked partners do not share a couple id.');
-    assert(aSnapshot.myColor === 'green' && bSnapshot.myColor === 'purple', 'Creator colour choice or opposite partner colour was not preserved.');
+    assert(aSnapshot.myColor === LEGACY_GREEN && bSnapshot.myColor === LEGACY_PURPLE, 'Creator colour choice or opposite partner colour was not preserved.');
     assert(aSnapshot.profile.display_name === 'Green Smoke' && bSnapshot.profile.display_name === 'Purple Smoke', 'Onboarding names did not persist.');
     assert(aSnapshot.partnerProfile?.email === '' && bSnapshot.partnerProfile?.email === '', 'Workspace snapshot exposed a partner sign-in email.');
     assert(aSnapshot.profile.avatar_url === tinyPng, 'Profile photo chosen during onboarding did not persist.');
@@ -279,6 +283,71 @@ async function main() {
     assert(jar.memory?.id === memory.id, 'Memory jar did not return the only memory.');
     console.log('PASS multi-photo memories, albums, timeline and memory jar');
 
+    // RC_RELEASE_CANDIDATE_AUDIT: H1-H3 standalone Photos integration coverage.
+    const memoryPhotoId = loadedMemory?.photos?.[0]?.id as string | undefined;
+    assert(memoryPhotoId, 'H3 Memory creation did not return a first-class Photo id.');
+
+    const firstClassPhotos = await request<{ photos: Json[] }>('/photos', { token: b.accessToken });
+    assert(firstClassPhotos.photos.some((item) => item.id === memoryPhotoId && item.linked_memory_id === memory.id), 'Memory-created Photo was not visible in standalone Photos with its Memory link.');
+
+    const standalonePhoto = (await request<{ photo: Json }>('/photos', {
+      method: 'POST',
+      token: a.accessToken,
+      expected: 201,
+      body: { mediaUrl: tinyPng, caption: 'Standalone smoke photo', takenAt: '2026-07-26T12:00:00Z' },
+    })).photo;
+    assert(standalonePhoto.id && standalonePhoto.linked_memory_id == null, 'Standalone Photo was not created independently of a Memory.');
+    await request(`/photos/${standalonePhoto.id}`, { token: c.accessToken, expected: 404 });
+
+    const photoAlbum = (await request<{ album: Json }>('/photo-albums', {
+      method: 'POST',
+      token: b.accessToken,
+      expected: 201,
+      body: { title: 'First-class smoke album', description: 'Standalone photo album coverage' },
+    })).album;
+
+    await request(`/photo-albums/${photoAlbum.id}/photos`, {
+      method: 'POST', token: a.accessToken, expected: 201, body: { photoId: memoryPhotoId },
+    });
+    await request(`/photo-albums/${photoAlbum.id}/photos`, {
+      method: 'POST', token: b.accessToken, expected: 201, body: { photoId: standalonePhoto.id },
+    });
+
+    const firstClassAlbumDetail = await request<{ album: Json; photos: Json[] }>(`/photo-albums/${photoAlbum.id}`, { token: a.accessToken });
+    assert(firstClassAlbumDetail.photos.length === 2, `Photo album expected 2 Photos, got ${firstClassAlbumDetail.photos.length}.`);
+    assert(firstClassAlbumDetail.photos.some((item) => item.id === memoryPhotoId) && firstClassAlbumDetail.photos.some((item) => item.id === standalonePhoto.id), 'Photo album did not preserve individual Photo membership.');
+    await request(`/photo-albums/${photoAlbum.id}/photos`, {
+      method: 'POST', token: c.accessToken, expected: 404, body: { photoId: standalonePhoto.id },
+    });
+
+    await request(`/photo-albums/${photoAlbum.id}/photos/${memoryPhotoId}`, { method: 'DELETE', token: b.accessToken, expected: 204 });
+    const photoAfterAlbumRemoval = await request<{ photo: Json }>(`/photos/${memoryPhotoId}`, { token: a.accessToken });
+    assert(photoAfterAlbumRemoval.photo.id === memoryPhotoId, 'Removing a Photo from a photo album deleted the Photo.');
+
+    const existingPhotoMemory = (await request<{ memory: Json }>('/memories', {
+      method: 'POST',
+      token: b.accessToken,
+      expected: 201,
+      body: { title: 'Existing Photo smoke memory', memoryDate: '2026-07-26', photoIds: [standalonePhoto.id] },
+    })).memory;
+    assert(existingPhotoMemory.photos?.[0]?.id === standalonePhoto.id, 'Memory could not select an existing standalone Photo.');
+
+    const linkedStandalone = await request<{ photo: Json }>(`/photos/${standalonePhoto.id}`, { token: a.accessToken });
+    assert(linkedStandalone.photo.linked_memory_id === existingPhotoMemory.id, 'Selecting an existing Photo did not link it to the Memory.');
+
+    await request(`/memories/${existingPhotoMemory.id}`, { method: 'DELETE', token: b.accessToken, expected: 204 });
+    const preservedStandalone = await request<{ photo: Json }>(`/photos/${standalonePhoto.id}`, { token: a.accessToken });
+    assert(preservedStandalone.photo.linked_memory_id == null, 'Deleting a Memory did not unlink its Photo.');
+    const albumAfterMemoryDelete = await request<{ album: Json; photos: Json[] }>(`/photo-albums/${photoAlbum.id}`, { token: b.accessToken });
+    assert(albumAfterMemoryDelete.photos.some((item) => item.id === standalonePhoto.id), 'Deleting a linked Memory removed its Photo from a standalone Photo Album.');
+
+    await request(`/photo-albums/${photoAlbum.id}`, { method: 'DELETE', token: a.accessToken, expected: 204 });
+    const photoAfterAlbumDelete = await request<{ photo: Json }>(`/photos/${standalonePhoto.id}`, { token: b.accessToken });
+    assert(photoAfterAlbumDelete.photo.id === standalonePhoto.id, 'Deleting a Photo Album deleted its Photos.');
+
+    console.log('PASS standalone Photos, photo albums, Memory linking/unlinking, preservation and cross-couple isolation');
+
+
     const activity = (await request<{ activity: Json }>('/activities', { method: 'POST', token: a.accessToken, expected: 201, body: {
       title: 'Stargazing smoke', costLevel: 'free', durationMinutes: 60, locationType: 'nearby', environment: 'outdoor', timeOfDay: 'night', mood: 'romantic', kidFriendly: true, tagIds: [tag.id],
     } })).activity;
@@ -421,8 +490,8 @@ async function main() {
     await request('/workspace/colors/swap', { method: 'POST', token: a.accessToken });
     const swappedA = await request<Json>('/workspace', { token: a.accessToken });
     const swappedB = await request<Json>('/workspace', { token: b.accessToken });
-    assert(swappedA.myColor === 'purple' && swappedB.myColor === 'green', 'Participant colours did not swap consistently.');
-    assert(swappedA.profile.preferred_participant_color === 'purple' && swappedB.profile.preferred_participant_color === 'green', 'Preferred colours did not stay in sync after swap.');
+    assert(swappedA.myColor === LEGACY_PURPLE && swappedB.myColor === LEGACY_GREEN, 'Participant colours did not swap consistently.');
+    assert(swappedA.profile.preferred_participant_color === LEGACY_PURPLE && swappedB.profile.preferred_participant_color === LEGACY_GREEN, 'Preferred colours did not stay in sync after swap.');
     console.log('PASS dual-colour identity swap');
 
     const changedEmail = `account-${stamp}@example.test`;

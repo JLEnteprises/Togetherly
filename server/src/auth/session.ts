@@ -13,11 +13,24 @@ export type PublicUser = {
   timezone: string;
   timezone_mode: 'automatic' | 'manual';
   onboarding_complete: boolean;
-  preferred_participant_color: 'purple' | 'green' | null;
+  preferred_participant_color: string | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
 };
+
+const LEGACY_PURPLE = '#BE9AFF';
+const LEGACY_GREEN = '#B7CB7C';
+const PARTICIPANT_COLOR_RE = /^#[0-9A-F]{6}$/;
+
+// RC_PUBLIC_PARTICIPANT_COLOR_CONTRACT_REPAIR: public profiles expose the same canonical dynamic #RRGGBB identity colour model as workspace membership.
+function publicParticipantColor(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'PURPLE') return LEGACY_PURPLE;
+  if (normalized === 'GREEN') return LEGACY_GREEN;
+  return PARTICIPANT_COLOR_RE.test(normalized) ? normalized : null;
+}
 
 export function toPublicUser(row: Record<string, unknown>): PublicUser {
   return {
@@ -28,7 +41,7 @@ export function toPublicUser(row: Record<string, unknown>): PublicUser {
     timezone: String(row.timezone),
     timezone_mode: row.timezone_mode === 'manual' ? 'manual' : 'automatic',
     onboarding_complete: row.onboarding_complete === true,
-    preferred_participant_color: row.preferred_participant_color === 'green' ? 'green' : row.preferred_participant_color === 'purple' ? 'purple' : null,
+    preferred_participant_color: publicParticipantColor(row.preferred_participant_color),
     deleted_at: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : null,
     created_at: new Date(String(row.created_at)).toISOString(),
     updated_at: new Date(String(row.updated_at)).toISOString(),
