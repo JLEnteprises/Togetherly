@@ -21,6 +21,18 @@ Togetherly is a private digital home for two people: connection, planning, long-
 - Partner and Next Visit complications/widgets;
 - restricted, revocable Watch authentication.
 
+## Connected experience improvements
+
+The current experience branch adds a more intentional path from noticing a moment to acting on it:
+
+- a focused Home header with inbox, search, account, and partner-local-time context;
+- actionable Today, distance, calendar, task, mood, and memory cards;
+- proposal-based planning with accept, decline, counter, conflict checks, and calendar creation;
+- sealed time capsules that keep their note and photo private until the opening time;
+- private mood context with an expiry window and clearer support responses;
+- source-linked memories and independent reflections from both partners;
+- draft-safe composers, retry states, stale-data messaging, and focused inbox/settings screens.
+
 ## Start testing
 
 Read **`EVERYWHERE_TEST_GUIDE.md` first**.
@@ -36,7 +48,7 @@ npm run backend:dev
 npm start
 ```
 
-Latest migration: `012_push_watch_everywhere.sql`.
+Latest migration: `020_connected_experience.sql`.
 
 Detailed implementation notes: `V1_14_EVERYWHERE_NOTES.md`.
 

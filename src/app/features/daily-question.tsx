@@ -117,7 +117,7 @@ export default function DailyQuestionScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Together" title="Daily question" subtitle="One little ritual, answered separately." />
+      <BackHeader eyebrow="Connect" title="Daily question" subtitle="One little ritual, answered separately." />
       <View style={{ marginBottom: theme.spacing.xl }}><ChoiceChips value={view} onChange={setView} options={[{ value: 'today', label: 'Today' }, { value: 'history', label: 'History' }]} /></View>
 
       {view === 'today' ? <>

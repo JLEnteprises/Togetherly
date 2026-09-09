@@ -1,7 +1,7 @@
 import { backendConfig, getUsableAccessToken, initializeBackendConfig } from './api';
 
 // H2_STANDALONE_PHOTO_GALLERY: H1 already broadcasts this resource; H2 teaches the client to subscribe to it.
-export type RealtimeResource = 'tasks' | 'notes' | 'lists' | 'countdowns' | 'events' | 'goals' | 'trips' | 'memories' | 'photos' | 'activities' | 'questions' | 'moods' | 'tags' | 'schedules' | 'games' | 'location' | 'relationship_pings' | 'decision_wheel';
+export type RealtimeResource = 'tasks' | 'notes' | 'lists' | 'countdowns' | 'events' | 'goals' | 'trips' | 'memories' | 'photos' | 'activities' | 'questions' | 'moods' | 'tags' | 'schedules' | 'games' | 'location' | 'relationship_pings' | 'decision_wheel' | 'date_proposals' | 'time_capsules';
 
 export type RealtimeEvent =
   | { type: 'ready'; coupleId: string | null }

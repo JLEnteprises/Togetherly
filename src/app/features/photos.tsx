@@ -369,7 +369,7 @@ export default function PhotosScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Us" title="Photos" subtitle="A shared gallery that doesn’t require a Memory." />
+      <BackHeader eyebrow="Our story" title="Photos" subtitle="A shared gallery that doesn’t require a Memory." />
       <View style={{ marginBottom: theme.spacing.lg }}>
         <ChoiceChips value={view} onChange={setView} options={[{ value: 'all', label: 'All photos' }, { value: 'albums', label: 'Albums' }]} />
       </View>

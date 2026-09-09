@@ -93,7 +93,7 @@ export default function AccountScreen() {
   }
 
   return <AppScreen>
-    <BackHeader eyebrow="More" title="Account & profile" subtitle="Profile, sign-in and security." />
+    <BackHeader eyebrow="Account" title="Account & profile" subtitle="Profile, sign-in and security." />
     <Card participantColor={myColor} style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xxl }}>
       <View style={{ gap: 4 }}><AppText variant="section">{profile?.display_name ?? 'Your profile'}</AppText><AppText tone="secondary">{profile?.email}</AppText></View>
       <PhotoPickerField label="PROFILE PHOTO" value={photo} onChange={setPhoto} circular />

@@ -39,11 +39,17 @@ export async function registerMemoryRoutes(app: FastifyInstance, realtime: Realt
       if (selectedPhotoIds.length + newPhotoUrls.length > 8) throw new ApiError(400, 'A memory can contain up to 8 photos.');
       const id = randomUUID();
       await client.query('BEGIN');
+      const sourceEventId = body.sourceEventId ? uuidValue(body.sourceEventId, 'Event') : null;
+      const sourceTripId = body.sourceTripId ? uuidValue(body.sourceTripId, 'Trip') : null;
+      if (sourceEventId && sourceTripId) throw new ApiError(400, 'Choose one source for this memory.');
+      for (const [table, sourceId] of [['events', sourceEventId], ['trips', sourceTripId]] as const) {
+        if (sourceId && !(await client.query(`SELECT id FROM ${table} WHERE id=$1 AND couple_id=$2 FOR KEY SHARE`, [sourceId, coupleId])).rowCount) throw new ApiError(404, 'The original plan is no longer available.');
+      }
       const result = await client.query(
-        `INSERT INTO memories(id,couple_id,creator_id,title,description,memory_date,location,is_milestone,emoji,photo_url)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL) RETURNING *`,
+        `INSERT INTO memories(id,couple_id,creator_id,title,description,memory_date,location,is_milestone,emoji,photo_url,source_event_id,source_trip_id)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10,$11) RETURNING *`,
         [id, coupleId, request.userId, requiredText(body.title, 'Memory title', 200), optionalText(body.description, 10000), memoryDate,
-          optionalText(body.location, 300), body.isMilestone === true, body.emoji ? requiredText(body.emoji, 'Emoji', 16) : '✦'],
+          optionalText(body.location, 300), body.isMilestone === true, body.emoji ? requiredText(body.emoji, 'Emoji', 16) : '✦', sourceEventId, sourceTripId],
       );
       const photos = await syncStandaloneMemoryPhotos(client, {
         coupleId,

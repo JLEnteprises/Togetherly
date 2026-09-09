@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getCapsules } from '@/services/backend/experience';
+import { useDurableDraft } from '@/hooks/useDurableDraft';
+import { DraftStatus } from '@/components/common/DraftStatus';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
@@ -21,12 +24,13 @@ import { IconButton } from '@/components/common/IconButton';
 import { MemoryDetailModal } from '@/components/memories/MemoryDetailModal';
 import { MemoryPhotoField } from '@/components/memories/MemoryPhotoField';
 import { PhotoViewer } from '@/components/photos/PhotoViewer';
-import { createMemory, deleteMemory, getMemories, getTags, updateMemory } from '@/services/backend/mvpFeatures';
+import { createMemory, deleteMemory, getMemories, getTags, updateMemory, getEvents, getTrip } from '@/services/backend/mvpFeatures';
 import { getPhotos } from '@/services/backend/photos';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { formatMemoryDate, memoryPhotoCount } from '@/utils/memories';
+import { localDateKey } from '@/utils/experience';
 import type { CoupleMemory, CouplePhoto, Tag } from '@/types/database';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
@@ -37,12 +41,14 @@ type Filter = 'all' | 'milestones' | 'mine' | 'partner';
 // H3_MEMORY_PHOTO_INTEGRATION: Memories link to first-class Photos, can choose existing images, and photo taps open PhotoViewer.
 export default function MemoriesScreen() {
   const theme = useAppTheme();
-  const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
-  const { profile, partnerProfile } = useWorkspace();
+  const params = useLocalSearchParams<{ focus?: string; edit?: string; sourceEvent?: string; sourceTrip?: string; sourceCapsule?: string }>();
+  const { profile, partnerProfile, couple } = useWorkspace();
 
   const [memories, setMemories] = useState<CoupleMemory[]>([]);
   const [photos, setPhotos] = useState<CouplePhoto[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [source, setSource] = useState<{ event?: string; trip?: string }>({});
+  const hydratedSource = useRef('');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
@@ -65,6 +71,21 @@ export default function MemoriesScreen() {
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerPhotos, setViewerPhotos] = useState<CouplePhoto[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
+
+  const draft = useDurableDraft(profile && couple ? `togetherly:draft:memories:${profile.id}:${couple.id}` : null,
+    { title, date, description, location, emoji, selectedPhotoIds, uploadUrls, milestone, selectedTags, editingId, source }, (saved) => {
+      setTitle(saved.title);
+      setDate(saved.date);
+      setDescription(saved.description);
+      setLocation(saved.location);
+      setEmoji(saved.emoji);
+      setSelectedPhotoIds(saved.selectedPhotoIds);
+      setUploadUrls(saved.uploadUrls);
+      setMilestone(saved.milestone);
+      setSelectedTags(saved.selectedTags);
+      setEditingId(saved.editingId);
+      setSource(saved.source);
+    }, Boolean(title || description));
 
   const refresh = useCallback(async () => {
     try {
@@ -99,6 +120,8 @@ export default function MemoriesScreen() {
   );
 
   function resetForm(close = true) {
+    void draft.clear().catch(() => Alert.alert('Draft cleanup failed', 'Your saved draft could not be removed.'));
+    setSource({});
     setEditingId(null);
     setTitle('');
     setDate('');
@@ -114,6 +137,7 @@ export default function MemoriesScreen() {
   }
 
   function beginEdit(memory: CoupleMemory) {
+    setSource({});
     setEditingId(memory.id);
     setTitle(memory.title);
     setDate(memory.memory_date);
@@ -160,6 +184,32 @@ export default function MemoriesScreen() {
     if (target) beginEdit(target);
   }, [params.edit, memories, editingId]);
 
+  useEffect(() => {
+    const key = params.sourceEvent || params.sourceTrip || params.sourceCapsule || '';
+    if (!draft.ready || !key || hydratedSource.current === key) return;
+    let active = true;
+    async function loadSource() {
+      try {
+        if (params.sourceCapsule) {
+          const capsule = (await getCapsules()).find((item) => item.id === params.sourceCapsule && item.opened && item.opened_by_me);
+          if (!capsule) throw new Error('Open this capsule before saving it into your story.');
+          setTitle(capsule.title); setDescription(capsule.body || ''); setDate(localDateKey(new Date())); setUploadUrls(capsule.photo_url ? [capsule.photo_url] : []);
+        } else if (params.sourceEvent) {
+          const event = (await getEvents()).find((item) => item.id === params.sourceEvent);
+          if (!event) throw new Error('The calendar event is no longer available.');
+          if (!active) return;
+          setTitle(event.title); setDate(event.start_date || localDateKey(new Date(event.start_at))); setLocation(event.location || ''); setSource({ event: event.id });
+        } else if (params.sourceTrip) {
+          const { trip } = await getTrip(params.sourceTrip);
+          if (!active) return;
+          setTitle(trip.title); setDate(trip.start_date || localDateKey()); setLocation(trip.destination || ''); setSource({ trip: trip.id });
+        }
+        hydratedSource.current = key; setComposerOpen(true);
+      } catch (error) { if (active) Alert.alert('Couldn’t open the plan', messageFrom(error)); }
+    }
+    void loadSource(); return () => { active = false; };
+  }, [params.sourceEvent, params.sourceTrip, params.sourceCapsule, draft.ready]);
+
   async function save() {
     if (!title.trim() || !date) {
       Alert.alert('Check the memory', 'Add a title and choose a date.');
@@ -169,6 +219,8 @@ export default function MemoriesScreen() {
     setBusy(true);
     try {
       const input = {
+        sourceEventId: source.event,
+        sourceTripId: source.trip,
         title: title.trim(),
         memoryDate: date,
         description,
@@ -224,9 +276,10 @@ export default function MemoriesScreen() {
   }
 
   return <AppScreen>
-    <BackHeader eyebrow="Us" title="Memories" subtitle="The moments you chose to keep, all in one place." />
+    <BackHeader eyebrow="Our story" title="Memories" subtitle="The moments you chose to keep, all in one place." />
 
-    <ComposerSheet
+    {draft.status === 'error' ? <AppButton compact variant="secondary" label="Retry restoring or saving draft" onPress={draft.retry} /> : null}
+      <ComposerSheet
       title={editingId ? 'Edit memory' : 'Add a memory'}
       subtitle={`${memories.length} memories saved`}
       open={composerOpen}
@@ -234,9 +287,10 @@ export default function MemoriesScreen() {
       closeLabel={editingId ? 'Cancel edit' : 'Close'}
       tone="accent"
       style={{ marginBottom: theme.spacing.lg }}
-      onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}
+      dirty={Boolean(title || description || uploadUrls.length || selectedPhotoIds.length)} onDiscard={() => resetForm()} busy={busy || !draft.ready} onToggle={() => setComposerOpen(!composerOpen)}
     >
-      <FormField label="What happened?" value={title} onChangeText={setTitle} placeholder="First meeting" />
+      <DraftStatus status={draft.status} />
+        <FormField label="What happened?" value={title} onChangeText={setTitle} placeholder="First meeting" />
       <DatePickerField label="When was it?" value={date} onChange={setDate} />
       <MemoryPhotoField
         photos={photos}

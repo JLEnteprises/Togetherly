@@ -249,6 +249,8 @@ export type MemoryPhoto = { id: string | null; media_url: string; caption: strin
 export type MemoryAlbum = { id: string; couple_id: string; creator_id: string; title: string; description: string; memory_count?: number; cover_url?: string | null; created_at: string; updated_at: string };
 
 export type CoupleMemory = {
+  source_event_id?: string | null;
+  source_trip_id?: string | null;
   id: string;
   couple_id: string;
   creator_id: string;
@@ -334,7 +336,7 @@ export type DailyQuestionHistoryEntry = { date: string; question: DailyQuestion;
 
 export type MoodValue = 'amazing' | 'good' | 'okay' | 'low' | 'frustrated' | 'overwhelmed' | 'tired' | 'stressed';
 export type NeedValue = 'affection' | 'reassurance' | 'advice' | 'listen' | 'distraction' | 'space' | 'call' | 'nothing';
-export type MoodEntry = { id: string; user_id: string; couple_id: string; mood: MoodValue; need: NeedValue; visibility: 'shared' | 'private'; acknowledged_by_me?: boolean; acknowledged_at?: string | null; created_at: string };
+export type MoodEntry = { context?: string; valid_until?: string | null; id: string; user_id: string; couple_id: string; mood: MoodValue; need: NeedValue; visibility: 'shared' | 'private'; acknowledged_by_me?: boolean; acknowledged_at?: string | null; created_at: string };
 
 export type UserPreferences = {
   user_id: string;

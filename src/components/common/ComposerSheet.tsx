@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View, type ViewStyle } from 'react-native';
 import { AppIcon } from '@/components/art/AppIcon';
 import { useInteractionFeedback } from '@/hooks/useInteractionFeedback';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { AppText } from './AppText';
 import { Card } from './Card';
+import { AppButton } from './AppButton';
 
 export type ComposerSheetProps = {
   title: string;
@@ -17,6 +18,9 @@ export type ComposerSheetProps = {
   tone?: 'default' | 'accent' | 'secondary';
   style?: ViewStyle;
   showLauncher?: boolean;
+  dirty?: boolean;
+  onDiscard?: () => void;
+  busy?: boolean;
 };
 
 // G6_COMPOSER_SHEETS: explicit shared create/edit sheet keeps the page stable while forms live in a keyboard-safe modal surface.
@@ -31,13 +35,19 @@ export function ComposerSheet({
   tone = 'default',
   style,
   showLauncher = true,
+  dirty = false,
+  onDiscard,
+  busy = false,
 }: ComposerSheetProps) {
+  const [confirmClose, setConfirmClose] = useState(false);
   const theme = useAppTheme();
   const feedback = useInteractionFeedback();
   const isEditing = /^edit\b/i.test(title.trim());
 
   function toggle() {
+    if (busy) return;
     feedback();
+    if (open && dirty && onDiscard) { setConfirmClose(true); return; }
     onToggle();
   }
 
@@ -178,7 +188,13 @@ export function ComposerSheet({
                   gap: theme.spacing.lg,
                 }}
               >
-                {children}
+                {confirmClose ? <View style={{ gap: 12 }}>
+                  <AppText variant="cardTitle">Keep your unfinished changes?</AppText>
+                  <AppText tone="secondary">Keep the draft to come back to it, or discard these changes.</AppText>
+                  <AppButton label="Keep draft & close" onPress={() => { setConfirmClose(false); onToggle(); }} />
+                  <AppButton label="Keep writing" variant="secondary" onPress={() => setConfirmClose(false)} />
+                  <AppButton label="Discard changes" variant="danger" onPress={() => { setConfirmClose(false); onDiscard?.(); }} />
+                </View> : children}
               </ScrollView>
             </View>
           </View>

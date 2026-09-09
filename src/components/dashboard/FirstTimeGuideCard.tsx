@@ -25,9 +25,9 @@ const linkedSteps: readonly GuideStep[] = [
 ];
 
 const waitingSteps: readonly GuideStep[] = [
-  { icon: 'together', title: 'Together is for connection', body: 'Questions, moods, location and playful things you do with each other.' },
+  { icon: 'together', title: 'Connect is for connection', body: 'Questions, moods, location and playful things you do with each other.' },
   { icon: 'plan', title: 'Plan is practical life', body: 'Tasks, calendars, trips, goals and the things you are coordinating.' },
-  { icon: 'us', title: 'Us becomes your story', body: 'Memories, photos and milestones build up here over time.' },
+  { icon: 'us', title: 'Our story keeps your moments', body: 'Memories, photos and milestones build up here over time.' },
 ];
 
 // F1_FIRST_TIME_USER_GUIDANCE: this guide appears only after onboarding explicitly queues it for this profile.

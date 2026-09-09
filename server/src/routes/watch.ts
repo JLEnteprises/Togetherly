@@ -68,7 +68,7 @@ async function loadWatchState(userId: string) {
 
   const mood = await pool.query(
     `SELECT id,mood,need,created_at FROM moods
-     WHERE couple_id=$1 AND user_id=$2 AND visibility='shared' AND created_at >= now() - interval '36 hours'
+     WHERE couple_id=$1 AND user_id=$2 AND visibility='shared' AND COALESCE(valid_until,created_at + interval '12 hours') > now()
      ORDER BY created_at DESC LIMIT 1`, [coupleId, partner.user_id],
   );
 
@@ -212,7 +212,7 @@ export async function registerWatchRoutes(app: FastifyInstance, realtime: Realti
       const moodId = typeof body.moodId === 'string' ? body.moodId : '';
       if (!/^[0-9a-f-]{36}$/i.test(moodId)) throw new ApiError(400, 'Mood is invalid.');
       const mood = await pool.query(
-        `SELECT id,user_id FROM moods WHERE id=$1 AND couple_id=$2 AND visibility='shared'`,
+        `SELECT id,user_id,need FROM moods WHERE id=$1 AND couple_id=$2 AND visibility='shared'`,
         [moodId, coupleId],
       );
       if (!mood.rows[0] || String(mood.rows[0].user_id) === request.userId) throw new ApiError(404, 'Partner check-in not found.');
@@ -232,7 +232,7 @@ export async function registerWatchRoutes(app: FastifyInstance, realtime: Realti
           preference: 'notification_partner_mood',
           entityType: 'mood',
           entityId: moodId,
-          title: 'I’m here for you',
+          title: mood.rows[0].need === 'space' ? 'Take your time ♥' : 'I saw your check-in ♥',
           body: 'Your partner saw your check-in and sent some support.',
         });
         broadcast(realtime, coupleId, 'moods', 'acknowledged', moodId);

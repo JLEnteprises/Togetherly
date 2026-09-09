@@ -503,7 +503,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       const coupleId = await requireCoupleId(request.userId);
       const params = request.params as { id: string };
       const mood = await pool.query(
-        `SELECT id,user_id FROM moods WHERE id=$1 AND couple_id=$2 AND user_id<>$3 AND visibility='shared' LIMIT 1`,
+        `SELECT id,user_id,need FROM moods WHERE id=$1 AND couple_id=$2 AND user_id<>$3 AND visibility='shared' LIMIT 1`,
         [params.id, coupleId, request.userId],
       );
       if (!mood.rows[0]) throw new ApiError(404, 'That shared check-in is no longer available.');
@@ -523,7 +523,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
           preference: 'notification_partner_mood',
           entityType: 'mood',
           entityId: params.id,
-          title: 'I’m here for you',
+          title: mood.rows[0].need === 'space' ? 'Take your time ♥' : mood.rows[0].need === 'listen' ? 'I’m here to listen' : 'I saw your check-in ♥',
           body: 'Your partner saw your check-in and sent some support.',
         });
         broadcast(realtime, coupleId, 'moods', 'acknowledged', params.id);
@@ -539,9 +539,12 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       const mood = oneOf(body.mood, ['amazing','good','okay','low','frustrated','overwhelmed','tired','stressed'] as const, 'okay');
       const need = oneOf(body.need, ['affection','reassurance','advice','listen','distraction','space','call','nothing'] as const, 'nothing');
       const visibility = oneOf(body.visibility, ['shared','private'] as const, 'shared');
-      const result = await pool.query('INSERT INTO moods(id,user_id,couple_id,mood,need,visibility) VALUES($1,$2,$3,$4,$5,$6) RETURNING *', [randomUUID(), request.userId, coupleId, mood, need, visibility]);
+      const context = optionalText(body.context, 300);
+      const hours = body.validForHours ?? 12;
+      if (typeof hours !== 'number' || ![1,4,12,24].includes(hours)) throw new ApiError(400, 'Choose how long this check-in applies.');
+      const result = await pool.query('INSERT INTO moods(id,user_id,couple_id,mood,need,visibility,context,valid_until) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [randomUUID(), request.userId, coupleId, mood, need, visibility, context, new Date(Date.now() + hours * 3600000).toISOString()]);
       if (visibility === 'shared') {
-        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: result.rows[0].id, title: 'Partner check-in', body: `${mood} Â· ${need}` });
+        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: result.rows[0].id, title: 'Partner check-in', body: `${mood} · ${need}` });
         broadcast(realtime, coupleId, 'moods', 'created', result.rows[0].id);
       }
       return reply.code(201).send({ mood: result.rows[0] });

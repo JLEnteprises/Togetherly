@@ -1,3 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getDateProposals, getCapsules, type DateProposal, type TimeCapsule } from '@/services/backend/experience';
+import { moodIsCurrent, formatInZone } from '@/utils/experience';
+import { useFocusEffect } from 'expo-router';
+import { SyncStatus } from '@/components/common/SyncStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
@@ -75,7 +80,18 @@ function StatusRow({ icon, title, value, valueTone = 'primary', topBorder = fals
 // CONTEXT_COMPOUNDING: realtime changes refresh only their own domain and mood needs determine the support language/action.
 export function HomeTodayCard() {
   const theme = useAppTheme();
-  const { profile, partnerProfile, partnerColor } = useWorkspace();
+  const { profile, partnerProfile, partnerColor, couple } = useWorkspace();
+  const [proposals, setProposals] = useState<DateProposal[]>([]);
+  const [capsules, setCapsules] = useState<TimeCapsule[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [, tick] = useState(0);
+  const day = localDateKey();
+  const dismissKey = `togetherly:home-dismiss:${profile?.id}:${couple?.id}`;
+  useEffect(() => { const timer=setInterval(() => tick((n)=>n+1),60000); return () => clearInterval(timer); },[]);
+  useEffect(() => { let alive=true; setDismissed([]); void AsyncStorage.getItem(dismissKey).then((raw) => { if(raw && alive) { const saved=JSON.parse(raw); if(saved.day===day && Array.isArray(saved.ids)) setDismissed(saved.ids); } }).catch(()=>undefined); return () => {alive=false;}; },[dismissKey,day]);
+  const refreshPlans = useCallback(async () => { setProposals(await getDateProposals()); },[]);
+  const refreshCapsules = useCallback(async () => { setCapsules(await getCapsules(true)); },[]);
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
   const [event, setEvent] = useState<EventOccurrence | null>(null);
   const [question, setQuestion] = useState<DailyQuestionState | null>(null);
@@ -94,10 +110,13 @@ export function HomeTodayCard() {
   const refreshQuestion = useCallback(async () => { setQuestion(await getDailyQuestion()); }, []);
   const refreshMoods = useCallback(async () => { setMoods(await getLatestMoods()); }, []);
   const refreshAll = useCallback(async () => {
-    await Promise.allSettled([refreshTasks(), refreshEvents(), refreshQuestion(), refreshMoods()]);
-  }, [refreshEvents, refreshMoods, refreshQuestion, refreshTasks]);
+    await Promise.allSettled([refreshTasks(), refreshEvents(), refreshQuestion(), refreshMoods(), refreshPlans(), refreshCapsules()]);
+    setLoading(false);
+  }, [refreshEvents, refreshMoods, refreshQuestion, refreshTasks, refreshPlans, refreshCapsules]);
 
-  useEffect(() => { refreshAll().catch(() => undefined); }, [refreshAll]);
+  useFocusEffect(useCallback(() => { void refreshAll(); }, [refreshAll]));
+  useRealtimeRefresh('date_proposals', refreshPlans);
+  useRealtimeRefresh('time_capsules', refreshCapsules);
   useRealtimeRefresh('tasks', refreshTasks);
   useRealtimeRefresh('events', refreshEvents);
   useRealtimeRefresh('questions', refreshQuestion);
@@ -105,15 +124,30 @@ export function HomeTodayCard() {
 
   const taskSummary = useMemo(() => smartTaskSummary(tasks), [tasks]);
   const questionSummary = question?.bothAnswered ? (question.revealed ? 'Both answered · revealed' : 'Both answered · ready to reveal') : question?.myAnswer ? `Waiting for ${partnerProfile?.display_name ?? 'your partner'}` : question?.question ? 'A question is waiting for you' : 'No question today';
-  const moodSummary = `${moods.mine ? moodShort[moods.mine.mood] : '—'} ${profile?.display_name ?? 'You'}  ·  ${moods.partner ? moodShort[moods.partner.mood] : '—'} ${partnerProfile?.display_name ?? 'Partner'}`;
-  const partnerMood = moods.partner;
+  const moodSummary = `${moods.mine && moodIsCurrent(moods.mine) ? moodShort[moods.mine.mood] : '—'} ${profile?.display_name ?? 'You'}  ·  ${moods.partner && moodIsCurrent(moods.partner) ? moodShort[moods.partner.mood] : '—'} ${partnerProfile?.display_name ?? 'Partner'}`;
+  const partnerMood = moodIsCurrent(moods.partner) ? moods.partner : null;
   const partnerSupport = partnerMood ? moodSupportForNeed(partnerMood.need) : null;
-  const partnerNeedsAttention = isRecent(partnerMood) && partnerMood?.need !== 'nothing' && !partnerMood?.acknowledged_by_me;
+  const partnerNeedsAttention = moodIsCurrent(partnerMood) && partnerMood?.need !== 'nothing' && !partnerMood?.acknowledged_by_me;
   const revealReady = Boolean(question?.question && question.bothAnswered && !question.revealed);
   const answerWaiting = Boolean(question?.question && !question.myAnswer);
 
-  const priority: 'partner_mood' | 'reveal' | 'question' | null =
-    partnerNeedsAttention ? 'partner_mood' : revealReady ? 'reveal' : answerWaiting ? 'question' : null;
+  const proposal = proposals.filter((p) => p.status==='pending' && p.proposer_id!==profile?.id && Date.parse(p.start_at)>Date.now()).sort((a,b)=>Date.parse(a.start_at)-Date.parse(b.start_at))[0];
+  const capsule = capsules.find((c)=>c.opened && !c.opened_by_me);
+  const candidates = [
+    partnerNeedsAttention ? {kind:'partner_mood',key:`mood:${partnerMood?.id}`} : null,
+    proposal ? {kind:'proposal',key:`proposal:${proposal.id}:${proposal.revision}`} : null,
+    capsule ? {kind:'capsule',key:`capsule:${capsule.id}`} : null,
+    revealReady ? {kind:'reveal',key:`reveal:${day}`} : null,
+    answerWaiting ? {kind:'question',key:`question:${day}`} : null,
+  ].filter((item): item is {kind:string;key:string} => Boolean(item));
+  const featured = candidates.find((item)=>!dismissed.includes(item.key));
+  const priority = loading ? null : featured?.kind;
+  async function dismiss() {
+    if (!featured) return;
+    const ids=[...dismissed,featured.key]; setDismissed(ids);
+    await AsyncStorage.setItem(dismissKey,JSON.stringify({day,ids})).catch(()=>undefined);
+  }
+
 
   async function acknowledgePartnerMood() {
     if (!partnerMood || acknowledgingMood) return;
@@ -131,7 +165,7 @@ export function HomeTodayCard() {
   }
 
   const regularRows: Array<{ icon: AppIconName; title: string; value: string; tone?: StatusTone; href: string }> = [
-    { icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: '/features/calendar' },
+    { icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: event ? `/features/calendar?focus=${event.event.id}` : '/features/calendar' },
     { icon: 'task', title: 'Tasks', value: taskSummary.text, tone: taskSummary.tone, href: '/features/tasks' },
   ];
   if (!priority) {
@@ -143,14 +177,27 @@ export function HomeTodayCard() {
 
   return (
     <View style={{ gap: theme.spacing.lg }}>
+      <SyncStatus resources={['tasks', 'events', 'daily-question', 'moods', 'date-proposals', 'time-capsules']} retry={refreshAll} />
       {priority ? (
         <View style={{ gap: theme.spacing.sm }}>
           <View style={{ gap: 2 }}>
             <AppText variant="section">Right now</AppText>
-            <AppText variant="bodySmall" tone="muted">The relationship moment that matters most right now.</AppText>
+            <AppText variant="bodySmall" tone="muted">A small moment for the two of you.</AppText>
           </View>
 
-          {priority === 'partner_mood' && partnerMood && partnerSupport ? (
+          <AppButton compact variant="ghost" label="Not now" onPress={() => { void dismiss(); }} />
+          {priority === 'proposal' && proposal ? <Card tone="accent" style={{gap:12}}>
+            <AppText variant="caption" tone="secondary">A LITTLE TIME TOGETHER?</AppText>
+            <AppText variant="section">{proposal.title}</AppText>
+            <AppText tone="secondary">{formatInZone(proposal.start_at,profile?.timezone)}</AppText>
+            <AppButton label="Answer this proposal" onPress={() => router.push(`/features/date-plans?focus=${proposal.id}` as never)} />
+          </Card> : null}
+          {priority === 'capsule' && capsule ? <Card tone="accent" style={{gap:12}}>
+            <AppText variant="caption" tone="secondary">SOMETHING IS READY FOR YOU</AppText>
+            <AppText variant="section">{capsule.title}</AppText>
+            <AppButton label="Open your capsule" onPress={() => router.push(`/features/time-capsules?focus=${capsule.id}` as never)} />
+          </Card> : null}
+          {priority === 'partner_mood'  && partnerMood && partnerSupport ? (
             <FadeSlideIn>
               <Card participantColor={partnerColor} style={{ gap: theme.spacing.md, padding: theme.spacing.lg }}>
                 <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
@@ -160,7 +207,7 @@ export function HomeTodayCard() {
                   <View style={{ flex: 1, gap: 4 }}>
                     <ParticipantIdentityBadge userId={partnerProfile?.id} compact />
                     <AppText variant="cardTitle">{partnerProfile?.display_name ?? 'Your partner'} could use {partnerSupport.needLabel}.</AppText>
-                    <AppText variant="bodySmall" tone="secondary">{partnerSupport.helper}</AppText>
+                    <AppText variant="bodySmall" tone="secondary">{partnerMood.context || 'Let them know you’ve seen their check-in.'}</AppText>
                   </View>
                 </View>
                 <View style={{ gap: theme.spacing.sm }}>
@@ -223,10 +270,10 @@ export function HomeTodayCard() {
       <View style={{ gap: theme.spacing.sm }}>
         <View style={{ gap: 2 }}>
           <AppText variant="section">Life today</AppText>
-          <AppText variant="bodySmall" tone="muted">The practical bits around your day. Tap any row to go straight there.</AppText>
+          <AppText variant="bodySmall" tone="muted">Your next commitments.</AppText>
         </View>
         <View style={{ paddingHorizontal: theme.spacing.sm }}>
-          {regularRows.map((row, index) => <StatusRow key={row.title} icon={row.icon} title={row.title} value={row.value} valueTone={row.tone} href={row.href} topBorder={index > 0} />)}
+          {regularRows.map((row, index) => <StatusRow key={row.title} icon={row.icon} title={row.title} value={loading ? 'Loading…' : row.value} valueTone={row.tone} href={row.href} topBorder={index > 0} />)}
         </View>
       </View>
     </View>

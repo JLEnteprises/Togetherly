@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type HomeCardKey = 'today' | 'scratchpad' | 'distance' | 'quickActions';
@@ -26,7 +27,7 @@ function normalize(value: unknown): HomeLayoutItem[] {
 export function useHomeLayout(userId: string | null | undefined) {
   const [layout, setLayout] = useState<HomeLayoutItem[]>(defaultHomeLayout);
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => { let active = true; AsyncStorage.getItem(keyFor(userId)).then((raw) => { if (!active) return; try { setLayout(normalize(raw ? JSON.parse(raw) : null)); } catch { setLayout(defaultHomeLayout); } setLoaded(true); }).catch(() => setLoaded(true)); return () => { active = false; }; }, [userId]);
+  useFocusEffect(useCallback(() => { let active = true; AsyncStorage.getItem(keyFor(userId)).then((raw) => { if (!active) return; try { setLayout(normalize(raw ? JSON.parse(raw) : null)); } catch { setLayout(defaultHomeLayout); } setLoaded(true); }).catch(() => setLoaded(true)); return () => { active = false; }; }, [userId]));
   const save = useCallback(async (next: HomeLayoutItem[]) => { setLayout(next); await AsyncStorage.setItem(keyFor(userId), JSON.stringify(next)); }, [userId]);
   const orderedVisible = useMemo(() => layout.filter((item) => !item.hidden).sort((a, b) => Number(b.pinned) - Number(a.pinned) || layout.indexOf(a) - layout.indexOf(b)), [layout]);
   const update = useCallback((key: HomeCardKey, patch: Partial<HomeLayoutItem>) => save(layout.map((item) => item.key === key ? { ...item, ...patch } : item)), [layout, save]);

@@ -103,7 +103,7 @@ export function HomeConnectionActions({ context = 'home' }: HomeConnectionAction
         <View style={{ gap: 2 }}>
           <AppText variant="section">Between you</AppText>
           <AppText variant="bodySmall" tone="muted">
-            {together ? `Tiny ways to reach ${partnerName} or check in right now.` : 'A quick little signal, without turning Home into another menu.'}
+            {together ? `Tiny ways to reach ${partnerName} or check in right now.` : 'Send a little love.'}
           </AppText>
         </View>
         <ParticipantIdentityBadge userId={partnerProfile.id} compact />

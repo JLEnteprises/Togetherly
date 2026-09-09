@@ -1,3 +1,5 @@
+import { AppText } from '@/components/common/AppText';
+import { SyncStatus } from '@/components/common/SyncStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExpandableFeatureGroup, type ExpandableFeatureGroupItem } from '@/components/navigation/ExpandableFeatureGroup';
 import { useExclusiveExpandedGroup } from '@/hooks/useExclusiveExpandedGroup';
@@ -51,6 +53,7 @@ function nextTrip(trips: CoupleTrip[]) {
 // G4_PLAN_EXPANDABLE_GROUPS: Plan keeps its existing feature ownership while revealing one practical group at a time.
 // CONTEXT_COMPOUNDING: realtime changes now refresh only the domain that changed instead of reloading every Plan summary.
 export function PlanHubGroups() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const { isExpanded, setExpanded } = useExclusiveExpandedGroup<PlanGroupKey>();
   const { profile, partnerProfile } = useWorkspace();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
@@ -85,6 +88,7 @@ export function PlanHubGroups() {
       refreshTrips(),
       refreshGoals(),
     ]);
+    setInitialLoading(false);
   }, [refreshAvailability, refreshCountdowns, refreshEvents, refreshGoals, refreshLists, refreshNotes, refreshTasks, refreshTrips]);
 
   useEffect(() => {
@@ -224,11 +228,12 @@ export function PlanHubGroups() {
 
   return (
     <>
+      <SyncStatus resources={['tasks', 'events', 'notes', 'lists', 'countdowns', 'trips', 'goals', 'availability']} retry={refreshAll} />
       <ExpandableFeatureGroup
         eyebrow="EVERYDAY"
         icon="task"
         title="Day to day"
-        summary={daySummary}
+        summary={initialLoading ? 'Loading…' : daySummary}
         status={openTasks.length ? `${openTasks.length} open` : undefined}
         items={organiseItems}
         expanded={isExpanded('dayToDay')}
@@ -240,7 +245,7 @@ export function PlanHubGroups() {
         eyebrow="WHEN"
         icon="calendar"
         title="Dates & time"
-        summary={datesSummary}
+        summary={initialLoading ? 'Loading…' : datesSummary}
         items={dateItems}
         expanded={isExpanded('datesAndTime')}
         onExpandedChange={(expanded) => setExpanded('datesAndTime', expanded)}
@@ -250,7 +255,7 @@ export function PlanHubGroups() {
         eyebrow="LOOKING AHEAD"
         icon="trip"
         title="Looking ahead"
-        summary={aheadSummary}
+        summary={initialLoading ? 'Loading…' : aheadSummary}
         status={activeGoals.length ? `${activeGoals.length} active` : undefined}
         items={aheadItems}
         expanded={isExpanded('lookingAhead')}

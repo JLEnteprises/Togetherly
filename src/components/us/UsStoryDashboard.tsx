@@ -1,3 +1,5 @@
+import { Image } from 'expo-image';
+import { SyncStatus } from '@/components/common/SyncStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
@@ -120,6 +122,7 @@ function StorySummaryCard({
 // G5_US_STORY_CONSOLIDATION: Us owns the relationship-story navigation layer; Memories itself stays focused on memory entries.
 // CONTEXT_COMPOUNDING: rediscovery now surfaces nearby anniversaries instead of waiting for an exact-date match, and refreshes stay domain-specific.
 export function UsStoryDashboard() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const [memories, setMemories] = useState<CoupleMemory[]>([]);
   const [photos, setPhotos] = useState<CouplePhoto[]>([]);
   const [photoAlbums, setPhotoAlbums] = useState<PhotoAlbum[]>([]);
@@ -137,6 +140,7 @@ export function UsStoryDashboard() {
   }, []);
   const refreshAll = useCallback(async () => {
     await Promise.allSettled([refreshStory(), refreshPhotos()]);
+    setInitialLoading(false);
   }, [refreshPhotos, refreshStory]);
 
   useEffect(() => {
@@ -203,6 +207,7 @@ export function UsStoryDashboard() {
       href: '/features/memory-jar',
     });
 
+    items.push({ key: 'capsules', icon: 'heart', title: 'Open together', subtitle: 'A note or photo for a future moment', href: '/features/time-capsules' });
     return items;
   }, [aroundNow, latest, onThisDay]);
 
@@ -222,10 +227,19 @@ export function UsStoryDashboard() {
 
   return (
     <View style={{ gap: 12 }}>
+      <SyncStatus resources={['memories', 'photos', 'timeline']} retry={refreshAll} />
+      {latest ? <Pressable accessibilityRole="button" accessibilityLabel={`Open memory: ${latest.title}`} onPress={() => router.push(`/features/memories?focus=${latest.id}` as never)}>
+        <Card style={{ gap: 10 }}>
+          {(latest.photo_url || latest.photos?.[0]?.media_url) ? <Image source={{ uri: latest.photo_url || latest.photos?.[0]?.media_url || '' }} accessibilityLabel={latest.title} style={{ width: '100%', height: 240, borderRadius: 16 }} contentFit="cover" cachePolicy="memory-disk" transition={0} /> : null}
+          <AppText variant="caption" tone="secondary">OUR LATEST MOMENT</AppText>
+          <AppText variant="section">{latest.emoji} {latest.title}</AppText>
+          {latest.description ? <AppText tone="secondary" numberOfLines={3}>{latest.description}</AppText> : null}
+        </Card>
+      </Pressable> : null}
       <StorySummaryCard
         icon="memory"
         title="Memories"
-        summary={memorySummary}
+        summary={initialLoading ? 'Loading…' : memorySummary}
         status={memories.length ? String(memories.length) : undefined}
         href="/features/memories"
       />
@@ -233,7 +247,7 @@ export function UsStoryDashboard() {
       <StorySummaryCard
         icon="photo"
         title="Photos"
-        summary={photoSummary}
+        summary={initialLoading ? 'Loading…' : photoSummary}
         status={photoCount ? String(photoCount) : undefined}
         href="/features/photos"
       />
@@ -241,7 +255,7 @@ export function UsStoryDashboard() {
       <StorySummaryCard
         icon="timeline"
         title="Timeline"
-        summary={timelineSummary}
+        summary={initialLoading ? 'Loading…' : timelineSummary}
         status={milestoneCount ? String(milestoneCount) : undefined}
         href="/features/timeline"
       />

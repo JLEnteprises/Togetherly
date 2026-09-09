@@ -32,7 +32,7 @@ export default function MemoryJarScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Us" title="Memory jar" subtitle="Pull a saved moment at random." />
+      <BackHeader eyebrow="Our story" title="Memory jar" subtitle="Pull a saved moment at random." />
       {loading ? <AppText tone="muted">Reaching into the jar…</AppText> : null}
       {!loading && !memory ? <EmptyState icon="jar" title="The jar is empty" body="Save a memory first, then come back and pull one." actionLabel="Add a memory" onAction={() => router.push('/features/memories' as never)} /> : null}
       {memory ? (

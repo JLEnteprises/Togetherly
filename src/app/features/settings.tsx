@@ -25,7 +25,7 @@ export default function SettingsScreen() {
   }
   return (
     <AppScreen>
-      <BackHeader eyebrow="More" title="Settings" subtitle="Appearance, notifications and accessibility." />
+      <BackHeader eyebrow="Account" title="Settings" subtitle="Appearance, notifications and accessibility." />
       <View style={{ gap: theme.spacing.lg }}>
         <FeatureGroupCard eyebrow="PREFERENCES" title="Preferences" items={preferences} accent />
         <Card style={{ gap: theme.spacing.sm }}>

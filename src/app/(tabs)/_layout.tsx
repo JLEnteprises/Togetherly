@@ -27,9 +27,9 @@ export default function TabsLayout() {
     <Tabs screenOptions={sharedOptions}>
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarAccessibilityLabel: 'Home tab', tabBarIcon: ({ color }) => <TabIcon name="home" color={color} /> }} />
       <Tabs.Screen name="plan" options={{ title: 'Plan', tabBarAccessibilityLabel: 'Plan tab', tabBarIcon: ({ color }) => <TabIcon name="plan" color={color} /> }} />
-      <Tabs.Screen name="together" options={{ title: 'Together', tabBarAccessibilityLabel: 'Together tab', tabBarIcon: ({ color }) => <TabIcon name="together" color={color} /> }} />
-      <Tabs.Screen name="us" options={{ title: 'Us', tabBarAccessibilityLabel: 'Us tab', tabBarIcon: ({ color }) => <TabIcon name="us" color={color} /> }} />
-      <Tabs.Screen name="more" options={{ title: 'More', tabBarAccessibilityLabel: 'More tab', tabBarIcon: ({ color }) => <TabIcon name="more" color={color} size={20} /> }} />
+      <Tabs.Screen name="together" options={{ title: 'Connect', tabBarAccessibilityLabel: 'Connect tab', tabBarIcon: ({ color }) => <TabIcon name="together" color={color} /> }} />
+      <Tabs.Screen name="us" options={{ title: 'Our story', tabBarAccessibilityLabel: 'Our story tab', tabBarIcon: ({ color }) => <TabIcon name="us" color={color} /> }} />
+      <Tabs.Screen name="more" options={{ href: null, title: 'Account', tabBarAccessibilityLabel: 'Account', tabBarIcon: ({ color }) => <TabIcon name="more" color={color} size={20} /> }} />
     </Tabs>
   );
 }

@@ -1,3 +1,7 @@
+import { AppText } from '@/components/common/AppText';
+import { SyncStatus } from '@/components/common/SyncStatus';
+import { router } from 'expo-router';
+import { AppButton } from '@/components/common/AppButton';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExpandableFeatureGroup, type ExpandableFeatureGroupItem } from '@/components/navigation/ExpandableFeatureGroup';
 import { useExclusiveExpandedGroup } from '@/hooks/useExclusiveExpandedGroup';
@@ -31,6 +35,7 @@ function questionStatus(question: DailyQuestionState | null, partnerName: string
 // G3_TOGETHER_CONSOLIDATION: Together exposes one compact hierarchy for check-in, play, and things to do.
 // CONTEXT_COMPOUNDING: realtime updates are domain-specific and check-in summaries carry the partner's stated need.
 export function TogetherHubGroups() {
+  const [initialLoading, setInitialLoading] = useState(true);
   const { partnerProfile } = useWorkspace();
   const { isExpanded, setExpanded } = useExclusiveExpandedGroup<TogetherGroupKey>();
   const [question, setQuestion] = useState<DailyQuestionState | null>(null);
@@ -44,6 +49,7 @@ export function TogetherHubGroups() {
   const refreshActivities = useCallback(async () => { setActivities(await getActivities()); }, []);
   const refreshAll = useCallback(async () => {
     await Promise.allSettled([refreshQuestion(), refreshMood(), refreshGames(), refreshActivities()]);
+    setInitialLoading(false);
   }, [refreshActivities, refreshGames, refreshMood, refreshQuestion]);
 
   useEffect(() => {
@@ -144,11 +150,13 @@ export function TogetherHubGroups() {
 
   return (
     <>
+      <SyncStatus resources={['daily-question', 'moods', 'games', 'activities']} retry={refreshAll} />
+      <AppButton variant="secondary" label="Plan time together" onPress={() => router.push('/features/date-plans' as never)} />
       <ExpandableFeatureGroup
         eyebrow="CHECK IN"
         icon="mood"
         title="Check in"
-        summary={checkInSummary}
+        summary={initialLoading ? 'Loading…' : checkInSummary}
         items={checkInItems}
         expanded={isExpanded('checkIn')}
         onExpandedChange={(expanded) => setExpanded('checkIn', expanded)}

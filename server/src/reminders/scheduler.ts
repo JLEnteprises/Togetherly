@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { pool } from '../db/pool.js';
 import { dispatchPush } from '../push/expo.js';
 
-type ReminderKind = 'task' | 'event' | 'countdown' | 'daily_question' | 'goal' | 'visit';
+type ReminderKind = 'task' | 'event' | 'countdown' | 'daily_question' | 'goal' | 'visit' | 'partner_activity';
 
 type ReminderInput = {
   coupleId: string;
@@ -62,6 +62,7 @@ function daysUntil(value: string | Date) {
 export async function runReminderSweepForUser(userId: string) {
   const userResult = await pool.query(
     `SELECT u.id,u.timezone,cm.couple_id,
+      COALESCE(up.notification_partner_activity,true) AS notification_partner_activity,
       COALESCE(up.notification_events,true) AS notification_events,
       COALESCE(up.notification_tasks,true) AS notification_tasks,
       COALESCE(up.notification_countdowns,true) AS notification_countdowns,
@@ -193,6 +194,14 @@ export async function runReminderSweepForUser(userId: string) {
     })) created += 1;
   }
 
+  if (user.notification_partner_activity) {
+    const capsules = await pool.query(`SELECT c.id,c.title FROM time_capsules c WHERE c.couple_id=$1
+      AND c.opens_at<=now() AND NOT EXISTS(SELECT 1 FROM capsule_opens o WHERE o.capsule_id=c.id AND o.user_id=$2)`, [coupleId,userId]);
+    for (const capsule of capsules.rows) {
+      if (await insertReminder({ coupleId,recipientUserId:userId,kind:'partner_activity',entityType:'time_capsule',entityId:capsule.id,
+        title:'Ready to open',body:capsule.title,dedupeKey:`capsule-ready:${capsule.id}` })) created += 1;
+    }
+  }
   return { created };
 }
 

@@ -27,7 +27,7 @@ export function AppText({ children, variant = 'body', tone = 'primary', align, s
     <Text
       {...props}
       style={[theme.typography[variant], { color: toneColor, textAlign: align }, style]}
-      maxFontSizeMultiplier={1.45}
+      maxFontSizeMultiplier={props.maxFontSizeMultiplier ?? 0}
     >
       {children}
     </Text>

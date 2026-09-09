@@ -144,7 +144,7 @@ export default function OnboardingScreen() {
             <AppButton label={busy ? 'Creating…' : 'Create our space'} disabled={busy} onPress={createSpace} />
           </Card> : <Card style={{ gap: theme.spacing.lg }}>
             <AppText variant="section">Join your partner</AppText>
-            <AppText variant="bodySmall" tone="secondary">Use the 8-character fallback code your partner shared. Link-based joining can be added once the app’s production universal-link domain is configured.</AppText>
+            <AppText variant="bodySmall" tone="secondary">Enter the 8-character invite code your partner shared.</AppText>
             <ParticipantColorPicker value={chosenColor} onChange={setChosenColor} label="YOUR COLOUR BEFORE JOINING" />
             <FormField label="INVITE CODE" value={inviteCode} onChangeText={(value) => setInviteCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))} placeholder="AB12CD34" autoCapitalize="characters" autoCorrect={false} maxLength={8} />
             <AppButton label={busy ? 'Joining…' : 'Join couple space'} disabled={busy || inviteCode.length !== 8} onPress={joinSpace} />

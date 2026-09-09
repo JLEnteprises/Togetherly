@@ -175,7 +175,7 @@ export default function ActivityRandomizerScreen() {
   return (
     <AppScreen>
       <BackHeader
-        eyebrow="Together"
+        eyebrow="Connect"
         title="Pick something for us"
         subtitle="Set the vibe, then let Togetherly choose."
       />

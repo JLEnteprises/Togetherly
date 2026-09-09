@@ -34,7 +34,7 @@ export default function SearchScreen() {
   }
   return (
     <AppScreen>
-      <BackHeader eyebrow="More" title="Search" subtitle="Find anything you’ve saved." />
+      <BackHeader eyebrow="Account" title="Search" subtitle="Find anything you’ve saved." />
       <Card tone="accent" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl }}>
         <FormField label="SEARCH" value={query} onChangeText={setQuery} placeholder="Flights, dinner, passport…" returnKeyType="search" onSubmitEditing={search} />
         <AppButton label={busy ? 'Searching…' : 'Search'} disabled={busy || query.trim().length < 2} onPress={search} />

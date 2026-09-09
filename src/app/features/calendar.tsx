@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
 import { Card } from '@/components/common/Card';
@@ -121,6 +121,7 @@ export default function CalendarScreen() {
         <ParticipantIdentityBadge both={viewTarget.assign_to_both} userId={viewTarget.assigned_user_id} compact />
         <ParticipantAttribution userId={viewTarget.creator_id} />
         <AppText variant="cardTitle">{viewTarget.all_day ? (viewTarget.start_date ?? splitDateTime(viewTarget.start_at).date) : new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(viewTarget.start_at))}</AppText>
+        {viewTarget.recurrence === 'none' && new Date(viewTarget.end_at || viewTarget.start_at).getTime() < Date.now() ? <AppButton label="Save a memory from this day" onPress={() => { const id = viewTarget.id; setViewTarget(null); router.push(`/features/memories?sourceEvent=${id}` as never); }} /> : null}
         {viewTarget.description ? <AppText tone="secondary">{viewTarget.description}</AppText> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {viewTarget.location ? <TagChip subtle label={viewTarget.location.toUpperCase()} /> : null}

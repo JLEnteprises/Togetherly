@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   build-ios:
-    name: Build unsigned iPhone + Watch IPA
+    name: Build unsigned iPhone IPA
     runs-on: macos-26
     timeout-minutes: 60
     env:
@@ -100,9 +100,6 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Install Expo development client
-        run: npx expo install expo-dev-client
-
       - name: Client typecheck
         run: npm run typecheck
 
@@ -138,6 +135,23 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare fast phone-only Expo config
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'app.json';
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const plugins = config.expo?.plugins ?? [];
+          config.expo.plugins = plugins.filter((entry) => {
+            const name = Array.isArray(entry) ? entry[0] : entry;
+            return name !== '@bacons/apple-targets';
+          });
+          fs.writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+          console.log('Apple extension targets disabled for this workflow run only.');
+          NODE
+
       - name: Generate native iOS project
         run: npx expo prebuild -p ios --clean --no-install
 
@@ -145,14 +159,8 @@ jobs:
         working-directory: ios
         run: pod install --repo-update
 
-      - name: Repair Watch target platform settings
-        run: ruby .github/scripts/fix-watch-target-platform.rb
-
-      - name: Build unsigned release IPAs
+      - name: Build unsigned phone-only release IPA
         run: bash .github/scripts/build-unsigned-ipa.sh
-
-      - name: Build unsigned development IPA
-        run: bash .github/scripts/build-dev-ipa.sh
 
       - name: Upload Xcode diagnostics
         if: always()
@@ -161,15 +169,14 @@ jobs:
           name: Togetherly-${{ github.run_number }}-xcode-diagnostics
           path: |
             output/xcodebuild.log
-            output/xcodebuild-dev.log
             output/xcode-schemes.json
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload IPA artifacts
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Togetherly-${{ github.run_number }}-unsigned-IPAs
+          name: Togetherly-${{ github.run_number }}-unsigned-IPA
           path: |
             output/*.ipa
             output/build-info.txt
