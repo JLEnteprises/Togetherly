@@ -218,6 +218,33 @@ export type CoupleTrip = {
   updated_at: string;
 };
 
+// H1_STANDALONE_PHOTOS_DATA_MODEL: Photo is independent content; linking it to a Memory is optional.
+export type CouplePhoto = {
+  id: string;
+  couple_id: string;
+  creator_id: string;
+  media_url: string;
+  caption: string;
+  taken_at: string | null;
+  linked_memory_id: string | null;
+  linked_memory_title?: string | null;
+  linked_memory_date?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PhotoAlbum = {
+  id: string;
+  couple_id: string;
+  creator_id: string;
+  title: string;
+  description: string;
+  photo_count?: number;
+  cover_url?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MemoryPhoto = { id: string | null; media_url: string; caption: string; sort_order: number };
 export type MemoryAlbum = { id: string; couple_id: string; creator_id: string; title: string; description: string; memory_count?: number; cover_url?: string | null; created_at: string; updated_at: string };
 

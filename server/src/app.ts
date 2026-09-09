@@ -7,6 +7,7 @@ import { registerCoreFeatureRoutes } from './routes/coreFeatures.js';
 import { registerPlanningRoutes } from './routes/planning.js';
 import { registerTogetherRoutes } from './routes/together.js';
 import { registerMemoryRoutes } from './routes/memories.js';
+import { registerPhotoRoutes } from './routes/photos.js';
 import { registerPreferenceRoutes } from './routes/preferences.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
 import { registerAvailabilityRoutes } from './routes/availability.js';
@@ -77,6 +78,8 @@ export async function buildApp() {
   await registerPlanningRoutes(app, realtime);
   await registerTogetherRoutes(app, realtime);
   await registerMemoryRoutes(app, realtime);
+  // H1_STANDALONE_PHOTOS_DATA_MODEL: first-class photo API is additive; legacy memory-photo routes stay registered unchanged.
+  await registerPhotoRoutes(app, realtime);
   await registerPreferenceRoutes(app, realtime);
   await registerNotificationRoutes(app);
   await registerAvailabilityRoutes(app, realtime);
