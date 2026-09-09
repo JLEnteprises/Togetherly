@@ -148,7 +148,8 @@ export default function GoalsScreen() {
 
       <View style={{ gap: theme.spacing.md }}>
         {loading ? <AppText tone="muted">Loading goals…</AppText> : null}
-        {!loading && goals.length === 0 ? <EmptyState icon="goal" title="Pick something worth moving toward" body="Your first shared goal will show progress from both of you." actionLabel="Add a goal" onAction={() => setComposerOpen(true)} /> : null}
+        {/* F2_EMPTY_STATE_COACHING: first goals explain what makes a useful shared target. */}
+        {!loading && goals.length === 0 ? <EmptyState icon="goal" eyebrow="ONE THING TO BUILD TOWARD" title="Pick something worth moving toward" body="Your first shared goal will show progress from both of you." tip="Choose something measurable enough to move: a visit fund, savings target, fitness streak, or number of date nights." actionLabel="Add a goal" onAction={() => setComposerOpen(true)} /> : null}
         {goals.map((goal) => {
           const currentValue = Number(goal.current_value); const targetValue = Number(goal.target_value); const percent = Math.max(0, Math.min(100, targetValue ? (currentValue / targetValue) * 100 : 0));
           const openContribution = contributionOpen === goal.id;

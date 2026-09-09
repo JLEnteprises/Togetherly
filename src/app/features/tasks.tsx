@@ -295,7 +295,16 @@ export default function TasksScreen() {
       <View style={{ gap: theme.spacing.md }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><AppText variant="section">{statusFilter === 'now' ? 'Needs attention' : 'Our tasks'}</AppText><AppText variant="bodySmall" tone="muted">{visibleTasks.length} shown</AppText></View>
         {loading ? <AppText tone="muted">Loading tasks…</AppText> : null}
-        {!loading && visibleTasks.length === 0 ? <EmptyState icon="task" title={tasks.length ? "Nothing matches this view" : "Nothing to do yet"} body={tasks.length ? (statusFilter === 'now' ? "Nothing needs attention right now." : "Try a different status or assignment filter.") : "Add your first shared task when there’s something you want to remember together."} actionLabel={tasks.length ? undefined : "Add a task"} onAction={tasks.length ? undefined : () => setComposerOpen(true)} /> : null}
+        {/* F2_EMPTY_STATE_COACHING: empty task views offer a useful next move or a filter reset. */}
+        {!loading && visibleTasks.length === 0 ? <EmptyState
+          icon="task"
+          eyebrow={tasks.length ? 'THIS VIEW IS CLEAR' : 'A GOOD FIRST STEP'}
+          title={tasks.length ? 'Nothing matches this view' : 'Nothing to do yet'}
+          body={tasks.length ? (statusFilter === 'now' ? 'Nothing needs attention right now.' : 'Your tasks are still here — this view is just filtered down.') : 'Add one real thing you want to remember, share or get done together.'}
+          tip={tasks.length ? 'Show everything again, then narrow it down only when you need to.' : 'Start tiny: “Book dinner”, “Call the hotel”, or “Remember the parcel” is enough.'}
+          actionLabel={tasks.length ? 'Show all tasks' : 'Add a task'}
+          onAction={tasks.length ? () => { setStatusFilter('all'); setAssignmentFilter('all'); } : () => setComposerOpen(true)}
+        /> : null}
         {visibleTasks.map((task) => {
           const done = task.status === 'completed';
           const creatorColor = colorForUser(task.creator_id);

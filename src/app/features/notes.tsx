@@ -16,6 +16,7 @@ import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { IconButton } from '@/components/common/IconButton';
+import { EmptyState } from '@/components/common/EmptyState';
 import { AppIcon } from '@/components/art/AppIcon';
 import { GentleFloat } from '@/components/motion/Motion';
 import { FeatureGroupCard } from '@/components/navigation/FeatureGroupCard';
@@ -163,7 +164,16 @@ export default function NotesScreen() {
     <Card tone="secondary" style={{ marginBottom: theme.spacing.xxl, gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">FILTER</AppText><ChoiceChips value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, { value: 'shared', label: 'Shared' }, { value: 'private', label: 'Private' }, { value: 'pinned', label: 'Pinned' }]} /></Card>
     <View style={{ gap: theme.spacing.md }}>
       {loading ? <AppText tone="muted">Loading notes…</AppText> : null}
-      {!loading && visible.length === 0 ? <Card tone="secondary"><AppText tone="secondary">No notes in this view.</AppText></Card> : null}
+      {/* F2_EMPTY_STATE_COACHING: Notes uses the same coached empty-state pattern as the rest of Plan. */}
+      {!loading && visible.length === 0 ? <EmptyState
+        icon="note"
+        eyebrow={notes.length ? 'NOTHING IN THIS FILTER' : 'A GOOD FIRST NOTE'}
+        title={notes.length ? 'No notes in this view' : 'Keep the first useful thing'}
+        body={notes.length ? 'Your notes are still saved. This filter just has nothing in it yet.' : 'Notes are for the details you will want to find again — not everything has to become a task.'}
+        tip={notes.length ? 'Go back to All, then pin the notes you reach for most often.' : 'Try flight details, an address, a gift idea, or something your partner said you want to remember.'}
+        actionLabel={notes.length ? 'Show all notes' : 'Add a note'}
+        onAction={notes.length ? () => setFilter('all') : () => setComposerOpen(true)}
+      /> : null}
       {visible.map((note) => {
         const creatorColor = colorForUser(note.creator_id);
         const updated = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(note.updated_at));

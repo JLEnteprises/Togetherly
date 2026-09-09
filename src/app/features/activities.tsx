@@ -141,7 +141,16 @@ export default function ActivitiesScreen() {
 
     <View style={{ gap: theme.spacing.md }}>
       {loading ? <AppText tone="muted">Loading ideasâ€¦</AppText> : null}
-      {!loading && visible.length === 0 ? <EmptyState icon="date" title={activities.length ? 'No ideas in this view' : 'Your next date can start here'} body={activities.length ? 'Try another filter.' : 'Save a few things youâ€™d genuinely enjoy doing together.'} actionLabel={activities.length ? undefined : 'Add an idea'} onAction={activities.length ? undefined : () => setComposerOpen(true)} /> : null}
+      {/* F2_EMPTY_STATE_COACHING: date-idea empties help couples seed the list and recover from narrow filters. */}
+      {!loading && visible.length === 0 ? <EmptyState
+        icon="date"
+        eyebrow={activities.length ? 'NOTHING IN THIS FILTER' : 'SEED THE LIST'}
+        title={activities.length ? 'No ideas in this view' : 'Your next date can start here'}
+        body={activities.length ? 'Your saved ideas are still here — this filter just has no matches yet.' : 'Save a few things you would genuinely enjoy doing together.'}
+        tip={activities.length ? 'Show every idea again and let each of you mark what sounds good. Mutual matches will surface naturally.' : 'Add three different kinds of ideas: one easy, one romantic, and one slightly adventurous.'}
+        actionLabel={activities.length ? 'Show all ideas' : 'Add an idea'}
+        onAction={activities.length ? () => setFilter('all') : () => setComposerOpen(true)}
+      /> : null}
       {visible.map((activity) => {
         const myInterest = profile ? Boolean(activity.interests?.[profile.id]) : false;
         const partnerInterest = partnerProfile ? Boolean(activity.interests?.[partnerProfile.id]) : false;
