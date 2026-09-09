@@ -54,12 +54,19 @@ export default function MoodScreen() {
     finally { setBusy(false); }
   }
   async function acknowledge() {
-    if (!partner || acknowledgedId === partner.id) return;
+    if (!partner || partner.acknowledged_by_me) return;
     setAckBusy(true);
-    try { await acknowledgeMood(partner.id); setAcknowledgedId(partner.id); }
-    catch (error) { Alert.alert('Couldn’t send support', messageFrom(error)); }
-    finally { setAckBusy(false); }
+    try {
+      await acknowledgeMood(partner.id);
+      await refresh();
+    } catch (error) {
+      Alert.alert('Couldn’t send support', messageFrom(error));
+    } finally {
+      setAckBusy(false);
+    }
   }
+
+  const acknowledged = Boolean(partner?.acknowledged_by_me);
 
   return (
     <AppScreen>
@@ -78,7 +85,7 @@ export default function MoodScreen() {
         <AppText variant="section">Latest</AppText>
         {partner ? <FadeSlideIn><Card participantColor={partnerColor} style={{ gap: theme.spacing.md }}>
           <View style={{ gap: 7 }}><ParticipantIdentityBadge userId={partnerProfile?.id} detail={relative(partner)} compact /><AppText variant="section">{moodLabels[partner.mood]}</AppText><TagChip participantColor={partnerColor} label={`NEEDS: ${needLabels[partner.need].toUpperCase()}`} /></View>
-          {partner.need !== 'nothing' ? <AppButton compact variant={acknowledgedId === partner.id ? 'secondary' : 'primary'} label={acknowledgedId === partner.id ? 'Support sent' : ackBusy ? 'Sending…' : 'I’m here for you'} disabled={ackBusy || acknowledgedId === partner.id} onPress={acknowledge} /> : <AppText variant="bodySmall" tone="muted">No response needed — they just wanted you to know.</AppText>}
+          {partner.need !== 'nothing' ? <AppButton compact variant={acknowledged ? 'secondary' : 'primary'} label={acknowledged ? 'Support sent' : ackBusy ? 'Sending…' : 'I’m here for you'} disabled={ackBusy || acknowledged} onPress={acknowledge} /> : <AppText variant="bodySmall" tone="muted">No response needed — they just wanted you to know.</AppText>}
         </Card></FadeSlideIn> : <Card tone="secondary"><AppText tone="secondary">{partnerProfile ? `${partnerProfile.display_name} hasn’t shared a check-in yet. Private check-ins never appear here.` : 'Invite your partner to share check-ins together.'}</AppText></Card>}
         {mine ? <Card participantColor={myColor} tone="secondary" style={{ gap: 7 }}><ParticipantIdentityBadge userId={profile?.id} detail={relative(mine)} compact /><AppText variant="cardTitle">{moodLabels[mine.mood]}</AppText><AppText variant="bodySmall" tone="secondary">Needs: {needLabels[mine.need]}{mine.visibility === 'private' ? ' · private' : ''}</AppText></Card> : null}
       </View>

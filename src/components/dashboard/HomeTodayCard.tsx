@@ -78,11 +78,11 @@ export function HomeTodayCard() {
   useRealtimeRefresh('tasks', refresh); useRealtimeRefresh('events', refresh); useRealtimeRefresh('questions', refresh); useRealtimeRefresh('moods', refresh);
 
   const taskSummary = useMemo(() => smartTaskSummary(tasks), [tasks]);
-  const questionSummary = question?.bothAnswered ? 'Both answered · ready to reveal' : question?.myAnswer ? `Waiting for ${partnerProfile?.display_name ?? 'your partner'}` : question?.question ? 'A question is waiting for you' : 'No question today';
+  const questionSummary = question?.bothAnswered ? (question.revealed ? 'Both answered · revealed' : 'Both answered · ready to reveal') : question?.myAnswer ? `Waiting for ${partnerProfile?.display_name ?? 'your partner'}` : question?.question ? 'A question is waiting for you' : 'No question today';
   const moodSummary = `${moods.mine ? moodShort[moods.mine.mood] : '—'} ${profile?.display_name ?? 'You'}  ·  ${moods.partner ? moodShort[moods.partner.mood] : '—'} ${partnerProfile?.display_name ?? 'Partner'}`;
   const partnerMood = moods.partner;
-  const partnerNeedsAttention = isRecent(partnerMood) && partnerMood?.need !== 'nothing';
-  const revealReady = Boolean(question?.question && question.bothAnswered);
+  const partnerNeedsAttention = isRecent(partnerMood) && partnerMood?.need !== 'nothing' && !partnerMood?.acknowledged_by_me;
+  const revealReady = Boolean(question?.question && question.bothAnswered && !question.revealed);
   const answerWaiting = Boolean(question?.question && !question.myAnswer);
 
   const priority: 'partner_mood' | 'reveal' | 'question' | null =

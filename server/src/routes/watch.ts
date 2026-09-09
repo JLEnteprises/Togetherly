@@ -211,10 +211,33 @@ export async function registerWatchRoutes(app: FastifyInstance, realtime: Realti
       const body = request.body as Record<string, unknown>;
       const moodId = typeof body.moodId === 'string' ? body.moodId : '';
       if (!/^[0-9a-f-]{36}$/i.test(moodId)) throw new ApiError(400, 'Mood is invalid.');
-      const mood = await pool.query(`SELECT id,user_id FROM moods WHERE id=$1 AND couple_id=$2 AND visibility='shared'`, [moodId, coupleId]);
+      const mood = await pool.query(
+        `SELECT id,user_id FROM moods WHERE id=$1 AND couple_id=$2 AND visibility='shared'`,
+        [moodId, coupleId],
+      );
       if (!mood.rows[0] || String(mood.rows[0].user_id) === request.userId) throw new ApiError(404, 'Partner check-in not found.');
-      await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: moodId, title: 'I’m here for you', body: 'Your partner saw your check-in and sent some support.' });
-      return reply.send({ ok: true });
+
+      const inserted = await pool.query(
+        `INSERT INTO mood_acknowledgements(mood_id,acknowledger_user_id)
+         VALUES($1,$2)
+         ON CONFLICT(mood_id,acknowledger_user_id) DO NOTHING
+         RETURNING acknowledged_at`,
+        [moodId, request.userId],
+      );
+      if (inserted.rowCount) {
+        await notifyPartner({
+          coupleId,
+          actorUserId: request.userId,
+          kind: 'mood',
+          preference: 'notification_partner_mood',
+          entityType: 'mood',
+          entityId: moodId,
+          title: 'I’m here for you',
+          body: 'Your partner saw your check-in and sent some support.',
+        });
+        broadcast(realtime, coupleId, 'moods', 'acknowledged', moodId);
+      }
+      return reply.send({ ok: true, state: await loadWatchState(request.userId) });
     } catch (error) { return sendError(reply, error); }
   });
 }

@@ -195,13 +195,28 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
     try {
       const coupleId = await requireCoupleId(request.userId);
       const { question, today, dayTimeZone, disabledCategories } = await loadTodaysQuestion(coupleId);
-      if (!question) return reply.send({ question: null, date: today, dayTimeZone, myAnswer: null, partnerAnswer: null, bothAnswered: false, disabledCategories });
+      if (!question) return reply.send({ question: null, date: today, dayTimeZone, myAnswer: null, partnerAnswer: null, bothAnswered: false, revealed: false, revealedAt: null, disabledCategories });
       const answers = await pool.query('SELECT qa.*, u.display_name FROM question_answers qa JOIN users u ON u.id=qa.user_id WHERE qa.question_id=$1 AND qa.couple_id=$2 AND qa.answer_date=$3', [question.id, coupleId, today]);
       const mine = answers.rows.find((row) => String(row.user_id) === request.userId) ?? null;
       const partner = answers.rows.find((row) => String(row.user_id) !== request.userId) ?? null;
       const memberCount = await pool.query('SELECT count(*)::int AS count FROM couple_members WHERE couple_id=$1', [coupleId]);
       const bothAnswered = Number(memberCount.rows[0]?.count ?? 0) >= 2 && Boolean(mine && partner);
-      return reply.send({ question, date: today, dayTimeZone, myAnswer: mine, partnerAnswer: bothAnswered ? partner : null, bothAnswered, waitingForPartner: Boolean(mine && !bothAnswered), disabledCategories });
+      const reveal = bothAnswered ? await pool.query(
+        'SELECT revealed_at FROM daily_question_reveals WHERE couple_id=$1 AND question_id=$2 AND answer_date=$3 AND user_id=$4 LIMIT 1',
+        [coupleId, question.id, today, request.userId],
+      ) : { rows: [] as Record<string, unknown>[] };
+      return reply.send({
+        question,
+        date: today,
+        dayTimeZone,
+        myAnswer: mine,
+        partnerAnswer: bothAnswered ? partner : null,
+        bothAnswered,
+        revealed: Boolean(reveal.rows[0]),
+        revealedAt: reveal.rows[0]?.revealed_at ?? null,
+        waitingForPartner: Boolean(mine && !bothAnswered),
+        disabledCategories,
+      });
     } catch (error) { return sendError(reply, error); }
   });
 
@@ -309,11 +324,59 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
     } finally { client.release(); }
   });
 
+  app.post('/daily-question/reveal', { preHandler: authenticate }, async (request, reply) => {
+    try {
+      const coupleId = await requireCoupleId(request.userId);
+      const body = request.body as Record<string, unknown>;
+      const questionId = requiredText(body.questionId, 'Question', 100);
+      const { question, today } = await loadTodaysQuestion(coupleId);
+      if (!question || String(question.id) !== questionId) throw new ApiError(409, 'The daily question has changed. Refresh and try again.');
+
+      const memberCount = await pool.query('SELECT count(*)::int AS count FROM couple_members WHERE couple_id=$1', [coupleId]);
+      const answers = await pool.query(
+        'SELECT count(DISTINCT user_id)::int AS count FROM question_answers WHERE couple_id=$1 AND question_id=$2 AND answer_date=$3',
+        [coupleId, questionId, today],
+      );
+      if (Number(memberCount.rows[0]?.count ?? 0) < 2 || Number(answers.rows[0]?.count ?? 0) < 2) {
+        throw new ApiError(409, 'Both of you need to answer before the reveal.');
+      }
+
+      const result = await pool.query(
+        `INSERT INTO daily_question_reveals(couple_id,question_id,answer_date,user_id)
+         VALUES($1,$2,$3,$4)
+         ON CONFLICT(couple_id,question_id,answer_date,user_id)
+         DO UPDATE SET revealed_at=daily_question_reveals.revealed_at
+         RETURNING revealed_at`,
+        [coupleId, questionId, today, request.userId],
+      );
+      broadcast(realtime, coupleId, 'questions', 'revealed', questionId);
+      return reply.send({ revealed: true, revealedAt: result.rows[0].revealed_at });
+    } catch (error) { return sendError(reply, error); }
+  });
+
   app.get('/moods/latest', { preHandler: authenticate }, async (request, reply) => {
     try {
       const coupleId = await requireCoupleId(request.userId);
-      const mine = await pool.query('SELECT * FROM moods WHERE couple_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 1', [coupleId, request.userId]);
-      const partner = await pool.query(`SELECT m.* FROM moods m WHERE m.couple_id=$1 AND m.user_id<>$2 AND m.visibility='shared' ORDER BY m.created_at DESC LIMIT 1`, [coupleId, request.userId]);
+      const mine = await pool.query(
+        'SELECT * FROM moods WHERE couple_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 1',
+        [coupleId, request.userId],
+      );
+      const partner = await pool.query(
+        `SELECT m.*,
+          EXISTS(
+            SELECT 1 FROM mood_acknowledgements ma
+            WHERE ma.mood_id=m.id AND ma.acknowledger_user_id=$2
+          ) AS acknowledged_by_me,
+          (
+            SELECT ma.acknowledged_at FROM mood_acknowledgements ma
+            WHERE ma.mood_id=m.id AND ma.acknowledger_user_id=$2
+            LIMIT 1
+          ) AS acknowledged_at
+         FROM moods m
+         WHERE m.couple_id=$1 AND m.user_id<>$2 AND m.visibility='shared'
+         ORDER BY m.created_at DESC LIMIT 1`,
+        [coupleId, request.userId],
+      );
       return reply.send({ mine: mine.rows[0] ?? null, partner: partner.rows[0] ?? null });
     } catch (error) { return sendError(reply, error); }
   });
@@ -327,18 +390,28 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
         [params.id, coupleId, request.userId],
       );
       if (!mood.rows[0]) throw new ApiError(404, 'That shared check-in is no longer available.');
-      const alreadySent = await pool.query(
-        `SELECT 1 FROM notifications
-         WHERE couple_id=$1 AND recipient_user_id=$2 AND actor_user_id=$3
-           AND kind='mood' AND entity_type='mood' AND entity_id=$4
-           AND title='Iâ€™m here for you'
-         LIMIT 1`,
-        [coupleId, mood.rows[0].user_id, request.userId, params.id],
+
+      const inserted = await pool.query(
+        `INSERT INTO mood_acknowledgements(mood_id,acknowledger_user_id)
+         VALUES($1,$2)
+         ON CONFLICT(mood_id,acknowledger_user_id) DO NOTHING
+         RETURNING acknowledged_at`,
+        [params.id, request.userId],
       );
-      if (!alreadySent.rowCount) {
-        await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: params.id, title: 'Iâ€™m here for you', body: 'Your partner saw your check-in and sent some support.' });
+      if (inserted.rowCount) {
+        await notifyPartner({
+          coupleId,
+          actorUserId: request.userId,
+          kind: 'mood',
+          preference: 'notification_partner_mood',
+          entityType: 'mood',
+          entityId: params.id,
+          title: 'I’m here for you',
+          body: 'Your partner saw your check-in and sent some support.',
+        });
+        broadcast(realtime, coupleId, 'moods', 'acknowledged', params.id);
       }
-      return reply.send({ ok: true });
+      return reply.send({ ok: true, acknowledgedAt: inserted.rows[0]?.acknowledged_at ?? null });
     } catch (error) { return sendError(reply, error); }
   });
 

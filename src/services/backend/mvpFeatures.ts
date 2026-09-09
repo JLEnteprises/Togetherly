@@ -109,6 +109,7 @@ export async function randomActivity(filters: Partial<{ cost: ActivityCost; loca
 }
 
 export function getDailyQuestion() { return apiRequest<DailyQuestionState>('/daily-question'); }
+export async function revealDailyQuestion(questionId: string) { return apiRequest<{ revealed: true; revealedAt: string }>('/daily-question/reveal', { method: 'POST', body: { questionId } }); }
 export async function getDailyQuestionHistory(limit = 60) { return (await apiRequest<{ history: DailyQuestionHistoryEntry[] }>(`/daily-question/history?limit=${Math.max(1, Math.min(180, Math.round(limit)))}`)).history; }
 export async function answerDailyQuestion(questionId: string, answer: string) { return apiRequest<{ answer: unknown }>('/daily-question/answer', { method: 'POST', body: { questionId, answer } }); }
 export async function updateDailyQuestionSettings(disabledCategories: string[]) { return apiRequest<{ disabledCategories: string[] }>('/daily-question/settings', { method: 'PATCH', body: { disabledCategories } }); }

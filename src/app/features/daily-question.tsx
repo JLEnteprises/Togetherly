@@ -13,7 +13,7 @@ import { ChoiceChips } from '@/components/common/ChoiceChips';
 import { AppIcon } from '@/components/art/AppIcon';
 import { ConnectionOrbitArt } from '@/components/art/TogetherlyArt';
 import { FadeSlideIn, GentleFloat, RevealScale } from '@/components/motion/Motion';
-import { answerDailyQuestion, getDailyQuestion, getDailyQuestionHistory, updateDailyQuestionSettings } from '@/services/backend/mvpFeatures';
+import { answerDailyQuestion, getDailyQuestion, getDailyQuestionHistory, revealDailyQuestion, updateDailyQuestionSettings } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { participantPalettes, participantPalette } from '@/theme/tokens';
@@ -39,6 +39,7 @@ export default function DailyQuestionScreen() {
   const [answer, setAnswer] = useState('');
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [revealBusy, setRevealBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -56,7 +57,7 @@ export default function DailyQuestionScreen() {
 
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
   useEffect(() => { if (view === 'history') refreshHistory().catch(() => undefined); }, [refreshHistory, view]);
-  useEffect(() => { setRevealed(false); }, [state?.date, state?.question?.id]);
+  useEffect(() => { setRevealed(Boolean(state?.revealed)); }, [state?.date, state?.question?.id, state?.revealed]);
   useRealtimeRefresh('questions', () => Promise.all([refresh(), view === 'history' ? refreshHistory() : Promise.resolve()]).then(() => undefined));
 
   async function save() {
@@ -65,6 +66,19 @@ export default function DailyQuestionScreen() {
     try { await answerDailyQuestion(state.question.id, answer.trim()); await refresh(); }
     catch (error) { Alert.alert('Couldn’t save answer', messageFrom(error)); }
     finally { setBusy(false); }
+  }
+  async function revealAnswers() {
+    if (!state?.question || !state.bothAnswered) return;
+    setRevealBusy(true);
+    try {
+      const result = await revealDailyQuestion(state.question.id);
+      setRevealed(true);
+      setState((current) => current ? { ...current, revealed: true, revealedAt: result.revealedAt } : current);
+    } catch (error) {
+      Alert.alert('Couldn’t reveal answers', messageFrom(error));
+    } finally {
+      setRevealBusy(false);
+    }
   }
   async function toggleCategory(category: string, enabled: boolean) {
     const current = state?.disabledCategories ?? [];
@@ -99,7 +113,7 @@ export default function DailyQuestionScreen() {
             !revealed ? <FadeSlideIn><Card participantColor="both" tone="secondary" style={{ alignItems: 'center', gap: theme.spacing.md, paddingVertical: theme.spacing.xxxl }}>
               <View style={{ width: 58, height: 58, borderRadius: 22, backgroundColor: theme.colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}><AppIcon name="heart" size={28} color={theme.colors.accent} /></View>
               <View style={{ gap: 4, alignItems: 'center' }}><AppText variant="section" align="center">You’re both ready.</AppText><AppText tone="secondary" align="center">Your answers stayed private until this moment.</AppText></View>
-              <AppButton label="Reveal our answers" onPress={() => setRevealed(true)} />
+              <AppButton label={revealBusy ? 'Revealing…' : 'Reveal our answers'} disabled={revealBusy} onPress={revealAnswers} />
             </Card></FadeSlideIn> : <RevealScale trigger={revealed} style={{ gap: theme.spacing.md }}>
               <Card participantColor={myColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile?.display_name?.toUpperCase() ?? 'YOU'}</AppText><AppText variant="section">“{state.myAnswer?.answer}”</AppText></Card>
               <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm }}><AppText variant="caption" style={{ color: participantPalette(partnerColor).accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'}</AppText><AppText variant="section">“{state.partnerAnswer.answer}”</AppText></Card>

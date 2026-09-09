@@ -279,6 +279,8 @@ export type DailyQuestionState = {
   myAnswer: QuestionAnswer | null;
   partnerAnswer: QuestionAnswer | null;
   bothAnswered: boolean;
+  revealed?: boolean;
+  revealedAt?: string | null;
   waitingForPartner?: boolean;
   disabledCategories?: string[];
 };
@@ -286,7 +288,7 @@ export type DailyQuestionHistoryEntry = { date: string; question: DailyQuestion;
 
 export type MoodValue = 'amazing' | 'good' | 'okay' | 'low' | 'frustrated' | 'overwhelmed' | 'tired' | 'stressed';
 export type NeedValue = 'affection' | 'reassurance' | 'advice' | 'listen' | 'distraction' | 'space' | 'call' | 'nothing';
-export type MoodEntry = { id: string; user_id: string; couple_id: string; mood: MoodValue; need: NeedValue; visibility: 'shared' | 'private'; created_at: string };
+export type MoodEntry = { id: string; user_id: string; couple_id: string; mood: MoodValue; need: NeedValue; visibility: 'shared' | 'private'; acknowledged_by_me?: boolean; acknowledged_at?: string | null; created_at: string };
 
 export type UserPreferences = {
   user_id: string;
