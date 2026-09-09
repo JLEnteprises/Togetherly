@@ -29,6 +29,7 @@ import type {
   WatchState,
   MemoryAlbum,
   DrawingData,
+  DecisionWheelState,
 } from '@/types/database';
 
 export async function getEvents() { return (await apiRequest<{ events: CoupleEvent[] }>('/events')).events; }
@@ -107,6 +108,10 @@ export async function randomActivity(filters: Partial<{ cost: ActivityCost; loca
   const queryString = query.toString();
   return (await apiRequest<{ activity: CoupleActivity | null }>(`/activities/random${queryString ? `?${queryString}` : ''}`)).activity;
 }
+
+export function getDecisionWheel() { return apiRequest<DecisionWheelState>('/decision-wheel'); }
+export function saveDecisionWheelOptions(options: string[]) { return apiRequest<DecisionWheelState>('/decision-wheel', { method: 'PUT', body: { options } }); }
+export function spinDecisionWheel() { return apiRequest<DecisionWheelState>('/decision-wheel/spin', { method: 'POST' }); }
 
 export function getDailyQuestion() { return apiRequest<DailyQuestionState>('/daily-question'); }
 export async function revealDailyQuestion(questionId: string) { return apiRequest<{ revealed: true; revealedAt: string }>('/daily-question/reveal', { method: 'POST', body: { questionId } }); }

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { RealtimeHub } from '../realtime/hub.js';
 import { pool } from '../db/pool.js';
@@ -14,6 +14,50 @@ const environments = ['indoor', 'outdoor', 'either'] as const;
 const times = ['morning', 'day', 'night', 'any'] as const;
 const moods = ['relaxing', 'romantic', 'adventurous', 'active', 'lazy', 'silly', 'any'] as const;
 const questionCategories = ['cute','funny','deep','romantic','memories','childhood','future','relationship','hypothetical','would_you_rather','intimacy'] as const;
+
+function decisionWheelOptions(value: unknown) {
+  if (!Array.isArray(value)) throw new ApiError(400, 'Decision wheel options must be a list.');
+  const seen = new Set<string>();
+  const options: string[] = [];
+  for (const raw of value) {
+    if (typeof raw !== 'string') throw new ApiError(400, 'Each decision wheel option must be text.');
+    const option = raw.trim();
+    if (!option) continue;
+    if (option.length > 80) throw new ApiError(400, 'Decision wheel options must be 80 characters or fewer.');
+    const key = option.toLocaleLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    options.push(option);
+  }
+  if (options.length < 2 || options.length > 12) throw new ApiError(400, 'Choose between 2 and 12 unique decision wheel options.');
+  return options;
+}
+
+async function loadDecisionWheelState(coupleId: string) {
+  const wheel = await pool.query(
+    `SELECT options,winner,winner_index,spin_id,spin_count,updated_by,spun_at,updated_at
+     FROM decision_wheels WHERE couple_id=$1`,
+    [coupleId],
+  );
+  const history = await pool.query(
+    `SELECT id,winner,winner_index,spun_by,created_at
+     FROM decision_wheel_spins WHERE couple_id=$1
+     ORDER BY created_at DESC LIMIT 5`,
+    [coupleId],
+  );
+  const row = wheel.rows[0];
+  return {
+    options: Array.isArray(row?.options) ? row.options : [],
+    winner: row?.winner ?? null,
+    winner_index: row?.winner_index == null ? null : Number(row.winner_index),
+    spin_id: row?.spin_id ?? null,
+    spin_count: Number(row?.spin_count ?? 0),
+    updated_by: row?.updated_by ?? null,
+    spun_at: row?.spun_at ?? null,
+    updated_at: row?.updated_at ?? null,
+    history: history.rows,
+  };
+}
 
 async function loadTodaysQuestion(coupleId: string) {
   const coupleResult = await pool.query('SELECT disabled_question_categories,shared_day_timezone FROM couples WHERE id=$1', [coupleId]);
@@ -38,6 +82,79 @@ function activitySelect() {
 }
 
 export async function registerTogetherRoutes(app: FastifyInstance, realtime: RealtimeHub) {
+  app.get('/decision-wheel', { preHandler: authenticate }, async (request, reply) => {
+    try {
+      const coupleId = await requireCoupleId(request.userId);
+      return reply.send(await loadDecisionWheelState(coupleId));
+    } catch (error) { return sendError(reply, error); }
+  });
+
+  app.put('/decision-wheel', { preHandler: authenticate }, async (request, reply) => {
+    try {
+      const coupleId = await requireCoupleId(request.userId);
+      const body = request.body as Record<string, unknown>;
+      const options = decisionWheelOptions(body.options);
+      await pool.query(
+        `INSERT INTO decision_wheels(couple_id,options,updated_by)
+         VALUES($1,$2::jsonb,$3)
+         ON CONFLICT(couple_id) DO UPDATE SET
+           options=EXCLUDED.options,
+           winner=NULL,
+           winner_index=NULL,
+           spin_id=NULL,
+           updated_by=EXCLUDED.updated_by,
+           spun_at=NULL,
+           updated_at=now()`,
+        [coupleId, JSON.stringify(options), request.userId],
+      );
+      broadcast(realtime, coupleId, 'decision_wheel', 'updated');
+      return reply.send(await loadDecisionWheelState(coupleId));
+    } catch (error) { return sendError(reply, error); }
+  });
+
+  app.post('/decision-wheel/spin', { preHandler: authenticate }, async (request, reply) => {
+    const client = await pool.connect();
+    try {
+      const coupleId = await requireCoupleId(request.userId);
+      await client.query('BEGIN');
+      const current = await client.query(
+        'SELECT options FROM decision_wheels WHERE couple_id=$1 FOR UPDATE',
+        [coupleId],
+      );
+      const options = decisionWheelOptions(current.rows[0]?.options ?? []);
+      const winnerIndex = randomInt(options.length);
+      const winner = options[winnerIndex];
+      const spinId = randomUUID();
+
+      await client.query(
+        `INSERT INTO decision_wheel_spins(id,couple_id,spun_by,options,winner,winner_index)
+         VALUES($1,$2,$3,$4::jsonb,$5,$6)`,
+        [spinId, coupleId, request.userId, JSON.stringify(options), winner, winnerIndex],
+      );
+      await client.query(
+        `UPDATE decision_wheels SET
+           winner=$1,
+           winner_index=$2,
+           spin_id=$3,
+           spin_count=spin_count+1,
+           updated_by=$4,
+           spun_at=now(),
+           updated_at=now()
+         WHERE couple_id=$5`,
+        [winner, winnerIndex, spinId, request.userId, coupleId],
+      );
+      await client.query('COMMIT');
+
+      broadcast(realtime, coupleId, 'decision_wheel', 'spun', spinId);
+      return reply.send(await loadDecisionWheelState(coupleId));
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      return sendError(reply, error);
+    } finally {
+      client.release();
+    }
+  });
+
   app.get('/activities', { preHandler: authenticate }, async (request, reply) => {
     try {
       const coupleId = await requireCoupleId(request.userId);

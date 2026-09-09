@@ -270,6 +270,25 @@ export type CoupleActivity = {
   updated_at: string;
 };
 
+export type DecisionWheelSpin = {
+  id: string;
+  winner: string;
+  winner_index: number;
+  spun_by: string;
+  created_at: string;
+};
+export type DecisionWheelState = {
+  options: string[];
+  winner: string | null;
+  winner_index: number | null;
+  spin_id: string | null;
+  spin_count: number;
+  updated_by: string | null;
+  spun_at: string | null;
+  updated_at: string | null;
+  history: DecisionWheelSpin[];
+};
+
 export type DailyQuestion = { id: string; question: string; category: string };
 export type QuestionAnswer = { id: string; question_id: string; user_id: string; couple_id: string; answer: string; answer_date: string; display_name?: string; created_at: string; updated_at: string };
 export type DailyQuestionState = {
