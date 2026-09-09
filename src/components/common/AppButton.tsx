@@ -14,9 +14,11 @@ type Props = {
   icon?: AppIconName;
 };
 
+// F3_ICON_POLISH_ACCESSIBILITY_FINISH: visible buttons never announce themselves as actionable when no handler exists.
 export function AppButton({ label, onPress, variant = 'primary', compact = false, disabled = false, accessibilityHint, icon }: Props) {
   const theme = useAppTheme();
   const feedback = useInteractionFeedback();
+  const unavailable = disabled || !onPress;
   const backgroundColor = variant === 'primary'
     ? theme.colors.accentStrong
     : variant === 'secondary'
@@ -32,15 +34,15 @@ export function AppButton({ label, onPress, variant = 'primary', compact = false
         ? theme.colors.error
         : theme.colors.accent;
 
-  function press() { if (disabled) return; feedback(); onPress?.(); }
+  function press() { if (unavailable) return; feedback(); onPress?.(); }
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: unavailable }}
+      disabled={unavailable}
       onPress={press}
       style={({ pressed }) => [styles.base, {
         minHeight: compact ? 44 : 50,
@@ -48,7 +50,7 @@ export function AppButton({ label, onPress, variant = 'primary', compact = false
         borderRadius: theme.radii.pill,
         backgroundColor,
         borderColor: variant === 'primary' ? 'rgba(255,255,255,0.10)' : theme.colors.border,
-        opacity: disabled ? 0.48 : pressed ? 0.82 : 1,
+        opacity: unavailable ? 0.48 : pressed ? 0.82 : 1,
         transform: [{ scale: pressed ? 0.985 : 1 }],
       }]}
     >

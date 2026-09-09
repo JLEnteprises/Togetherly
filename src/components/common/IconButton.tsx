@@ -9,9 +9,11 @@ type IconButtonProps = {
   onPress: () => void;
   tone?: 'muted' | 'accent' | 'danger';
   disabled?: boolean;
+  accessibilityHint?: string;
 };
 
-export function IconButton({ icon, label, onPress, tone = 'muted', disabled = false }: IconButtonProps) {
+// F3_ICON_POLISH_ACCESSIBILITY_FINISH: icon-only actions use a true 44pt target and explicit accessibility metadata.
+export function IconButton({ icon, label, onPress, tone = 'muted', disabled = false, accessibilityHint }: IconButtonProps) {
   const theme = useAppTheme();
   const feedback = useInteractionFeedback();
   const color = tone === 'accent' ? theme.colors.accent : tone === 'danger' ? theme.colors.error : theme.colors.textMuted;
@@ -19,12 +21,14 @@ export function IconButton({ icon, label, onPress, tone = 'muted', disabled = fa
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       disabled={disabled}
+      hitSlop={4}
       onPress={() => { if (disabled) return; feedback(); onPress(); }}
       style={({ pressed }) => ({
-        width: 42,
-        height: 42,
+        width: 44,
+        height: 44,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',

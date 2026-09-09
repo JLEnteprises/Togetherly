@@ -5,6 +5,7 @@ import { useInteractionFeedback } from '@/hooks/useInteractionFeedback';
 
 type Option<T extends string> = { value: T; label: string };
 
+// F3_ICON_POLISH_ACCESSIBILITY_FINISH: single-choice chips expose radio semantics instead of generic button semantics.
 export function ChoiceChips<T extends string>({ value, options, onChange }: { value: T | null; options: readonly Option<T>[]; onChange: (value: T) => void }) {
   const theme = useAppTheme();
   const feedback = useInteractionFeedback();
@@ -15,9 +16,9 @@ export function ChoiceChips<T extends string>({ value, options, onChange }: { va
         return (
           <Pressable
             key={option.value}
-            accessibilityRole="button"
+            accessibilityRole="radio"
             accessibilityLabel={option.label}
-            accessibilityState={{ selected: active }}
+            accessibilityState={{ selected: active, checked: active }}
             onPress={() => { feedback(); onChange(option.value); }}
             style={({ pressed }) => ({
               minHeight: 44,
