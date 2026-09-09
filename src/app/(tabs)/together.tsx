@@ -12,8 +12,8 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { ConnectionPingsCard } from '@/components/together/ConnectionPingsCard';
 
 const connect = [
-  { icon: 'question', title: 'Daily question', subtitle: 'Answer separately, reveal together', href: '/features/daily-question' },
-  { icon: 'mood', title: 'Mood check-in', subtitle: 'Share how you feel and what you need', href: '/features/mood' },
+  { icon: 'question', title: 'Today’s question', subtitle: 'Answer separately, then open it together', href: '/features/daily-question' },
+  { icon: 'mood', title: 'How are you feeling?', subtitle: 'Share your mood and what you need', href: '/features/mood' },
   { icon: 'location', title: 'Live location', subtitle: 'See each other on the map when you choose', href: '/features/location' },
 ] as const;
 
@@ -39,8 +39,8 @@ export default function TogetherScreen() {
           <AppButton label="Play together" onPress={() => router.push('/features/play-together' as never)} />
         </Card>
         <ConnectionPingsCard />
-        <FeatureGroupCard eyebrow="CONNECT" title="Check in" subtitle="The things that help you understand each other today." items={connect} />
-        <FeatureGroupCard eyebrow="MAKE A PLAN" title="Date ideas" items={dateIdeas} />
+        <FeatureGroupCard eyebrow="CONNECT" title="How are we?" subtitle="Small ways to understand each other today." items={connect} />
+        <FeatureGroupCard eyebrow="WHEN YOU WANT SOMETHING TO DO" title="Pick a little moment together" items={dateIdeas} />
       </View>
     </AppScreen>
   );

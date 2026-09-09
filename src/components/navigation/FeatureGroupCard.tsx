@@ -22,14 +22,25 @@ type Props = {
 
 export function FeatureGroupCard({ eyebrow, title, subtitle, items, accent = false }: Props) {
   const theme = useAppTheme();
-  return (
-    <Card tone={accent ? 'accent' : 'default'} style={{ gap: theme.spacing.md }}>
-      <View style={{ gap: 4 }}>
-        {eyebrow ? <AppText variant="caption" tone={accent ? 'accent' : 'secondary'}>{eyebrow}</AppText> : null}
+
+  const content = (
+    <>
+      <View style={{ gap: 4, paddingHorizontal: accent ? 0 : 2 }}>
+        {eyebrow ? (
+          <AppText variant="caption" tone={accent ? 'accent' : 'secondary'}>{eyebrow}</AppText>
+        ) : null}
         <AppText variant="section">{title}</AppText>
         {subtitle ? <AppText variant="bodySmall" tone="secondary">{subtitle}</AppText> : null}
       </View>
-      <View>
+
+      <View
+        style={{
+          marginTop: accent ? 0 : theme.spacing.xs,
+          borderTopWidth: accent ? 0 : 1,
+          borderBottomWidth: accent ? 0 : 1,
+          borderColor: theme.colors.border,
+        }}
+      >
         {items.map((item, index) => (
           <Pressable
             key={item.title}
@@ -37,29 +48,57 @@ export function FeatureGroupCard({ eyebrow, title, subtitle, items, accent = fal
             accessibilityLabel={`${item.title}. ${item.subtitle}`}
             onPress={() => router.push(item.href as never)}
             style={({ pressed }) => ({
-              minHeight: 58,
+              minHeight: accent ? 58 : 56,
               flexDirection: 'row',
               alignItems: 'center',
               gap: theme.spacing.md,
-              paddingVertical: 10,
+              paddingHorizontal: accent ? 0 : 2,
+              paddingVertical: accent ? 10 : 11,
               borderTopWidth: index === 0 ? 0 : 1,
               borderTopColor: theme.colors.border,
-              opacity: pressed ? 0.68 : 1,
+              backgroundColor: pressed && !accent ? theme.colors.elevatedBackground : 'transparent',
+              borderRadius: pressed && !accent ? theme.radii.sm : 0,
+              opacity: pressed ? 0.72 : 1,
             })}
           >
-            <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}>
+            <View
+              style={{
+                width: accent ? 36 : 32,
+                height: accent ? 36 : 32,
+                borderRadius: accent ? 12 : 11,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: accent ? theme.colors.elevatedBackground : theme.colors.accentSoft,
+              }}
+            >
               {isAppIconName(item.icon)
-                ? <AppIcon name={item.icon} size={19} color={accent ? theme.colors.accent : theme.colors.textSecondary} />
+                ? <AppIcon name={item.icon} size={accent ? 19 : 17} color={accent ? theme.colors.accent : theme.colors.textSecondary} />
                 : <AppText variant="cardTitle" tone={accent ? 'accent' : 'secondary'}>{item.icon}</AppText>}
             </View>
+
             <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="cardTitle">{item.title}</AppText>
+              <AppText variant={accent ? 'cardTitle' : 'body'} style={{ fontWeight: '700' }}>{item.title}</AppText>
               <AppText variant="caption" tone="muted">{item.subtitle}</AppText>
             </View>
-            <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
+
+            <AppIcon name="chevron" size={16} color={theme.colors.textMuted} />
           </Pressable>
         ))}
       </View>
-    </Card>
+    </>
+  );
+
+  if (accent) {
+    return (
+      <Card tone="accent" style={{ gap: theme.spacing.md }}>
+        {content}
+      </Card>
+    );
+  }
+
+  return (
+    <View style={{ gap: theme.spacing.sm }}>
+      {content}
+    </View>
   );
 }

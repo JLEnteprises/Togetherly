@@ -13,10 +13,10 @@ import { useAppTheme } from '@/theme/useAppTheme';
 import { AppIcon } from '@/components/art/AppIcon';
 
 const manage = [
-  { icon: 'heart', title: 'Couple profile', subtitle: 'Relationship details and linked accounts', href: '/features/couple-profile' },
+  { icon: 'heart', title: 'Your relationship', subtitle: 'The details that shape your shared space', href: '/features/couple-profile' },
   { icon: 'settings', title: 'Settings', subtitle: 'Appearance, notifications and accessibility', href: '/features/settings' },
   { icon: 'privacy', title: 'Privacy', subtitle: 'Shared and private content', href: '/features/privacy' },
-  { icon: 'tag', title: 'Tags', subtitle: 'Manage labels used across your space', href: '/features/tags' },
+  { icon: 'tag', title: 'Tags', subtitle: 'The labels you use to keep things findable', href: '/features/tags' },
 ] as const;
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong. Please try again.'; }
@@ -30,7 +30,7 @@ export default function MoreScreen() {
 
   return (
     <AppScreen>
-      <PageHeader eyebrow="Your space" title="More" />
+      <PageHeader eyebrow="Your space" title="More" subtitle="The quieter settings and tools behind your shared space." />
       <View style={{ gap: theme.spacing.lg }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Open account and profile" onPress={() => router.push('/features/account' as never)}>
           {({ pressed }) => <Card participantColor={myColor} style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, opacity: pressed ? 0.75 : 1 }}>
@@ -48,7 +48,7 @@ export default function MoreScreen() {
           </Card>}
         </Pressable>
 
-        <FeatureGroupCard title="Manage" items={manage} />
+        <FeatureGroupCard eyebrow="YOUR SPACE" title="Behind the scenes" subtitle="Things you probably won’t need every day." items={manage} />
         <AppButton label="Sign out" variant="ghost" onPress={logOut} />
       </View>
     </AppScreen>
