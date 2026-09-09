@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExpandableFeatureGroup, type ExpandableFeatureGroupItem } from '@/components/navigation/ExpandableFeatureGroup';
 import { useExclusiveExpandedGroup } from '@/hooks/useExclusiveExpandedGroup';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { getAvailabilityOverlaps } from '@/services/backend/availability';
 import { getCountdowns, getLists, getNotes, getTasks } from '@/services/backend/coreFeatures';
 import { getEvents, getGoals, getTrips } from '@/services/backend/mvpFeatures';
@@ -51,6 +52,7 @@ function nextTrip(trips: CoupleTrip[]) {
 // CONTEXT_COMPOUNDING: realtime changes now refresh only the domain that changed instead of reloading every Plan summary.
 export function PlanHubGroups() {
   const { isExpanded, setExpanded } = useExclusiveExpandedGroup<PlanGroupKey>();
+  const { profile, partnerProfile } = useWorkspace();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
   const [lists, setLists] = useState<CoupleList[]>([]);
   const [notes, setNotes] = useState<CoupleNote[]>([]);
@@ -103,6 +105,18 @@ export function PlanHubGroups() {
     [tasks],
   );
 
+  const taskOwnership = useMemo(() => {
+    const mine = openTasks.filter((task) => !task.assign_to_both && task.assignee_id === profile?.id).length;
+    const partner = openTasks.filter((task) => !task.assign_to_both && task.assignee_id === partnerProfile?.id).length;
+    const shared = openTasks.filter((task) => task.assign_to_both).length;
+    const mineName = profile?.display_name ?? 'You';
+    const partnerName = partnerProfile?.display_name ?? 'Partner';
+    if (!partnerProfile) return `${shared} shared · ${mine} yours`;
+    if (mine >= partner + 3 && mine >= 4) return `Most assigned tasks currently sit with ${mineName} · worth a quick handoff check`;
+    if (partner >= mine + 3 && partner >= 4) return `Most assigned tasks currently sit with ${partnerName} · worth a quick handoff check`;
+    return `${mine} ${mineName} · ${partner} ${partnerName} · ${shared} together`;
+  }, [openTasks, partnerProfile, profile]);
+
   const futureCountdowns = useMemo(
     () => countdowns.filter((item) => new Date(item.target_at).getTime() >= Date.now()),
     [countdowns],
@@ -140,7 +154,7 @@ export function PlanHubGroups() {
       key: 'tasks',
       icon: 'task',
       title: 'Tasks',
-      subtitle: 'What needs doing, without the mental load',
+      subtitle: taskOwnership,
       status: openTasks.length ? `${openTasks.length} open` : 'Clear',
       href: '/features/tasks',
     },
@@ -160,7 +174,7 @@ export function PlanHubGroups() {
       status: notes.length ? String(notes.length) : undefined,
       href: '/features/notes',
     },
-  ], [lists.length, notes.length, openTasks.length]);
+  ], [lists.length, notes.length, openTasks.length, taskOwnership]);
 
   const dateItems = useMemo<ExpandableFeatureGroupItem[]>(() => [
     {
