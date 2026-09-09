@@ -1,40 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import type { PoolClient } from 'pg';
 import type { RealtimeHub } from '../realtime/hub.js';
 import { pool } from '../db/pool.js';
 import { authenticate } from '../auth/middleware.js';
 import { ApiError, sendError } from '../utils/http.js';
 import { broadcast, dateOnlyOrNull, imageDataOrUrl, notifyPartner, optionalText, requiredText, requireCoupleId, setTags, tagsSql, validateTagIds } from './helpers.js';
+import { memoryPhotoIds, memoryPhotoUrls, memoryPhotosSql, syncStandaloneMemoryPhotos } from './memoryPhotos.js';
 
 function uuidValue(value: unknown, label: string) {
   if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) throw new ApiError(400, `${label} is invalid.`);
   return value;
 }
 
-function photoValues(body: Record<string, unknown>, key = 'photoUrls') {
-  if (body[key] === undefined) return undefined;
-  if (!Array.isArray(body[key])) throw new ApiError(400, 'Photos are invalid.');
-  const values = (body[key] as unknown[]).slice(0, 8).map((value, index) => imageDataOrUrl(value, `Photo ${index + 1}`)).filter((value): value is string => Boolean(value));
-  if ((body[key] as unknown[]).length > 8) throw new ApiError(400, 'A memory can contain up to 8 photos.');
-  return values;
-}
-
-async function replaceMemoryPhotos(client: PoolClient, memoryId: string, photos: string[]) {
-  await client.query('DELETE FROM memory_media WHERE memory_id=$1', [memoryId]);
-  for (let index = 0; index < photos.length; index += 1) {
-    await client.query(
-      `INSERT INTO memory_media(id,memory_id,media_id,media_url,caption,sort_order) VALUES($1,$2,NULL,$3,'',$4)`,
-      [randomUUID(), memoryId, photos[index], index],
-    );
-  }
-}
-
-const photosSql = (alias: string) => `CASE WHEN EXISTS (SELECT 1 FROM memory_media mmx WHERE mmx.memory_id=${alias}.id)
-  THEN COALESCE((SELECT json_agg(json_build_object('id',mm.id,'media_url',mm.media_url,'caption',mm.caption,'sort_order',mm.sort_order) ORDER BY mm.sort_order,mm.created_at)
-    FROM memory_media mm WHERE mm.memory_id=${alias}.id AND mm.media_url IS NOT NULL), '[]'::json)
-  WHEN ${alias}.photo_url IS NOT NULL THEN json_build_array(json_build_object('id',NULL,'media_url',${alias}.photo_url,'caption','','sort_order',0))
-  ELSE '[]'::json END AS photos`;
+// H3_MEMORY_PHOTO_INTEGRATION: standalone Photos are canonical, with legacy memory_media/photo_url as a read-only fallback.
+const photosSql = memoryPhotosSql;
 
 export async function registerMemoryRoutes(app: FastifyInstance, realtime: RealtimeHub) {
   app.get('/memories', { preHandler: authenticate }, async (request, reply) => {
@@ -55,21 +34,31 @@ export async function registerMemoryRoutes(app: FastifyInstance, realtime: Realt
       await validateTagIds(coupleId, body.tagIds);
       const memoryDate = dateOnlyOrNull(body.memoryDate, 'Memory date');
       if (!memoryDate) throw new ApiError(400, 'Memory date is required.');
-      const photos = photoValues(body) ?? (body.photoUrl ? [imageDataOrUrl(body.photoUrl, 'Memory photo')].filter((value): value is string => Boolean(value)) : []);
+      const selectedPhotoIds = memoryPhotoIds(body) ?? [];
+      const newPhotoUrls = memoryPhotoUrls(body) ?? (body.photoUrl ? [imageDataOrUrl(body.photoUrl, 'Memory photo')].filter((value): value is string => Boolean(value)) : []);
+      if (selectedPhotoIds.length + newPhotoUrls.length > 8) throw new ApiError(400, 'A memory can contain up to 8 photos.');
       const id = randomUUID();
       await client.query('BEGIN');
       const result = await client.query(
         `INSERT INTO memories(id,couple_id,creator_id,title,description,memory_date,location,is_milestone,emoji,photo_url)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL) RETURNING *`,
         [id, coupleId, request.userId, requiredText(body.title, 'Memory title', 200), optionalText(body.description, 10000), memoryDate,
-          optionalText(body.location, 300), body.isMilestone === true, body.emoji ? requiredText(body.emoji, 'Emoji', 16) : '✦', photos[0] ?? null],
+          optionalText(body.location, 300), body.isMilestone === true, body.emoji ? requiredText(body.emoji, 'Emoji', 16) : '✦'],
       );
-      await replaceMemoryPhotos(client, id, photos);
+      const photos = await syncStandaloneMemoryPhotos(client, {
+        coupleId,
+        memoryId: id,
+        creatorId: request.userId,
+        memoryDate,
+        photoIds: selectedPhotoIds,
+        photoUrls: newPhotoUrls,
+      });
       await client.query('COMMIT');
       await setTags(coupleId, 'memory', id, body.tagIds);
       await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'memory', preference: 'notification_memories', entityType: 'memory', entityId: id, title: 'New memory added', body: String(result.rows[0].title) });
       broadcast(realtime, coupleId, 'memories', 'created', id);
-      return reply.code(201).send({ memory: { ...result.rows[0], photos: photos.map((media_url, index) => ({ id: null, media_url, caption: '', sort_order: index })) } });
+      if (photos.length) broadcast(realtime, coupleId, 'photos', 'memory-linked', id);
+      return reply.code(201).send({ memory: { ...result.rows[0], photo_url: photos[0]?.media_url ?? null, photos } });
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
       return sendError(reply, error);
@@ -90,23 +79,48 @@ export async function registerMemoryRoutes(app: FastifyInstance, realtime: Realt
       if (!current) throw new ApiError(404, 'Memory not found.');
       const memoryDate = body.memoryDate === undefined ? current.memory_date : dateOnlyOrNull(body.memoryDate, 'Memory date');
       if (!memoryDate) throw new ApiError(400, 'Memory date is required.');
-      const photos = photoValues(body);
-      const legacyPhoto = body.photoUrl === undefined ? current.photo_url : imageDataOrUrl(body.photoUrl, 'Memory photo');
-      const nextPrimary = photos === undefined ? legacyPhoto : (photos[0] ?? null);
+      const selectedPhotoIds = memoryPhotoIds(body);
+      let newPhotoUrls = memoryPhotoUrls(body);
+      if (newPhotoUrls === undefined && body.photoUrl !== undefined) {
+        const legacyPhoto = imageDataOrUrl(body.photoUrl, 'Memory photo');
+        newPhotoUrls = legacyPhoto ? [legacyPhoto] : [];
+      }
+      const photoSelectionChanged = selectedPhotoIds !== undefined || newPhotoUrls !== undefined;
       const result = await client.query(
-        `UPDATE memories SET title=$1,description=$2,memory_date=$3,location=$4,is_milestone=$5,emoji=$6,photo_url=$7,updated_at=now()
-         WHERE id=$8 AND couple_id=$9 RETURNING *`,
+        `UPDATE memories SET title=$1,description=$2,memory_date=$3,location=$4,is_milestone=$5,emoji=$6,updated_at=now()
+         WHERE id=$7 AND couple_id=$8 RETURNING *`,
         [body.title === undefined ? current.title : requiredText(body.title, 'Memory title', 200),
           body.description === undefined ? current.description : optionalText(body.description, 10000), memoryDate,
           body.location === undefined ? current.location : optionalText(body.location, 300),
           body.isMilestone === undefined ? current.is_milestone : body.isMilestone === true,
-          body.emoji === undefined ? current.emoji : requiredText(body.emoji, 'Emoji', 16), nextPrimary, id, coupleId],
+          body.emoji === undefined ? current.emoji : requiredText(body.emoji, 'Emoji', 16), id, coupleId],
       );
-      if (photos !== undefined) await replaceMemoryPhotos(client, id, photos);
+      let photos;
+      if (photoSelectionChanged) {
+        photos = await syncStandaloneMemoryPhotos(client, {
+          coupleId,
+          memoryId: id,
+          creatorId: request.userId,
+          memoryDate,
+          photoIds: selectedPhotoIds ?? [],
+          photoUrls: newPhotoUrls ?? [],
+        });
+      } else {
+        const photoResult = await client.query(
+          `SELECT p.id,p.media_url,p.caption,
+             ROW_NUMBER() OVER (ORDER BY COALESCE(p.memory_sort_order,1000000),COALESCE(p.taken_at,p.created_at),p.created_at,p.id) - 1 AS sort_order
+           FROM photos p
+           WHERE p.couple_id=$1 AND p.linked_memory_id=$2
+           ORDER BY COALESCE(p.memory_sort_order,1000000),COALESCE(p.taken_at,p.created_at),p.created_at,p.id`,
+          [coupleId, id],
+        );
+        photos = photoResult.rows;
+      }
       await client.query('COMMIT');
       await setTags(coupleId, 'memory', id, body.tagIds);
       broadcast(realtime, coupleId, 'memories', 'updated', id);
-      return reply.send({ memory: result.rows[0] });
+      if (photoSelectionChanged) broadcast(realtime, coupleId, 'photos', 'memory-links-updated', id);
+      return reply.send({ memory: { ...result.rows[0], photo_url: photos[0]?.media_url ?? current.photo_url ?? null, photos } });
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined);
       return sendError(reply, error);
@@ -117,10 +131,12 @@ export async function registerMemoryRoutes(app: FastifyInstance, realtime: Realt
     try {
       const coupleId = await requireCoupleId(request.userId);
       const { id } = request.params as { id: string };
+      await pool.query('UPDATE photos SET linked_memory_id=NULL,memory_sort_order=NULL,updated_at=now() WHERE couple_id=$1 AND linked_memory_id=$2', [coupleId, id]);
       const result = await pool.query('DELETE FROM memories WHERE id=$1 AND couple_id=$2 RETURNING id', [id, coupleId]);
       if (!result.rowCount) throw new ApiError(404, 'Memory not found.');
       await pool.query("DELETE FROM content_tags WHERE entity_type='memory' AND entity_id=$1", [id]);
       broadcast(realtime, coupleId, 'memories', 'deleted', id);
+      broadcast(realtime, coupleId, 'photos', 'memory-unlinked', id);
       return reply.code(204).send();
     } catch (error) { return sendError(reply, error); }
   });

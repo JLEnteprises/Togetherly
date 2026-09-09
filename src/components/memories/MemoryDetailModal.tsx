@@ -18,6 +18,7 @@ export function MemoryDetailModal({
   openPhotoImmediately = false,
   onClose,
   onEdit,
+  onPhotoPress,
 }: {
   memory: CoupleMemory | null;
   visible: boolean;
@@ -25,7 +26,9 @@ export function MemoryDetailModal({
   openPhotoImmediately?: boolean;
   onClose: () => void;
   onEdit?: (memory: CoupleMemory) => void;
+  onPhotoPress?: (memory: CoupleMemory, index: number) => void;
 }) {
+  // H3_MEMORY_PHOTO_INTEGRATION: callers can hand photo taps to the shared standalone PhotoViewer.
   const theme = useAppTheme();
   const { colorForUser } = useWorkspace();
   const photos = useMemo(() => memoryPhotoUrls(memory), [memory]);
@@ -51,11 +54,11 @@ export function MemoryDetailModal({
 
         <ScrollView contentContainerStyle={{ paddingBottom: 50, gap: theme.spacing.xl }} showsVerticalScrollIndicator={false}>
           {photos.length ? <View style={{ gap: theme.spacing.sm }}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Open photo full screen" onPress={() => setLightbox(true)} style={({ pressed }) => ({ opacity: pressed ? 0.84 : 1 })}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Open photo full screen" onPress={() => onPhotoPress ? onPhotoPress(memory, photoIndex) : setLightbox(true)} style={({ pressed }) => ({ opacity: pressed ? 0.84 : 1 })}>
               <Image source={{ uri: photos[photoIndex] }} resizeMode="cover" style={{ width: '100%', aspectRatio: 1.15, backgroundColor: theme.colors.elevatedBackground }} />
             </Pressable>
             {photos.length > 1 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: theme.spacing.xl }}>
-              {photos.map((url, index) => <Pressable key={`${url.slice(-30)}-${index}`} accessibilityRole="button" accessibilityState={{ selected: index === photoIndex }} accessibilityLabel={`Photo ${index + 1} of ${photos.length}`} onPress={() => setPhotoIndex(index)}>
+              {photos.map((url, index) => <Pressable key={`${url.slice(-30)}-${index}`} accessibilityRole="button" accessibilityState={{ selected: index === photoIndex }} accessibilityLabel={`Photo ${index + 1} of ${photos.length}`} onPress={() => onPhotoPress ? onPhotoPress(memory, index) : setPhotoIndex(index)}>
                 <Image source={{ uri: url }} style={{ width: 72, height: 72, borderRadius: theme.radii.sm, borderWidth: index === photoIndex ? 2 : 1, borderColor: index === photoIndex ? theme.colors.accent : theme.colors.border, backgroundColor: theme.colors.elevatedBackground }} resizeMode="cover" />
               </Pressable>)}
             </ScrollView> : null}

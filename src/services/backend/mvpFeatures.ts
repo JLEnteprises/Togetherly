@@ -68,10 +68,11 @@ export async function updateTrip(id: string, input: Partial<{ title: string; des
 export function deleteTrip(id: string) { return apiRequest<void>(`/trips/${id}`, { method: 'DELETE' }); }
 
 export async function getMemories() { return (await apiRequest<{ memories: CoupleMemory[] }>('/memories')).memories; }
-export async function createMemory(input: { title: string; description?: string; memoryDate: string; location?: string; isMilestone?: boolean; emoji?: string; photoUrl?: string | null; photoUrls?: string[]; tagIds?: string[] }) {
+// H3_MEMORY_PHOTO_INTEGRATION: Memories can link existing first-class Photos and create new standalone Photos in the same save.
+export async function createMemory(input: { title: string; description?: string; memoryDate: string; location?: string; isMilestone?: boolean; emoji?: string; photoUrl?: string | null; photoIds?: string[]; photoUrls?: string[]; tagIds?: string[] }) {
   return (await apiRequest<{ memory: CoupleMemory }>('/memories', { method: 'POST', body: input })).memory;
 }
-export async function updateMemory(id: string, input: Partial<{ title: string; description: string; memoryDate: string; location: string; isMilestone: boolean; emoji: string; photoUrl: string | null; photoUrls: string[]; tagIds: string[] }>) {
+export async function updateMemory(id: string, input: Partial<{ title: string; description: string; memoryDate: string; location: string; isMilestone: boolean; emoji: string; photoUrl: string | null; photoIds: string[]; photoUrls: string[]; tagIds: string[] }>) {
   return (await apiRequest<{ memory: CoupleMemory }>(`/memories/${id}`, { method: 'PATCH', body: input })).memory;
 }
 export function deleteMemory(id: string) { return apiRequest<void>(`/memories/${id}`, { method: 'DELETE' }); }
