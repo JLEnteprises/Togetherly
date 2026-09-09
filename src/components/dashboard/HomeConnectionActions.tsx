@@ -143,8 +143,8 @@ export function HomeConnectionActions() {
       <View style={{ gap: theme.spacing.sm }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.md }}>
           <View style={{ gap: 2 }}>
-            <AppText variant="section">Connect</AppText>
-            <AppText variant="bodySmall" tone="muted">Small things that reach {partnerName} straight away.</AppText>
+            <AppText variant="section">Between you</AppText>
+            <AppText variant="bodySmall" tone="muted">Tiny ways to reach {partnerName} right now.</AppText>
           </View>
           <ParticipantIdentityBadge userId={partnerProfile.id} compact />
         </View>
@@ -168,8 +168,8 @@ export function HomeConnectionActions() {
           />
           <QuickAction
             icon="mood"
-            label={recentSignal === 'mood' ? 'Check-in shared ✓' : 'Check in'}
-            detail="How are you?"
+            label={recentSignal === 'mood' ? 'Shared ✓' : 'How I’m feeling'}
+            detail={`Share with ${partnerName}`}
             participantColor={profile.preferred_participant_color ?? undefined}
             onPress={() => { feedback(); setMoodOpen(true); }}
           />
@@ -210,7 +210,7 @@ export function HomeConnectionActions() {
               <View style={{ gap: 6 }}>
                 <ParticipantIdentityBadge userId={profile.id} compact />
                 <AppText variant="pageTitle">How are you?</AppText>
-                <AppText variant="bodySmall" tone="secondary">A quick check-in. You can use the full Mood screen whenever you want more context.</AppText>
+                <AppText variant="bodySmall" tone="secondary">Share just enough to help {partnerName} know where you’re at. You can always add more on the full check-in screen.</AppText>
               </View>
 
               <View style={{ gap: theme.spacing.sm }}>

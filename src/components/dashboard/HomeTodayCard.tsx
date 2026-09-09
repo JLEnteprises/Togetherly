@@ -123,7 +123,7 @@ export function HomeTodayCard() {
         <View style={{ gap: theme.spacing.sm }}>
           <View style={{ gap: 2 }}>
             <AppText variant="section">Right now</AppText>
-            <AppText variant="bodySmall" tone="muted">The thing that matters most between you two.</AppText>
+            <AppText variant="bodySmall" tone="muted">The relationship moment that matters most right now.</AppText>
           </View>
 
           {priority === 'partner_mood' && partnerMood ? (
@@ -195,8 +195,8 @@ export function HomeTodayCard() {
 
       <View style={{ gap: theme.spacing.sm }}>
         <View style={{ gap: 2 }}>
-          <AppText variant="section">Today</AppText>
-          <AppText variant="bodySmall" tone="muted">A short view of what needs your attention.</AppText>
+          <AppText variant="section">Life today</AppText>
+          <AppText variant="bodySmall" tone="muted">The practical bits around your day.</AppText>
         </View>
         <View style={{ paddingHorizontal: theme.spacing.sm }}>
           {regularRows.map((row, index) => <Row key={row.title} icon={row.icon} title={row.title} value={row.value} href={row.href} valueTone={row.tone} topBorder={index > 0} />)}

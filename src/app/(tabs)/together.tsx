@@ -9,7 +9,8 @@ import { FeatureGroupCard } from '@/components/navigation/FeatureGroupCard';
 import { ConnectionOrbitArt } from '@/components/art/TogetherlyArt';
 import { GentleFloat } from '@/components/motion/Motion';
 import { useAppTheme } from '@/theme/useAppTheme';
-import { ConnectionPingsCard } from '@/components/together/ConnectionPingsCard';
+import { HomeConnectionActions } from '@/components/dashboard/HomeConnectionActions';
+import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
 
 const connect = [
   { icon: 'question', title: 'Today’s question', subtitle: 'Answer separately, then open it together', href: '/features/daily-question' },
@@ -25,21 +26,31 @@ export default function TogetherScreen() {
   const theme = useAppTheme();
   return (
     <AppScreen>
-      <PageHeader eyebrow="Right now" title="Together" subtitle="Talk, play and be a little closer." />
+      <PageHeader eyebrow="Right now" title="Together" subtitle="The part of your space for actually being together." />
       <View style={{ gap: theme.spacing.lg }}>
+        <PartnerPresencePill scope="together" />
+
+        <HomeConnectionActions />
+
+        <FeatureGroupCard
+          eyebrow="A LITTLE DEEPER"
+          title="Check in together"
+          subtitle="The question, moods and little context that help you understand each other."
+          items={connect}
+        />
+
         <Card participantColor="both" tone="accent" style={{ gap: theme.spacing.md, padding: theme.spacing.xl, overflow: 'hidden' }}>
           <View style={{ alignItems: 'center', marginTop: -6, marginBottom: -8 }}>
             <GentleFloat distance={3}><ConnectionOrbitArt /></GentleFloat>
           </View>
           <View style={{ gap: 5 }}>
-            <AppText variant="caption" tone="accent">PLAY TOGETHER</AppText>
-            <AppText variant="hero">Do something together.</AppText>
-            <AppText tone="secondary">Quick games, shared drawing and tiny ways to feel present with each other.</AppText>
+            <AppText variant="caption" tone="accent">DO SOMETHING TOGETHER</AppText>
+            <AppText variant="hero">Play for a bit.</AppText>
+            <AppText tone="secondary">Games, shared drawing and little spaces that feel better when you’re both there.</AppText>
           </View>
           <AppButton label="Play together" onPress={() => router.push('/features/play-together' as never)} />
         </Card>
-        <ConnectionPingsCard />
-        <FeatureGroupCard eyebrow="CONNECT" title="How are we?" subtitle="Small ways to understand each other today." items={connect} />
+
         <FeatureGroupCard eyebrow="WHEN YOU WANT SOMETHING TO DO" title="Pick a little moment together" items={dateIdeas} />
       </View>
     </AppScreen>
