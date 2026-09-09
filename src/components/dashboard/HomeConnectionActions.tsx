@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
+import { router } from 'expo-router';
 import { AppIcon, type AppIconName } from '@/components/art/AppIcon';
 import { AppText } from '@/components/common/AppText';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
@@ -39,7 +40,7 @@ function QuickAction({
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        minWidth: '46%',
+        minWidth: '30%',
         minHeight: 66,
         borderRadius: theme.radii.md,
         borderWidth: 1,
@@ -63,8 +64,13 @@ function QuickAction({
   );
 }
 
+type HomeConnectionActionsProps = {
+  context?: 'home' | 'together';
+};
+
 // G2_HOME_DECLUTTER: Home keeps only tiny immediate relationship signals; mood check-in is owned by Together.
-export function HomeConnectionActions() {
+// G3_TOGETHER_CONSOLIDATION: Together adds the single canonical mood entry without duplicating the Mood CTA in adjacent groups.
+export function HomeConnectionActions({ context = 'home' }: HomeConnectionActionsProps) {
   const theme = useAppTheme();
   const feedback = useInteractionFeedback();
   const { profile, partnerProfile, partnerColor } = useWorkspace();
@@ -89,18 +95,21 @@ export function HomeConnectionActions() {
   }
 
   const partnerName = partnerProfile.display_name;
+  const together = context === 'together';
 
   return (
     <View style={{ gap: theme.spacing.sm }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.md }}>
         <View style={{ gap: 2 }}>
           <AppText variant="section">Between you</AppText>
-          <AppText variant="bodySmall" tone="muted">A quick little signal, without turning Home into another menu.</AppText>
+          <AppText variant="bodySmall" tone="muted">
+            {together ? `Tiny ways to reach ${partnerName} or check in right now.` : 'A quick little signal, without turning Home into another menu.'}
+          </AppText>
         </View>
         <ParticipantIdentityBadge userId={partnerProfile.id} compact />
       </View>
 
-      <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
         <QuickAction
           icon="heart"
           label={recentSignal === 'love' ? 'Love sent ♥' : pingBusy === 'love' ? 'Sending…' : 'Love Tap'}
@@ -117,6 +126,18 @@ export function HomeConnectionActions() {
           disabled={Boolean(pingBusy)}
           onPress={() => void sendPing('thinking_of_you')}
         />
+        {together ? (
+          <QuickAction
+            icon="mood"
+            label="How I’m feeling"
+            detail="Open your check-in"
+            participantColor={profile.preferred_participant_color ?? undefined}
+            onPress={() => {
+              feedback();
+              router.push('/features/mood' as never);
+            }}
+          />
+        ) : null}
       </View>
     </View>
   );
