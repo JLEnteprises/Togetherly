@@ -74,15 +74,24 @@ export default function GoalsScreen() {
   }, [params.edit, editingId, goals]);
 
   async function saveGoal() {
-    const targetValue = Number(target); const currentValue = Number(current || '0');
-    if (!title.trim() || !Number.isFinite(targetValue) || targetValue <= 0 || !Number.isFinite(currentValue) || currentValue < 0) { Alert.alert('Check the goal', 'Add a title and a target greater than zero.'); return; }
+    const targetValue = Number(target);
+    const startingValue = Number(current || '0');
+    if (!title.trim() || !Number.isFinite(targetValue) || targetValue <= 0 || (!editingId && (!Number.isFinite(startingValue) || startingValue < 0))) {
+      Alert.alert('Check the goal', 'Add a title and a target greater than zero.');
+      return;
+    }
     setBusy(true);
     try {
-      const input = { title: title.trim(), description, currentValue, targetValue, unit: unit.trim(), deadline: deadline || null, tagIds: selectedTags };
-      if (editingId) await updateGoal(editingId, input); else await createGoal(input);
-      resetEditor(); await refresh();
-    } catch (error) { Alert.alert(editingId ? 'Couldn’t update goal' : 'Couldn’t create goal', messageFrom(error)); }
-    finally { setBusy(false); }
+      const common = { title: title.trim(), description, targetValue, unit: unit.trim(), deadline: deadline || null, tagIds: selectedTags };
+      if (editingId) await updateGoal(editingId, common);
+      else await createGoal({ ...common, currentValue: startingValue });
+      resetEditor();
+      await refresh();
+    } catch (error) {
+      Alert.alert(editingId ? 'Couldn’t update goal' : 'Couldn’t create goal', messageFrom(error));
+    } finally {
+      setBusy(false);
+    }
   }
   async function contribute(goal: CoupleGoal) {
     const raw = contributions[goal.id] ?? ''; const value = Number(raw);
@@ -110,7 +119,8 @@ export default function GoalsScreen() {
       <CollapsibleComposer title={editingId ? 'Edit goal' : 'Our goals'} subtitle={editingId ? 'Update the target, deadline or details.' : `${goals.filter((goal) => goal.status === 'active').length} active`} open={composerOpen} actionLabel="New goal" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
         <FormField label="GOAL" value={title} onChangeText={setTitle} placeholder="Next visit fund" />
         <FormField label="DESCRIPTION · OPTIONAL" value={description} onChangeText={setDescription} placeholder="What this gets us closer to…" multiline />
-        <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><FormField label="CURRENT" value={current} onChangeText={setCurrent} keyboardType="decimal-pad" placeholder="0" /></View><View style={{ flex: 1 }}><FormField label="TARGET" value={target} onChangeText={setTarget} keyboardType="decimal-pad" placeholder="4000" /></View><View style={{ width: 84 }}><FormField label="UNIT" value={unit} onChangeText={setUnit} placeholder="$" /></View></View>
+        {!editingId ? <FormField label="STARTING AMOUNT · OPTIONAL" value={current} onChangeText={setCurrent} keyboardType="decimal-pad" placeholder="0" /> : <AppText variant="bodySmall" tone="muted">Progress is changed through Add progress so the contribution history always matches the total.</AppText>}
+        <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><FormField label="TARGET" value={target} onChangeText={setTarget} keyboardType="decimal-pad" placeholder="4000" /></View><View style={{ width: 84 }}><FormField label="UNIT" value={unit} onChangeText={setUnit} placeholder="$" /></View></View>
         <DatePickerField label="DEADLINE · OPTIONAL" value={deadline} onChange={setDeadline} optional />
         <TagSelector tags={tags} selectedIds={selectedTags} onChange={setSelectedTags} />
         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : editingId ? 'Save goal' : 'Create goal'} disabled={busy || !title.trim() || !target.trim()} onPress={saveGoal} /></View>{editingId ? <AppButton compact variant="secondary" label="Cancel" onPress={() => resetEditor()} /> : null}</View>

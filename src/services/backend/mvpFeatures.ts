@@ -46,7 +46,7 @@ export async function getGoals() { return (await apiRequest<{ goals: CoupleGoal[
 export async function createGoal(input: { title: string; description?: string; currentValue?: number; targetValue: number; unit?: string; deadline?: string | null; tagIds?: string[] }) {
   return (await apiRequest<{ goal: CoupleGoal }>('/goals', { method: 'POST', body: input })).goal;
 }
-export async function updateGoal(id: string, input: Partial<{ title: string; description: string; currentValue: number; targetValue: number; unit: string; deadline: string | null; status: GoalStatus; tagIds: string[] }>) {
+export async function updateGoal(id: string, input: Partial<{ title: string; description: string; targetValue: number; unit: string; deadline: string | null; status: GoalStatus; tagIds: string[] }>) {
   return (await apiRequest<{ goal: CoupleGoal }>(`/goals/${id}`, { method: 'PATCH', body: input })).goal;
 }
 export async function contributeToGoal(id: string, amount: number, note?: string) {
@@ -56,7 +56,7 @@ export function deleteGoal(id: string) { return apiRequest<void>(`/goals/${id}`,
 
 export async function getTrips() { return (await apiRequest<{ trips: CoupleTrip[] }>('/trips')).trips; }
 export async function getTrip(id: string) { return apiRequest<{ trip: CoupleTrip; links: TripLink[] }>(`/trips/${id}`); }
-export async function linkTripItem(tripId: string, entityType: TripLinkType, entityId: string) { return apiRequest<{ link: TripLink }>(`/trips/${tripId}/links`, { method: 'POST', body: { entityType, entityId } }); }
+export async function linkTripItem(tripId: string, entityType: TripLinkType, entityId: string, managedByTrip = false) { return apiRequest<{ link: TripLink }>(`/trips/${tripId}/links`, { method: 'POST', body: { entityType, entityId, managedByTrip } }); }
 export function unlinkTripItem(tripId: string, entityType: TripLinkType, entityId: string) { return apiRequest<void>(`/trips/${tripId}/links/${entityType}/${entityId}`, { method: 'DELETE' }); }
 export async function createTrip(input: { title: string; destination?: string; startDate?: string | null; endDate?: string | null; notes?: string; tagIds?: string[] }) {
   return (await apiRequest<{ trip: CoupleTrip }>('/trips', { method: 'POST', body: input })).trip;

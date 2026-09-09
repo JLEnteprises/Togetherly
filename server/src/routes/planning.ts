@@ -44,7 +44,7 @@ async function validateTripEntity(coupleId: string, type: TripLinkType, id: stri
 }
 async function tripLinks(tripId: string) {
   const result = await pool.query(
-    `SELECT tl.entity_type, tl.entity_id, tl.created_by, tl.created_at,
+    `SELECT tl.entity_type, tl.entity_id, tl.created_by, tl.created_at, tl.managed_by_trip,
       COALESCE(l.title, g.title, c.title, e.title) AS title,
       CASE
         WHEN tl.entity_type='list' THEN CONCAT(COALESCE((SELECT COUNT(*) FROM list_items li WHERE li.list_id=l.id),0), ' items')
@@ -183,25 +183,41 @@ export async function registerPlanningRoutes(app: FastifyInstance, realtime: Rea
   });
 
   app.post('/goals', { preHandler: authenticate }, async (request, reply) => {
+    const client = await pool.connect();
     try {
       const coupleId = await requireCoupleId(request.userId);
       const body = request.body as Record<string, unknown>;
       await validateTagIds(coupleId, body.tagIds);
       const targetValue = numberOrNull(body.targetValue, 'Target', 0.01);
       if (targetValue == null) throw new ApiError(400, 'Target is required.');
-      const currentValue = numberOrNull(body.currentValue, 'Current value', 0) ?? 0;
+      const currentValue = numberOrNull(body.currentValue, 'Starting amount', 0) ?? 0;
       const id = randomUUID();
-      const result = await pool.query(
+
+      await client.query('BEGIN');
+      const result = await client.query(
         `INSERT INTO goals(id,couple_id,creator_id,title,description,current_value,target_value,unit,deadline,status)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
         [id, coupleId, request.userId, requiredText(body.title, 'Goal title', 160), optionalText(body.description, 5000), currentValue, targetValue,
           optionalText(body.unit, 30), dateOnlyOrNull(body.deadline, 'Deadline'), currentValue >= targetValue ? 'completed' : 'active'],
       );
+      if (currentValue !== 0) {
+        await client.query(
+          'INSERT INTO goal_contributions(id,goal_id,creator_id,amount,note) VALUES($1,$2,$3,$4,$5)',
+          [randomUUID(), id, request.userId, currentValue, 'Starting amount'],
+        );
+      }
+      await client.query('COMMIT');
+
       await setTags(coupleId, 'goal', id, body.tagIds);
       await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'partner_activity', preference: 'notification_partner_activity', entityType: 'goal', entityId: id, title: 'New shared goal', body: String(result.rows[0].title) });
       broadcast(realtime, coupleId, 'goals', 'created', id);
       return reply.code(201).send({ goal: result.rows[0] });
-    } catch (error) { return sendError(reply, error); }
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      return sendError(reply, error);
+    } finally {
+      client.release();
+    }
   });
 
   app.patch('/goals/:id', { preHandler: authenticate }, async (request, reply) => {
@@ -213,22 +229,34 @@ export async function registerPlanningRoutes(app: FastifyInstance, realtime: Rea
       const currentResult = await pool.query('SELECT * FROM goals WHERE id=$1 AND couple_id=$2', [id, coupleId]);
       const current = currentResult.rows[0];
       if (!current) throw new ApiError(404, 'Goal not found.');
+
+      const currentValue = Number(current.current_value);
+      if (body.currentValue !== undefined) {
+        const requestedCurrent = numberOrNull(body.currentValue, 'Current value', 0) ?? 0;
+        if (requestedCurrent !== currentValue) {
+          throw new ApiError(400, 'Goal progress is history-backed. Use Add progress (or a negative correction) instead of editing the total directly.');
+        }
+      }
+
       const targetValue = body.targetValue === undefined ? Number(current.target_value) : numberOrNull(body.targetValue, 'Target', 0.01);
       if (targetValue == null) throw new ApiError(400, 'Target is required.');
-      const currentValue = body.currentValue === undefined ? Number(current.current_value) : (numberOrNull(body.currentValue, 'Current value', 0) ?? 0);
       const requestedStatus = body.status === undefined ? current.status : oneOf(body.status, ['active','paused','completed'] as const, current.status);
       const status = currentValue >= targetValue && requestedStatus !== 'paused' ? 'completed' : requestedStatus;
       const result = await pool.query(
-        `UPDATE goals SET title=$1,description=$2,current_value=$3,target_value=$4,unit=$5,deadline=$6,status=$7,updated_at=now()
-         WHERE id=$8 AND couple_id=$9 RETURNING *`,
+        `UPDATE goals SET title=$1,description=$2,target_value=$3,unit=$4,deadline=$5,status=$6,updated_at=now()
+         WHERE id=$7 AND couple_id=$8 RETURNING *`,
         [body.title === undefined ? current.title : requiredText(body.title, 'Goal title', 160),
-          body.description === undefined ? current.description : optionalText(body.description, 5000), currentValue, targetValue,
-          body.unit === undefined ? current.unit : optionalText(body.unit, 30), body.deadline === undefined ? current.deadline : dateOnlyOrNull(body.deadline, 'Deadline'), status, id, coupleId],
+          body.description === undefined ? current.description : optionalText(body.description, 5000), targetValue,
+          body.unit === undefined ? current.unit : optionalText(body.unit, 30),
+          body.deadline === undefined ? current.deadline : dateOnlyOrNull(body.deadline, 'Deadline'),
+          status, id, coupleId],
       );
       await setTags(coupleId, 'goal', id, body.tagIds);
       broadcast(realtime, coupleId, 'goals', 'updated', id);
       return reply.send({ goal: result.rows[0] });
-    } catch (error) { return sendError(reply, error); }
+    } catch (error) {
+      return sendError(reply, error);
+    }
   });
 
   app.post('/goals/:id/contributions', { preHandler: authenticate }, async (request, reply) => {
@@ -302,13 +330,20 @@ export async function registerPlanningRoutes(app: FastifyInstance, realtime: Rea
       const entityType = tripLinkType(body.entityType);
       const entityId = uuidValue(body.entityId, 'Linked item');
       const entity = await validateTripEntity(coupleId, entityType, entityId);
-      await pool.query(
-        `INSERT INTO trip_links(trip_id,entity_type,entity_id,created_by) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
-        [id, entityType, entityId, request.userId],
+      const managedByTrip = body.managedByTrip === true && (entityType === 'countdown' || entityType === 'event');
+      const linked = await pool.query(
+        `INSERT INTO trip_links(trip_id,entity_type,entity_id,created_by,managed_by_trip)
+         VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT (trip_id,entity_type,entity_id)
+         DO UPDATE SET managed_by_trip=EXCLUDED.managed_by_trip
+         RETURNING managed_by_trip`,
+        [id, entityType, entityId, request.userId, managedByTrip],
       );
       broadcast(realtime, coupleId, 'trips', 'linked', id);
-      return reply.code(201).send({ link: { entity_type: entityType, entity_id: entityId, title: entity.title } });
-    } catch (error) { return sendError(reply, error); }
+      return reply.code(201).send({ link: { entity_type: entityType, entity_id: entityId, title: entity.title, managed_by_trip: Boolean(linked.rows[0]?.managed_by_trip) } });
+    } catch (error) {
+      return sendError(reply, error);
+    }
   });
 
   app.delete('/trips/:id/links/:entityType/:entityId', { preHandler: authenticate }, async (request, reply) => {
@@ -344,26 +379,110 @@ export async function registerPlanningRoutes(app: FastifyInstance, realtime: Rea
   });
 
   app.patch('/trips/:id', { preHandler: authenticate }, async (request, reply) => {
+    const client = await pool.connect();
     try {
       const coupleId = await requireCoupleId(request.userId);
       const { id } = request.params as { id: string };
       const body = request.body as Record<string, unknown>;
       await validateTagIds(coupleId, body.tagIds);
-      const currentResult = await pool.query('SELECT * FROM trips WHERE id=$1 AND couple_id=$2', [id, coupleId]);
+
+      await client.query('BEGIN');
+      const currentResult = await client.query('SELECT * FROM trips WHERE id=$1 AND couple_id=$2 FOR UPDATE', [id, coupleId]);
       const current = currentResult.rows[0];
       if (!current) throw new ApiError(404, 'Trip not found.');
+
       const startDate = body.startDate === undefined ? current.start_date : dateOnlyOrNull(body.startDate, 'Start date');
       const endDate = body.endDate === undefined ? current.end_date : dateOnlyOrNull(body.endDate, 'End date');
       if (startDate && endDate && String(endDate) < String(startDate)) throw new ApiError(400, 'Trip end date cannot be before the start date.');
-      const result = await pool.query(
-        `UPDATE trips SET title=$1,destination=$2,start_date=$3,end_date=$4,notes=$5,updated_at=now() WHERE id=$6 AND couple_id=$7 RETURNING *`,
-        [body.title === undefined ? current.title : requiredText(body.title, 'Trip title', 160), body.destination === undefined ? current.destination : optionalText(body.destination, 250),
-          startDate, endDate, body.notes === undefined ? current.notes : optionalText(body.notes, 5000), id, coupleId],
+
+      const result = await client.query(
+        `UPDATE trips SET title=$1,destination=$2,start_date=$3,end_date=$4,notes=$5,updated_at=now()
+         WHERE id=$6 AND couple_id=$7 RETURNING *`,
+        [body.title === undefined ? current.title : requiredText(body.title, 'Trip title', 160),
+          body.destination === undefined ? current.destination : optionalText(body.destination, 250),
+          startDate, endDate,
+          body.notes === undefined ? current.notes : optionalText(body.notes, 5000),
+          id, coupleId],
       );
+      const trip = result.rows[0];
+      let countdownIds: string[] = [];
+      let eventIds: string[] = [];
+
+      if (startDate) {
+        const targetAt = `${String(startDate)}T12:00:00.000Z`;
+        const countdownResult = await client.query(
+          `UPDATE countdowns c
+           SET title=$1, target_at=$2, updated_at=now()
+           FROM trip_links tl
+           WHERE tl.trip_id=$3
+             AND tl.entity_type='countdown'
+             AND tl.entity_id=c.id
+             AND tl.managed_by_trip=true
+             AND c.couple_id=$4
+           RETURNING c.id`,
+          [`${String(trip.title)} begins`, targetAt, id, coupleId],
+        );
+        countdownIds = countdownResult.rows.map((row) => String(row.id));
+
+        const endAt = endDate ? `${String(endDate)}T12:00:00.000Z` : null;
+        const eventResult = await client.query(
+          `UPDATE events e
+           SET title=$1, description=$2, start_at=$3, end_at=$4,
+               start_date=$5, end_date=$6, all_day=true, location=$7,
+               recurrence='none', updated_at=now()
+           FROM trip_links tl
+           WHERE tl.trip_id=$8
+             AND tl.entity_type='event'
+             AND tl.entity_id=e.id
+             AND tl.managed_by_trip=true
+             AND e.couple_id=$9
+           RETURNING e.id`,
+          [String(trip.title), String(trip.notes ?? ''), targetAt, endAt, startDate, endDate, String(trip.destination ?? ''), id, coupleId],
+        );
+        eventIds = eventResult.rows.map((row) => String(row.id));
+      } else {
+        const countdownResult = await client.query(
+          `UPDATE countdowns c
+           SET title=$1, updated_at=now()
+           FROM trip_links tl
+           WHERE tl.trip_id=$2
+             AND tl.entity_type='countdown'
+             AND tl.entity_id=c.id
+             AND tl.managed_by_trip=true
+             AND c.couple_id=$3
+           RETURNING c.id`,
+          [`${String(trip.title)} begins`, id, coupleId],
+        );
+        countdownIds = countdownResult.rows.map((row) => String(row.id));
+
+        const eventResult = await client.query(
+          `UPDATE events e
+           SET title=$1, description=$2, location=$3, updated_at=now()
+           FROM trip_links tl
+           WHERE tl.trip_id=$4
+             AND tl.entity_type='event'
+             AND tl.entity_id=e.id
+             AND tl.managed_by_trip=true
+             AND e.couple_id=$5
+           RETURNING e.id`,
+          [String(trip.title), String(trip.notes ?? ''), String(trip.destination ?? ''), id, coupleId],
+        );
+        eventIds = eventResult.rows.map((row) => String(row.id));
+      }
+
+      await client.query('COMMIT');
       await setTags(coupleId, 'trip', id, body.tagIds);
+
       broadcast(realtime, coupleId, 'trips', 'updated', id);
-      return reply.send({ trip: result.rows[0] });
-    } catch (error) { return sendError(reply, error); }
+      countdownIds.forEach((entityId) => broadcast(realtime, coupleId, 'countdowns', 'updated', entityId));
+      eventIds.forEach((entityId) => broadcast(realtime, coupleId, 'events', 'updated', entityId));
+      return reply.send({ trip, synced: { countdowns: countdownIds.length, events: eventIds.length } });
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      return sendError(reply, error);
+    } finally {
+      client.release();
+    }
   });
 
   app.delete('/trips/:id', { preHandler: authenticate }, async (request, reply) => {

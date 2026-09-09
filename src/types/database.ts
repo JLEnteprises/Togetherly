@@ -200,7 +200,7 @@ export type CoupleGoal = {
 };
 
 export type TripLinkType = 'list' | 'goal' | 'countdown' | 'event';
-export type TripLink = { entity_type: TripLinkType; entity_id: string; created_by: string; created_at: string; title: string; subtitle: string };
+export type TripLink = { entity_type: TripLinkType; entity_id: string; created_by: string; created_at: string; managed_by_trip: boolean; title: string; subtitle: string };
 
 export type CoupleTrip = {
   id: string;
