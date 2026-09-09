@@ -18,6 +18,7 @@ export function Card({ children, style, tone = 'default', padded = true, partici
   const ownerPalette = participantColor && participantColor !== 'both' ? participantPalette(participantColor) : null;
   const sharedOwner = participantColor === 'both';
   // E1_SHARED_OURS_VISUAL_IDENTITY: shared surfaces visibly carry both participant identities.
+  // E2_PERSONAL_COLOUR_IDENTITY: individually owned surfaces carry a clear, restrained participant signature.
 
   return (
     <View
@@ -44,6 +45,20 @@ export function Card({ children, style, tone = 'default', padded = true, partici
         style,
       ]}
     >
+      {ownerPalette ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.ownerWash,
+            {
+              borderRadius: Math.max(0, theme.radii.lg - 1),
+              backgroundColor: ownerPalette.tint,
+            },
+          ]}
+        >
+          <View style={[styles.ownerRail, { backgroundColor: ownerPalette.accent }]} />
+        </View>
+      ) : null}
       {sharedOwner ? (
         <View
           pointerEvents="none"
@@ -64,6 +79,22 @@ export function Card({ children, style, tone = 'default', padded = true, partici
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1 },
+  ownerWash: {
+    position: 'absolute',
+    top: 1,
+    right: 1,
+    bottom: 1,
+    left: 1,
+    overflow: 'hidden',
+  },
+  ownerRail: {
+    position: 'absolute',
+    top: 0,
+    left: 14,
+    width: 58,
+    height: 2,
+    borderRadius: 1,
+  },
   sharedWash: {
     position: 'absolute',
     top: 1,

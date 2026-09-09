@@ -12,6 +12,7 @@ export function ParticipantAttribution({ userId, verb = 'Added by', suffix }: { 
   const color = colorForUser(userId);
   const palette = color === 'both' ? null : participantPalette(color);
   const accent = palette?.accent ?? theme.colors.textMuted;
+  // E2_PERSONAL_COLOUR_IDENTITY: creator identity gets a compact participant-colour surface when ownership is known.
   const name = profile && userId === profile.id
     ? profile.display_name
     : partnerProfile && userId === partnerProfile.id
@@ -22,10 +23,25 @@ export function ParticipantAttribution({ userId, verb = 'Added by', suffix }: { 
   const role = isMe ? 'YOU' : isPartner ? 'PARTNER' : '';
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+    <View
+      accessibilityLabel={`${verb} ${name}${role ? `. ${role}` : ''}${suffix ? `. ${suffix}` : ''}`}
+      style={{
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap',
+        paddingHorizontal: palette ? 7 : 0,
+        paddingVertical: palette ? 4 : 0,
+        borderRadius: theme.radii.pill,
+        borderWidth: palette ? 1 : 0,
+        borderColor: palette?.border ?? 'transparent',
+        backgroundColor: palette?.accentSoft ?? 'transparent',
+      }}
+    >
       <View style={{
         width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1, borderColor: palette?.border ?? theme.colors.border,
+        borderWidth: palette ? 1.5 : 1, borderColor: palette?.accent ?? theme.colors.border,
         backgroundColor: palette?.tint ?? theme.colors.elevatedBackground,
       }}>
         <AppText variant="caption" style={{ color: accent, fontSize: 9, lineHeight: 11 }}>{initial(name)}</AppText>

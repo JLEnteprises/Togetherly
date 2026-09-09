@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const RUNTIME_CONFIG_URL = 'https://raw.githubusercontent.com/JLEnteprises/Togetherly/main/runtime-config.json';
-const CACHE_KEY = 'togetherly.runtime-api-url.v1';
+const CACHE_KEY = 'togetherly.runtime-api-url.v2';
 const RUNTIME_CONFIG_TIMEOUT_MS = 4_000;
 
 export type RuntimeBackendConfig = {
@@ -29,7 +29,8 @@ export async function resolveRuntimeApiUrl(embeddedUrl: string): Promise<Runtime
       clearTimeout(timeout);
     }
     if (response.ok) {
-      const payload = await response.json() as { apiUrl?: unknown };
+      const raw = await response.text();
+      const payload = JSON.parse(raw.replace(/^\uFEFF/, '')) as { apiUrl?: unknown };
       const apiUrl = normalizeApiUrl(payload.apiUrl);
       if (apiUrl) {
         await AsyncStorage.setItem(CACHE_KEY, apiUrl).catch(() => undefined);

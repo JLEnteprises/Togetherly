@@ -49,7 +49,10 @@ $config = [ordered]@{
   apiUrl = $url
   updatedAt = (Get-Date).ToUniversalTime().ToString('o')
 }
-$config | ConvertTo-Json | Set-Content -Path (Join-Path $RepoRoot 'runtime-config.json') -Encoding utf8
+$runtimeConfigPath = Join-Path $RepoRoot 'runtime-config.json'
+$runtimeConfigJson = $config | ConvertTo-Json
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($runtimeConfigPath, $runtimeConfigJson + [Environment]::NewLine, $utf8NoBom)
 
 Write-Host "Discovered API URL: $url"
 Write-Host "Publishing runtime-config.json to GitHub..."
