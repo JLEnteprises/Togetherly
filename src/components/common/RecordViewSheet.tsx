@@ -22,7 +22,7 @@ export function RecordViewSheet({
   const theme = useAppTheme();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={theme.reducedMotion ? 'none' : 'slide'} statusBarTranslucent onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: theme.colors.overlay }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close details" onPress={onClose} style={{ flex: 1 }} />
         <View
@@ -67,7 +67,7 @@ export function RecordViewSheet({
               </Pressable>
             </View>
             {children}
-            <AppText variant="caption" tone="muted">Use ••• on the item card to edit, manage or delete it.</AppText>
+            <AppText variant="caption" tone="muted">Close this view, then use ••• on the card for any edit or delete options.</AppText>
           </ScrollView>
         </View>
       </View>

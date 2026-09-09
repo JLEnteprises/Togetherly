@@ -19,17 +19,24 @@ export function CelebrationMoment({
   useEffect(() => {
     if (!moment) return;
     progress.stopAnimation();
-    progress.setValue(0);
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 460,
-      easing: Easing.out(Easing.back(1.35)),
-      useNativeDriver: true,
-    }).start();
+    progress.setValue(theme.reducedMotion ? 1 : 0);
+
+    const animation = theme.reducedMotion
+      ? null
+      : Animated.timing(progress, {
+          toValue: 1,
+          duration: 460,
+          easing: Easing.out(Easing.back(1.35)),
+          useNativeDriver: true,
+        });
+    animation?.start();
 
     const timeout = setTimeout(onDismiss, moment.actionLabel ? 3600 : 1900);
-    return () => clearTimeout(timeout);
-  }, [moment, onDismiss, progress]);
+    return () => {
+      animation?.stop();
+      clearTimeout(timeout);
+    };
+  }, [moment, onDismiss, progress, theme.reducedMotion]);
 
   if (!moment) return null;
 
@@ -58,7 +65,7 @@ export function CelebrationMoment({
   }
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={onDismiss}>
+    <Modal visible transparent animationType={theme.reducedMotion ? 'none' : 'fade'} statusBarTranslucent onRequestClose={onDismiss}>
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.overlay, padding: theme.spacing.xl }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Dismiss celebration" onPress={onDismiss} style={{ position: 'absolute', inset: 0 }} />
 

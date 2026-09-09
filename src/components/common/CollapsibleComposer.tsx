@@ -31,6 +31,7 @@ export function CollapsibleComposer({
 }: Props) {
   const theme = useAppTheme();
   const feedback = useInteractionFeedback();
+  const isEditing = /^edit\b/i.test(title.trim());
 
   function toggle() {
     feedback();
@@ -84,7 +85,7 @@ export function CollapsibleComposer({
       <Modal
         visible={open}
         transparent
-        animationType="slide"
+        animationType={theme.reducedMotion ? 'none' : 'slide'}
         onRequestClose={toggle}
         statusBarTranslucent
       >
@@ -135,7 +136,7 @@ export function CollapsibleComposer({
               >
                 <View style={{ flex: 1, gap: 4 }}>
                   <AppText variant="caption" tone={tone === 'accent' ? 'accent' : 'secondary'}>
-                    {open ? 'QUICK EDIT' : 'QUICK CREATE'}
+                    {isEditing ? 'QUICK EDIT' : 'QUICK ADD'}
                   </AppText>
                   <AppText variant="pageTitle">{title}</AppText>
                   {subtitle ? <AppText variant="bodySmall" tone="secondary">{subtitle}</AppText> : null}

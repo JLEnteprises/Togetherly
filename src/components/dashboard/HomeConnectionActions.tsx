@@ -179,7 +179,7 @@ export function HomeConnectionActions() {
       <Modal
         visible={moodOpen}
         transparent
-        animationType="slide"
+        animationType={theme.reducedMotion ? 'none' : 'slide'}
         onRequestClose={() => setMoodOpen(false)}
       >
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: theme.colors.overlay }}>
