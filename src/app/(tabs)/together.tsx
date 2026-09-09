@@ -11,6 +11,7 @@ import { GentleFloat } from '@/components/motion/Motion';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { HomeConnectionActions } from '@/components/dashboard/HomeConnectionActions';
 import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
+import { CoupleIdentitySignature } from '@/components/common/CoupleIdentitySignature';
 
 const connect = [
   { icon: 'question', title: 'Today’s question', subtitle: 'Answer separately, then open it together', href: '/features/daily-question' },
@@ -28,6 +29,8 @@ export default function TogetherScreen() {
     <AppScreen>
       <PageHeader eyebrow="Right now" title="Together" subtitle="The part of your space for actually being together." />
       <View style={{ gap: theme.spacing.lg }}>
+        {/* E3_PAIRED_COUPLE_IDENTITY */}
+        <CoupleIdentitySignature detail="A space for the two of you to be present together." />
         <PartnerPresencePill scope="together" />
 
         <HomeConnectionActions />

@@ -10,6 +10,7 @@ import { AppIcon, type AppIconName } from '@/components/art/AppIcon';
 import { MemoryConstellationArt } from '@/components/art/TogetherlyArt';
 import { FadeSlideIn, GentleFloat } from '@/components/motion/Motion';
 import { RecentMemoryCard } from '@/components/dashboard/RecentMemoryCard';
+import { CoupleIdentitySignature } from '@/components/common/CoupleIdentitySignature';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { getMemories, getMemoryAlbums, getTimeline } from '@/services/backend/mvpFeatures';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -64,6 +65,8 @@ export default function UsScreen() {
     <AppScreen>
       <PageHeader eyebrow="Our story" title="Us" subtitle="The part of Togetherly that becomes more yours over time." />
       <View style={{ gap: theme.spacing.xl }}>
+        {/* E3_PAIRED_COUPLE_IDENTITY */}
+        <CoupleIdentitySignature detail="Your shared story belongs to both of you." />
         <Card participantColor="both" tone="accent" style={{ gap: theme.spacing.lg, padding: theme.spacing.xl, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md, alignItems: 'center' }}>
             <View style={{ flex: 1, gap: 6 }}><AppText variant="caption" tone="accent">OUR STORY</AppText><AppText variant="hero">{storyTitle}</AppText></View>

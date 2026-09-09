@@ -9,6 +9,7 @@ import { ChoiceChips } from '@/components/common/ChoiceChips';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { Avatar } from '@/components/common/Avatar';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { CoupleIdentitySignature } from '@/components/common/CoupleIdentitySignature';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { deleteCoupleSpace, leaveCouple, removePartner, updateCouple } from '@/services/backend/workspace';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -52,6 +53,8 @@ export default function CoupleProfileScreen() {
   return <AppScreen>
     <BackHeader eyebrow="More" title="Couple profile" subtitle="Relationship details and settings." />
     <Card participantColor="both" style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xxl }}>
+      {/* E3_PAIRED_COUPLE_IDENTITY */}
+      <CoupleIdentitySignature detail="Two accounts · one shared relationship space." />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}><Avatar initials={initial(profile?.display_name)} imageUrl={profile?.avatar_url} size={54} participantColor={myColor} /><View style={{ flex:1 }}><AppText variant="section">{profile?.display_name}</AppText><AppText variant="caption" tone="muted">{profile?.timezone}</AppText></View></View>
       {partnerProfile ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}><Avatar initials={initial(partnerProfile.display_name)} imageUrl={partnerProfile.avatar_url} size={54} participantColor={partnerColor} /><View style={{ flex:1 }}><AppText variant="section">{partnerProfile.display_name}</AppText><AppText variant="caption" tone="muted">{partnerProfile.timezone}</AppText></View></View> : <AppText tone="secondary">Waiting for your partner to join.</AppText>}
     </Card>
