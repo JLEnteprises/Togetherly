@@ -1,4 +1,27 @@
-import type { ReactNode } from 'react';
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const root = process.cwd();
+const rel = 'src/components/common/CollapsibleComposer.tsx';
+const file = path.join(root, ...rel.split('/'));
+
+function fail(message) {
+  console.error(`\nD8 Quick Create Sheets FAILED: ${message}`);
+  process.exit(1);
+}
+
+if (!fs.existsSync(file)) {
+  fail(`Missing ${rel}. Run this from the Togetherly project root.`);
+}
+
+const current = fs.readFileSync(file, 'utf8');
+
+if (!current.includes('export function CollapsibleComposer')) {
+  fail('CollapsibleComposer is not the expected Togetherly component.');
+}
+
+const replacement = `import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View, type ViewStyle } from 'react-native';
 import { AppText } from './AppText';
 import { Card } from './Card';
@@ -45,7 +68,7 @@ export function CollapsibleComposer({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${actionLabel}: ${title}`}
+          accessibilityLabel={\`\${actionLabel}: \${title}\`}
           accessibilityState={{ expanded: open }}
           onPress={toggle}
           style={({ pressed }) => ({
@@ -180,3 +203,48 @@ export function CollapsibleComposer({
     </>
   );
 }
+`;
+
+fs.writeFileSync(file, replacement, 'utf8');
+console.log(`Wrote ${rel}`);
+
+const finalSource = fs.readFileSync(file, 'utf8');
+const required = [
+  "Modal",
+  "KeyboardAvoidingView",
+  "animationType=\"slide\"",
+  "maxHeight: '92%'",
+  "keyboardShouldPersistTaps=\"handled\"",
+  "{children}",
+];
+for (const marker of required) {
+  if (!finalSource.includes(marker)) fail(`Post-apply audit missing marker: ${marker}`);
+}
+console.log('D8 Quick Create Sheets audit clean.');
+
+function run(args, label) {
+  console.log(`\n> ${label}`);
+  let result;
+  if (process.platform === 'win32') {
+    const comspec = process.env.ComSpec || 'cmd.exe';
+    const command = ['npm.cmd', ...args].join(' ');
+    result = spawnSync(comspec, ['/d', '/s', '/c', command], {
+      cwd: root,
+      stdio: 'inherit',
+      windowsHide: false,
+    });
+  } else {
+    result = spawnSync('npm', args, { cwd: root, stdio: 'inherit' });
+  }
+
+  if (result.error) fail(`${label} could not start: ${result.error.message}`);
+  if (result.status !== 0) fail(`${label} exited with code ${result.status}.`);
+}
+
+run(['run', 'typecheck'], 'Frontend typecheck');
+run(['--prefix', 'server', 'run', 'typecheck'], 'Server typecheck');
+run(['--prefix', 'server', 'run', 'logic'], 'Server logic smoke checks');
+
+console.log('\nD8 Quick Create Sheets applied successfully.');
+console.log('All requested validation checks passed.');
+console.log('No migration is required.');
