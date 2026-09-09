@@ -3,6 +3,7 @@ import { Alert, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { CelebrationMoment } from '@/components/common/CelebrationMoment';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
@@ -21,6 +22,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { AppIcon } from '@/components/art/AppIcon';
 import { contributeToGoal, createGoal, deleteGoal, getGoals, getTags, updateGoal } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCelebrationMoment } from '@/hooks/useCelebrationMoment';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { CoupleGoal, GoalStatus, Tag } from '@/types/database';
@@ -30,6 +32,7 @@ function amount(goal: CoupleGoal, value: number | string) { const n = Number(val
 
 export default function GoalsScreen() {
   const theme = useAppTheme();
+  const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
   const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
   const { colorForUser } = useWorkspace();
   const [goals, setGoals] = useState<CoupleGoal[]>([]);
@@ -96,10 +99,27 @@ export default function GoalsScreen() {
   async function contribute(goal: CoupleGoal) {
     const raw = contributions[goal.id] ?? ''; const value = Number(raw);
     if (!Number.isFinite(value) || value === 0) { Alert.alert('Contribution', 'Enter a non-zero number. Negative values can correct a goal total.'); return; }
-    try { await contributeToGoal(goal.id, value); setContributions((state) => ({ ...state, [goal.id]: '' })); setContributionOpen(null); await refresh(); }
+    const currentValue = Number(goal.current_value);
+    const targetValue = Number(goal.target_value);
+    const reachesTarget = value > 0 && Number.isFinite(currentValue) && Number.isFinite(targetValue) && currentValue < targetValue && currentValue + value >= targetValue;
+    try {
+      await contributeToGoal(goal.id, value);
+      setContributions((state) => ({ ...state, [goal.id]: '' }));
+      setContributionOpen(null);
+      await refresh();
+      if (reachesTarget) celebrate({ title: 'Goal reached ✦', body: goal.title, icon: 'goal' });
+    }
     catch (error) { Alert.alert('Couldn’t update goal', messageFrom(error)); }
   }
-  async function setGoalStatus(goal: CoupleGoal, status: GoalStatus) { try { await updateGoal(goal.id, { status }); await refresh(); } catch (error) { Alert.alert('Couldn’t update goal', messageFrom(error)); } }
+  async function setGoalStatus(goal: CoupleGoal, status: GoalStatus) {
+    try {
+      await updateGoal(goal.id, { status });
+      await refresh();
+      if (status === 'completed' && goal.status !== 'completed') {
+        celebrate({ title: 'Goal complete ✦', body: goal.title, icon: 'goal' });
+      }
+    } catch (error) { Alert.alert('Couldn’t update goal', messageFrom(error)); }
+  }
   async function removeConfirmed() { const goal = deleteTarget; setDeleteTarget(null); if (!goal) return; try { await deleteGoal(goal.id); setGoals((currentGoals) => currentGoals.filter((item) => item.id !== goal.id)); if (editingId === goal.id) resetEditor(); } catch (error) { Alert.alert('Couldn’t delete goal', messageFrom(error)); } }
   function openGoalMenu(goal: CoupleGoal) {
     const actions: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[] = [
@@ -162,6 +182,7 @@ export default function GoalsScreen() {
         </View> : null}
       </RecordViewSheet>
       <ConfirmDialog visible={!!deleteTarget} title="Delete goal?" body={deleteTarget ? `Delete “${deleteTarget.title}” and its contribution history?` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />
+      <CelebrationMoment moment={celebration} onDismiss={dismissCelebration} />
     </AppScreen>
   );
 }

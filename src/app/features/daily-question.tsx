@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { CelebrationMoment } from '@/components/common/CelebrationMoment';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
@@ -15,6 +16,7 @@ import { ConnectionOrbitArt } from '@/components/art/TogetherlyArt';
 import { FadeSlideIn, GentleFloat, RevealScale } from '@/components/motion/Motion';
 import { answerDailyQuestion, getDailyQuestion, getDailyQuestionHistory, revealDailyQuestion, updateDailyQuestionSettings } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCelebrationMoment } from '@/hooks/useCelebrationMoment';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -31,6 +33,7 @@ type QuestionView = 'today' | 'history';
 
 export default function DailyQuestionScreen() {
   const theme = useAppTheme();
+  const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
   const { profile, partnerProfile, myColor, partnerColor } = useWorkspace();
   const [state, setState] = useState<DailyQuestionState | null>(null);
   const [history, setHistory] = useState<DailyQuestionHistoryEntry[]>([]);
@@ -74,6 +77,7 @@ export default function DailyQuestionScreen() {
       const result = await revealDailyQuestion(state.question.id);
       setRevealed(true);
       setState((current) => current ? { ...current, revealed: true, revealedAt: result.revealedAt } : current);
+      celebrate({ title: 'A little more of us ♥', body: 'Your answers are open.', icon: 'heart' });
     } catch (error) {
       Alert.alert('Couldn’t reveal answers', messageFrom(error));
     } finally {
@@ -131,6 +135,7 @@ export default function DailyQuestionScreen() {
         {!historyLoading && history.length === 0 ? <EmptyState icon="question" title="No past answers yet" body="Your past answers will appear here." /> : null}
         {history.map((entry) => <Card key={`${entry.date}-${entry.question.id}`} participantColor="both" style={{ gap: theme.spacing.md }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md, alignItems: 'center' }}><TagChip subtle label={entry.question.category.toUpperCase().replaceAll('_', ' ')} /><AppText variant="caption" tone="muted">{prettyDate(entry.date)}</AppText></View><AppText variant="cardTitle">{entry.question.question}</AppText><View style={{ gap: theme.spacing.sm }}><View style={{ paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: participantPalette(myColor).accent }}><AppText variant="caption" style={{ color: participantPalette(myColor).accent }}>{profile?.display_name?.toUpperCase() ?? 'YOU'}</AppText><AppText variant="bodySmall">“{entry.myAnswer.answer}”</AppText></View>{entry.partnerAnswer ? <View style={{ paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: participantPalette(partnerColor).accent }}><AppText variant="caption" style={{ color: participantPalette(partnerColor).accent }}>{partnerProfile?.display_name?.toUpperCase() ?? 'PARTNER'}</AppText><AppText variant="bodySmall">“{entry.partnerAnswer.answer}”</AppText></View> : <AppText variant="bodySmall" tone="muted">Only your answer is available for this day.</AppText>}</View></Card>)}
       </View>}
+      <CelebrationMoment moment={celebration} onDismiss={dismissCelebration} />
     </AppScreen>
   );
 }

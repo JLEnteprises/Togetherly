@@ -3,6 +3,7 @@ import { Alert, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { CelebrationMoment } from '@/components/common/CelebrationMoment';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
@@ -23,6 +24,7 @@ import { AppIcon } from '@/components/art/AppIcon';
 import { createSubtask, createTask, deleteSubtask, deleteTask, getTasks, updateSubtask, updateTask } from '@/services/backend/coreFeatures';
 import { getTags } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCelebrationMoment } from '@/hooks/useCelebrationMoment';
 import type { CoupleTask, Priority, Tag, TaskRecurrence, TaskSubtask } from '@/types/database';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { participantPalettes, participantPalette } from '@/theme/tokens';
@@ -70,6 +72,7 @@ type StatusFilter = 'now' | 'open' | 'all' | 'completed';
 
 export default function TasksScreen() {
   const theme = useAppTheme();
+  const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
   const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
   const { colorForUser, profile, partnerProfile } = useWorkspace();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
@@ -188,7 +191,13 @@ export default function TasksScreen() {
   async function setStatus(task: CoupleTask, status: CoupleTask['status']) {
     const previous = task.status;
     setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status } : item));
-    try { await updateTask(task.id, { status, updatedAt: task.updated_at }); await refresh(); }
+    try {
+      await updateTask(task.id, { status, updatedAt: task.updated_at });
+      await refresh();
+      if (status === 'completed' && previous !== 'completed') {
+        celebrate({ title: 'Done ✓', body: task.title, icon: 'check' });
+      }
+    }
     catch (error) { setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status: previous } : item)); Alert.alert('Couldn’t update task', messageFrom(error)); }
   }
   async function addStep() {
@@ -330,6 +339,7 @@ export default function TasksScreen() {
         </View> : null}
       </RecordViewSheet>
       <ConfirmDialog visible={!!deleteTarget} title="Delete task?" body={deleteTarget ? `Delete “${deleteTarget.title}”? This can’t be undone.` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />
+      <CelebrationMoment moment={celebration} onDismiss={dismissCelebration} />
     </AppScreen>
   );
 }

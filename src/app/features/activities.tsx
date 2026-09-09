@@ -3,6 +3,7 @@ import { Alert, Pressable, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { CelebrationMoment } from '@/components/common/CelebrationMoment';
 import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
@@ -22,6 +23,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { AppIcon } from '@/components/art/AppIcon';
 import { createActivity, deleteActivity, getActivities, getTags, setActivityFavourite, setActivityInterest, updateActivity } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { useCelebrationMoment } from '@/hooks/useCelebrationMoment';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { ActivityCost, ActivityEnvironment, ActivityLocationType, ActivityMood, ActivityStatus, ActivityTime, CoupleActivity, Tag } from '@/types/database';
@@ -33,6 +35,7 @@ type Filter = 'all' | 'matches' | 'want_to_do' | 'planned' | 'favourite' | 'comp
 
 export default function ActivitiesScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { profile, partnerProfile, colorForUser } = useWorkspace();
+  const { celebration, celebrate, dismissCelebration } = useCelebrationMoment();
   const [activities, setActivities] = useState<CoupleActivity[]>([]); const [tags, setTags] = useState<Tag[]>([]); const [title, setTitle] = useState(''); const [description, setDescription] = useState(''); const [cost, setCost] = useState<ActivityCost>('free'); const [locationType, setLocationType] = useState<ActivityLocationType>('anywhere'); const [environment, setEnvironment] = useState<ActivityEnvironment>('either'); const [mood, setMood] = useState<ActivityMood>('any'); const [timeOfDay, setTimeOfDay] = useState<ActivityTime>('any'); const [rating, setRating] = useState(''); const [duration, setDuration] = useState(''); const [location, setLocation] = useState(''); const [kidFriendly, setKidFriendly] = useState(false); const [booking, setBooking] = useState(false); const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [composerOpen, setComposerOpen] = useState(false); const [viewTarget, setViewTarget] = useState<CoupleActivity | null>(null); const [advancedOpen, setAdvancedOpen] = useState(false); const [filter, setFilter] = useState<Filter>('all'); const [busy, setBusy] = useState(false); const [editingId, setEditingId] = useState<string | null>(null); const [deleteTarget, setDeleteTarget] = useState<CoupleActivity | null>(null); const [loading, setLoading] = useState(true);
 
@@ -67,14 +70,13 @@ export default function ActivitiesScreen() {
       await refresh();
       if (!current && partnerAlreadyInterested) {
         const partnerName = partnerProfile?.display_name || 'your partner';
-        Alert.alert(
-          'It’s a match ❤️',
-          `You and ${partnerName} both want to do “${activity.title}”.`,
-          [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Plan it', onPress: () => router.push(planActivityHref(activity) as never) },
-          ],
-        );
+        celebrate({
+          title: 'It’s a match ❤️',
+          body: `You and ${partnerName} both want to do “${activity.title}”.`,
+          icon: 'heart',
+          actionLabel: 'Plan it',
+          onAction: () => router.push(planActivityHref(activity) as never),
+        });
       }
     } catch (error) {
       Alert.alert('Couldn’t update interest', messageFrom(error));
@@ -185,5 +187,6 @@ export default function ActivitiesScreen() {
       </View> : null}
     </RecordViewSheet>
     <ConfirmDialog visible={!!deleteTarget} title="Delete activity?" body={deleteTarget ? `Delete â€œ${deleteTarget.title}â€?` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />
+    <CelebrationMoment moment={celebration} onDismiss={dismissCelebration} />
   </AppScreen>;
 }
