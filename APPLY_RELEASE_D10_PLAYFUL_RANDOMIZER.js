@@ -1,4 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const root = process.cwd();
+const rel = 'src/app/features/activity-randomizer.tsx';
+const file = path.join(root, ...rel.split('/'));
+
+function fail(message) {
+  console.error(`\nD10 Playful Randomizer FAILED: ${message}`);
+  process.exit(1);
+}
+
+if (!fs.existsSync(file)) {
+  fail(`Missing ${rel}. Run this from the Togetherly project root.`);
+}
+
+const current = fs.readFileSync(file, 'utf8');
+
+const baselineMarkers = [
+  'export default function ActivityRandomizerScreen()',
+  'randomActivity({',
+  'rejectActivity(pick.id)',
+  'setActivityFavourite',
+  'Choose from your saved date ideas.',
+];
+
+for (const marker of baselineMarkers) {
+  if (!current.includes(marker)) fail(`Unexpected Activity Randomizer baseline; missing "${marker}".`);
+}
+
+const replacement = `import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
@@ -24,8 +55,8 @@ import type { ActivityCost, ActivityEnvironment, ActivityLocationType, ActivityM
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 function durationLabel(minutes: number | null) {
   if (!minutes) return 'Flexible time';
-  if (minutes < 60) return `${minutes} minutes`;
-  return `~${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)} hours`;
+  if (minutes < 60) return \`\${minutes} minutes\`;
+  return \`~\${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)} hours\`;
 }
 function pause(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -150,7 +181,7 @@ export default function ActivityRandomizerScreen() {
       prefillDuration: String(pick.duration_minutes ?? 120),
       sourceActivityId: pick.id,
     });
-    router.push(`/features/calendar?${query.toString()}` as never);
+    router.push(\`/features/calendar?\${query.toString()}\` as never);
   }
 
   async function toggleFavourite() {
@@ -361,7 +392,7 @@ export default function ActivityRandomizerScreen() {
             </View>
 
             <AppText variant="bodySmall" tone="secondary">
-              {durationLabel(pick.duration_minutes)}{pick.location ? ` · ${pick.location}` : ''}
+              {durationLabel(pick.duration_minutes)}{pick.location ? \` · \${pick.location}\` : ''}
             </AppText>
 
             <View style={{ gap: theme.spacing.sm }}>
@@ -387,3 +418,52 @@ export default function ActivityRandomizerScreen() {
     </AppScreen>
   );
 }
+`;
+
+fs.writeFileSync(file, replacement, 'utf8');
+console.log(`Wrote ${rel}`);
+
+const finalSource = fs.readFileSync(file, 'utf8');
+const audits = [
+  '<PartnerPresencePill scope="activity-randomizer" />',
+  'const ritualSpin = useRef(new Animated.Value(0)).current;',
+  'theme.reducedMotion ? Promise.resolve() : pause(900)',
+  'Mixing your little list…',
+  'NO OVERTHINKING ALLOWED',
+  '<RevealScale trigger={revealKey}>',
+  'OKAY, THIS ONE ♥',
+  'label="Pick again"',
+];
+
+for (const marker of audits) {
+  if (!finalSource.includes(marker)) fail(`Post-apply audit missing marker: ${marker}`);
+}
+
+console.log('D10 Playful Randomizer audit clean.');
+
+function run(args, label) {
+  console.log(`\n> ${label}`);
+  let result;
+  if (process.platform === 'win32') {
+    const comspec = process.env.ComSpec || 'cmd.exe';
+    const command = ['npm.cmd', ...args].join(' ');
+    result = spawnSync(comspec, ['/d', '/s', '/c', command], {
+      cwd: root,
+      stdio: 'inherit',
+      windowsHide: false,
+    });
+  } else {
+    result = spawnSync('npm', args, { cwd: root, stdio: 'inherit' });
+  }
+
+  if (result.error) fail(`${label} could not start: ${result.error.message}`);
+  if (result.status !== 0) fail(`${label} exited with code ${result.status}.`);
+}
+
+run(['run', 'typecheck'], 'Frontend typecheck');
+run(['--prefix', 'server', 'run', 'typecheck'], 'Server typecheck');
+run(['--prefix', 'server', 'run', 'logic'], 'Server logic smoke checks');
+
+console.log('\nD10 Playful Randomizer applied successfully.');
+console.log('All requested validation checks passed.');
+console.log('No migration is required.');
