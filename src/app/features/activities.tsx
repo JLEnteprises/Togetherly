@@ -3,6 +3,7 @@ import { Alert, Pressable, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
@@ -101,6 +102,7 @@ export default function ActivitiesScreen() {
 
   return <AppScreen>
     <BackHeader eyebrow="Together" title="Date ideas" subtitle="Keep the ideas. Surface the one you might actually do." />
+      <PartnerPresencePill scope="date-ideas" />
     <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.lg, alignItems: 'center' }}>
       <View style={{ flex: 1 }}><AppButton compact label="Pick one for us" onPress={() => router.push('/features/activity-randomizer' as never)} /></View>
       <IconButton icon="date" label="Add a new date idea" tone="accent" onPress={() => setComposerOpen(true)} />

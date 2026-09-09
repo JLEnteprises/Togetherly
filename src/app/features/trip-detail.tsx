@@ -3,6 +3,7 @@ import { Alert, Pressable, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
@@ -206,6 +207,7 @@ export default function TripDetailScreen() {
   return (
     <AppScreen>
       <BackHeader eyebrow="Our trip" title={trip.title} subtitle={trip.destination || 'Somewhere together'} />
+      <PartnerPresencePill scope={`trip:${trip.id}`} />
 
       <Card participantColor="both" style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xl, padding: theme.spacing.lg, overflow: 'hidden' }}>
         <View style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, right: -70, top: -75, backgroundColor: theme.colors.accentSoft }} />

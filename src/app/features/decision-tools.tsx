@@ -3,6 +3,7 @@ import { Alert, Animated, Easing, View } from 'react-native';
 import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
@@ -223,6 +224,7 @@ export default function DecisionToolsScreen() {
   return (
     <AppScreen>
       <BackHeader eyebrow="Together" title="Decision wheel" subtitle="A shared wheel. One spin, one answer, on both phones." />
+      <PartnerPresencePill scope="decision-wheel" />
 
       <Card participantColor="both" tone="accent" style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xxl, alignItems: 'center', overflow: 'hidden' }}>
         {loading ? <AppText tone="muted">Loading shared wheel…</AppText> : null}
