@@ -14,6 +14,7 @@ import { ToggleRow } from '@/components/common/ToggleRow';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { createCoupleWorkspace, joinCoupleWithCode, updateCouple, updateProfile } from '@/services/backend/workspace';
 import { refreshCurrentUser } from '@/services/backend/auth';
+import { queueFirstTimeGuide } from '@/services/firstTimeGuide';
 import { useAuth } from '@/providers/AuthProvider';
 import { LEGACY_PURPLE_COLOR, normalizeParticipantColor, participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -99,10 +100,12 @@ export default function OnboardingScreen() {
     finally { setBusy(false); }
   }
 
+  // F1_FIRST_TIME_USER_GUIDANCE: only accounts that actually complete onboarding queue the one-time Home guide.
   async function finish() {
     setBusy(true);
     try {
       await updateProfile({ onboardingComplete: true });
+      await queueFirstTimeGuide(profile?.id).catch(() => undefined);
       await refreshCurrentUser();
       await refresh();
     } catch (error) { Alert.alert('Couldn’t finish setup', messageFrom(error)); }

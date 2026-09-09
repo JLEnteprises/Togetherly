@@ -8,6 +8,7 @@ import { HomeConnectionActions } from '@/components/dashboard/HomeConnectionActi
 import { LongDistanceOverviewCard } from '@/components/dashboard/LongDistanceOverviewCard';
 import { HomeQuickActions } from '@/components/dashboard/HomeQuickActions';
 import { SharedScratchpadCard } from '@/components/dashboard/SharedScratchpadCard';
+import { FirstTimeGuideCard } from '@/components/dashboard/FirstTimeGuideCard';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useHomeLayout, type HomeCardKey } from '@/hooks/useHomeLayout';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -19,6 +20,7 @@ function greeting() {
   return 'Good evening';
 }
 
+// F1_FIRST_TIME_USER_GUIDANCE: Home gives newly onboarded accounts a lightweight map of what to do first.
 export default function HomeScreen() {
   const theme = useAppTheme();
   const { profile, couple, partnerProfile } = useWorkspace();
@@ -44,6 +46,7 @@ export default function HomeScreen() {
 
         <InvitePartnerCard />
         <CoupleHero />
+        <FirstTimeGuideCard />
 
         {todayVisible ? <HomeTodayCard /> : null}
 
