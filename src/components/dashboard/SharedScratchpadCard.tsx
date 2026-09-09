@@ -6,12 +6,15 @@ import { AppText } from '@/components/common/AppText';
 import { Card } from '@/components/common/Card';
 import { DrawingCanvas } from '@/components/common/DrawingCanvas';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
+import { AppIcon } from '@/components/art/AppIcon';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { usePartnerPresence } from '@/hooks/usePartnerPresence';
 import { getSharedScratchpad, saveSharedScratchpad, type ScratchpadMode } from '@/services/backend/sharedItems';
 import { realtimeClient } from '@/services/backend/realtime';
 import type { DrawingData, DrawingStroke, SharedItem } from '@/types/database';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { participantPalette } from '@/theme/tokens';
+import { GentleFloat } from '@/components/motion/Motion';
 
 function messageFrom(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -51,6 +54,15 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
   const [remoteUpdate, setRemoteUpdate] = useState(false);
   const [expanded, setExpanded] = useState(!compact);
   const dirtyRef = useRef(false);
+  const presenceActive = !compact || expanded;
+  const presenceScope = `scratchpad:${mode}`;
+  const { partnerName, partnerScope, isHere: partnerSameMode } = usePartnerPresence(presenceScope, presenceActive);
+  const partnerInScratchpad = presenceActive && Boolean(partnerScope?.startsWith('scratchpad:'));
+  const partnerScratchpadMode: ScratchpadMode | null = partnerScope === 'scratchpad:draw'
+    ? 'draw'
+    : partnerScope === 'scratchpad:text'
+      ? 'text'
+      : null;
 
   const applyItem = useCallback((nextItem: SharedItem | null) => {
     const drawing = drawingFromItem(nextItem);
@@ -202,6 +214,60 @@ export function SharedScratchpadCard({ compact = false }: { compact?: boolean })
         </View>
         {item ? <AppText variant="caption" tone="muted">{formatSavedAt(item.updated_at)}</AppText> : null}
       </View>
+
+      {presenceActive ? (
+        partnerInScratchpad ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              paddingHorizontal: theme.spacing.md,
+              paddingVertical: 10,
+              borderRadius: theme.radii.md,
+              borderWidth: 1,
+              borderColor: partnerSameMode ? theme.colors.accent : theme.colors.border,
+              backgroundColor: partnerSameMode ? theme.colors.accentSoft : theme.colors.elevatedBackground,
+            }}
+          >
+            <GentleFloat distance={2} duration={1900}>
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: partnerSameMode ? theme.colors.background : theme.colors.accentSoft,
+                }}
+              >
+                <AppIcon
+                  name={partnerScratchpadMode === 'draw' ? 'draw' : 'note'}
+                  size={16}
+                  color={theme.colors.accentStrong}
+                />
+              </View>
+            </GentleFloat>
+            <View style={{ flex: 1, gap: 2 }}>
+              <AppText variant="caption" tone="accent">{partnerSameMode ? 'YOU’RE BOTH HERE' : 'PARTNER IS HERE'}</AppText>
+              <AppText variant="bodySmall">
+                {partnerSameMode
+                  ? mode === 'draw'
+                    ? `You and ${partnerName} both have the drawing open ♥`
+                    : `You and ${partnerName} both have the note open ♥`
+                  : partnerScratchpadMode === 'draw'
+                    ? `${partnerName} has the drawing open ♥`
+                    : `${partnerName} has the note open ♥`}
+              </AppText>
+            </View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.textMuted }} />
+            <AppText variant="caption" tone="muted">Live presence appears when you both open this scratchpad.</AppText>
+          </View>
+        )
+      ) : null}
 
       {compact && !expanded ? (
         <>
