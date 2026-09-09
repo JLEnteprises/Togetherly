@@ -24,12 +24,14 @@ export default function HomeScreen() {
   const { profile, couple, partnerProfile } = useWorkspace();
   const { orderedVisible } = useHomeLayout(profile?.id);
   const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(new Date());
+  const todayVisible = orderedVisible.some((item) => item.key === 'today');
+  const distanceVisible = orderedVisible.some((item) => item.key === 'distance');
+  const secondarySections = orderedVisible.filter((item) => item.key !== 'today' && item.key !== 'distance');
 
-  function renderSection(key: HomeCardKey) {
-    if (key === 'today') return <HomeTodayCard key={key} />;
+  function renderSecondarySection(key: HomeCardKey) {
     if (key === 'scratchpad') return couple ? <SharedScratchpadCard key={key} compact /> : null;
-    if (key === 'distance') return couple?.long_distance_enabled ? <LongDistanceOverviewCard key={key} /> : null;
-    return <HomeQuickActions key={key} />;
+    if (key === 'quickActions') return <HomeQuickActions key={key} />;
+    return null;
   }
 
   return (
@@ -43,9 +45,13 @@ export default function HomeScreen() {
         <InvitePartnerCard />
         <CoupleHero />
 
+        {todayVisible ? <HomeTodayCard /> : null}
+
         {couple && partnerProfile ? <HomeConnectionActions /> : null}
 
-        {orderedVisible.map((item) => renderSection(item.key))}
+        {distanceVisible && couple?.long_distance_enabled ? <LongDistanceOverviewCard /> : null}
+
+        {secondarySections.map((item) => renderSecondarySection(item.key))}
       </View>
     </AppScreen>
   );

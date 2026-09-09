@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Card } from '@/components/common/Card';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { AppText } from '@/components/common/AppText';
+import { AppButton } from '@/components/common/AppButton';
 import { AppIcon, type AppIconName } from '@/components/art/AppIcon';
 import { FadeSlideIn } from '@/components/motion/Motion';
 import { getTasks } from '@/services/backend/coreFeatures';
-import { getDailyQuestion, getEvents, getLatestMoods } from '@/services/backend/mvpFeatures';
+import { acknowledgeMood, getDailyQuestion, getEvents, getLatestMoods } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -20,6 +21,7 @@ const moodShort: Record<MoodValue, string> = {
 };
 const needText = { affection: 'affection', reassurance: 'reassurance', advice: 'advice', listen: 'someone to listen', distraction: 'a distraction', space: 'some space', call: 'a call', nothing: 'nothing right now' } as const;
 
+function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
 function formatEvent(occurrence: EventOccurrence | null) {
   if (!occurrence) return 'Nothing scheduled';
   const event = occurrence.event;
@@ -66,6 +68,7 @@ export function HomeTodayCard() {
   const [event, setEvent] = useState<EventOccurrence | null>(null);
   const [question, setQuestion] = useState<DailyQuestionState | null>(null);
   const [moods, setMoods] = useState<{ mine: MoodEntry | null; partner: MoodEntry | null }>({ mine: null, partner: null });
+  const [acknowledgingMood, setAcknowledgingMood] = useState(false);
 
   const refresh = useCallback(async () => {
     const [taskResult, eventResult, questionResult, moodResult] = await Promise.allSettled([getTasks(), getEvents(), getDailyQuestion(), getLatestMoods()]);
@@ -88,87 +91,116 @@ export function HomeTodayCard() {
   const priority: 'partner_mood' | 'reveal' | 'question' | null =
     partnerNeedsAttention ? 'partner_mood' : revealReady ? 'reveal' : answerWaiting ? 'question' : null;
 
-  const regularRows: Array<{ icon: AppIconName; title: string; value: string; href: string; tone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error' }> = [];
-  regularRows.push({ icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: '/features/calendar' });
-  regularRows.push({ icon: 'task', title: 'Tasks', value: taskSummary.text, href: '/features/tasks', tone: taskSummary.tone });
-  if (!priority || priority === 'partner_mood') regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary, href: '/features/daily-question' });
-  if (priority !== 'partner_mood') regularRows.push({ icon: 'mood', title: 'Check-in', value: moodSummary, href: '/features/mood' });
+  async function acknowledgePartnerMood() {
+    if (!partnerMood || acknowledgingMood) return;
+    setAcknowledgingMood(true);
+    try {
+      await acknowledgeMood(partnerMood.id);
+      setMoods((current) => current.partner?.id === partnerMood.id
+        ? { ...current, partner: { ...current.partner, acknowledged_by_me: true, acknowledged_at: new Date().toISOString() } }
+        : current);
+    } catch (error) {
+      Alert.alert('Couldn’t send support', messageFrom(error));
+    } finally {
+      setAcknowledgingMood(false);
+    }
+  }
+
+  const regularRows: Array<{ icon: AppIconName; title: string; value: string; href: string; tone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error' }> = [
+    { icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: '/features/calendar' },
+    { icon: 'task', title: 'Tasks', value: taskSummary.text, href: '/features/tasks', tone: taskSummary.tone },
+  ];
+  if (!priority) {
+    regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary, href: '/features/daily-question' });
+    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary, href: '/features/mood' });
+  } else if (priority !== 'partner_mood') {
+    regularRows.push({ icon: 'mood', title: 'How we are', value: moodSummary, href: '/features/mood' });
+  }
 
   return (
-    <View style={{ gap: theme.spacing.md }}>
-      <View style={{ gap: 2 }}>
-        <AppText variant="section">Today</AppText>
-        <AppText variant="bodySmall" tone="muted">The things that matter right now.</AppText>
-      </View>
+    <View style={{ gap: theme.spacing.lg }}>
+      {priority ? (
+        <View style={{ gap: theme.spacing.sm }}>
+          <View style={{ gap: 2 }}>
+            <AppText variant="section">Right now</AppText>
+            <AppText variant="bodySmall" tone="muted">The thing that matters most between you two.</AppText>
+          </View>
 
-      {priority === 'partner_mood' && partnerMood ? (
-        <FadeSlideIn>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/features/mood' as never)}>
-            {({ pressed }) => (
-              <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
+          {priority === 'partner_mood' && partnerMood ? (
+            <FadeSlideIn>
+              <Card participantColor={partnerColor} style={{ gap: theme.spacing.md, padding: theme.spacing.lg }}>
                 <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
-                  <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: theme.colors.partnerAccentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: 48, height: 48, borderRadius: 17, backgroundColor: theme.colors.partnerAccentSoft, alignItems: 'center', justifyContent: 'center' }}>
                     <AppText variant="section">{moodShort[partnerMood.mood]}</AppText>
                   </View>
                   <View style={{ flex: 1, gap: 4 }}>
                     <ParticipantIdentityBadge userId={partnerProfile?.id} compact />
                     <AppText variant="cardTitle">{partnerProfile?.display_name ?? 'Your partner'} could use {needText[partnerMood.need]}.</AppText>
-                    <AppText variant="bodySmall" tone="secondary">Open their check-in and respond in a way that helps.</AppText>
+                    <AppText variant="bodySmall" tone="secondary">A small response here can make the app feel like you’re actually beside them.</AppText>
                   </View>
-                  <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
+                </View>
+                <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+                  <View style={{ flex: 1 }}><AppButton compact icon="heart" label={acknowledgingMood ? 'Sending…' : 'I’m here'} disabled={acknowledgingMood} onPress={() => void acknowledgePartnerMood()} /></View>
+                  <View style={{ flex: 1 }}><AppButton compact variant="secondary" label="Open check-in" onPress={() => router.push('/features/mood' as never)} /></View>
                 </View>
               </Card>
-            )}
-          </Pressable>
-        </FadeSlideIn>
+            </FadeSlideIn>
+          ) : null}
+
+          {priority === 'reveal' ? (
+            <FadeSlideIn>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/features/daily-question' as never)}>
+                {({ pressed }) => (
+                  <Card participantColor="both" style={{ gap: theme.spacing.md, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+                      <View style={{ width: 48, height: 48, borderRadius: 17, backgroundColor: theme.colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                        <AppIcon name="spark" size={22} color={theme.colors.textPrimary} />
+                      </View>
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <AppText variant="caption" tone="secondary">YOU’RE BOTH READY</AppText>
+                        <AppText variant="cardTitle">Reveal today’s answers</AppText>
+                        <AppText variant="bodySmall" tone="secondary">You’ve both answered. Open the question when you want the reveal.</AppText>
+                      </View>
+                      <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
+                    </View>
+                  </Card>
+                )}
+              </Pressable>
+            </FadeSlideIn>
+          ) : null}
+
+          {priority === 'question' ? (
+            <FadeSlideIn>
+              <Pressable accessibilityRole="button" onPress={() => router.push('/features/daily-question' as never)}>
+                {({ pressed }) => (
+                  <Card participantColor="both" style={{ gap: theme.spacing.md, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+                      <View style={{ width: 48, height: 48, borderRadius: 17, backgroundColor: theme.colors.elevatedBackground, alignItems: 'center', justifyContent: 'center' }}>
+                        <AppIcon name="question" size={22} color={theme.colors.textSecondary} />
+                      </View>
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <AppText variant="caption" tone="secondary">TODAY’S QUESTION</AppText>
+                        <AppText variant="cardTitle" numberOfLines={2}>{question?.question?.question ?? 'A question is waiting for you'}</AppText>
+                        <AppText variant="bodySmall" tone="secondary">Answer privately. You won’t see each other’s answer until both of you are ready.</AppText>
+                      </View>
+                      <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
+                    </View>
+                  </Card>
+                )}
+              </Pressable>
+            </FadeSlideIn>
+          ) : null}
+        </View>
       ) : null}
 
-      {priority === 'reveal' ? (
-        <FadeSlideIn>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/features/daily-question' as never)}>
-            {({ pressed }) => (
-              <Card participantColor="both" style={{ gap: theme.spacing.md, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
-                  <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: theme.colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-                    <AppIcon name="spark" size={22} color={theme.colors.textPrimary} />
-                  </View>
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <AppText variant="caption" tone="secondary">YOU’RE BOTH READY</AppText>
-                    <AppText variant="cardTitle">Reveal today’s answers</AppText>
-                    <AppText variant="bodySmall" tone="secondary">You’ve both answered. Open the question when you want the reveal.</AppText>
-                  </View>
-                  <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
-                </View>
-              </Card>
-            )}
-          </Pressable>
-        </FadeSlideIn>
-      ) : null}
-
-      {priority === 'question' ? (
-        <FadeSlideIn>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/features/daily-question' as never)}>
-            {({ pressed }) => (
-              <Card participantColor="both" style={{ gap: theme.spacing.md, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
-                  <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: theme.colors.elevatedBackground, alignItems: 'center', justifyContent: 'center' }}>
-                    <AppIcon name="question" size={22} color={theme.colors.textSecondary} />
-                  </View>
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <AppText variant="caption" tone="secondary">TODAY’S QUESTION</AppText>
-                    <AppText variant="cardTitle" numberOfLines={2}>{question?.question?.question ?? 'A question is waiting for you'}</AppText>
-                    <AppText variant="bodySmall" tone="secondary">Answer privately. You won’t see each other’s answer until both of you are ready.</AppText>
-                  </View>
-                  <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
-                </View>
-              </Card>
-            )}
-          </Pressable>
-        </FadeSlideIn>
-      ) : null}
-
-      <View style={{ paddingHorizontal: theme.spacing.sm }}>
-        {regularRows.map((row, index) => <Row key={row.title} icon={row.icon} title={row.title} value={row.value} href={row.href} valueTone={row.tone} topBorder={index > 0} />)}
+      <View style={{ gap: theme.spacing.sm }}>
+        <View style={{ gap: 2 }}>
+          <AppText variant="section">Today</AppText>
+          <AppText variant="bodySmall" tone="muted">A short view of what needs your attention.</AppText>
+        </View>
+        <View style={{ paddingHorizontal: theme.spacing.sm }}>
+          {regularRows.map((row, index) => <Row key={row.title} icon={row.icon} title={row.title} value={row.value} href={row.href} valueTone={row.tone} topBorder={index > 0} />)}
+        </View>
       </View>
     </View>
   );
