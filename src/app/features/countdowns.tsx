@@ -12,6 +12,7 @@ import { ProgressBar } from '@/components/common/ProgressBar';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
+import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -68,16 +69,17 @@ function formatTarget(target: string) {
 }
 
 export default function CountdownsScreen() {
-  const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string }>(); const { colorForUser } = useWorkspace();
+  const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { colorForUser } = useWorkspace();
   const [countdowns, setCountdowns] = useState<CoupleCountdown[]>([]); const [title, setTitle] = useState(''); const [startDate, setStartDate] = useState(''); const [date, setDate] = useState(''); const [type, setType] = useState<CountdownType>('visit');
-  const [busy, setBusy] = useState(false); const [detailsOpen, setDetailsOpen] = useState(false); const [nowMs, setNowMs] = useState(() => Date.now()); const [loading, setLoading] = useState(true); const [editingId, setEditingId] = useState<string | null>(null); const [composerOpen, setComposerOpen] = useState(false); const [deleteTarget, setDeleteTarget] = useState<CoupleCountdown | null>(null);
+  const [busy, setBusy] = useState(false); const [viewTarget, setViewTarget] = useState<CoupleCountdown | null>(null); const [detailsOpen, setDetailsOpen] = useState(false); const [nowMs, setNowMs] = useState(() => Date.now()); const [loading, setLoading] = useState(true); const [editingId, setEditingId] = useState<string | null>(null); const [composerOpen, setComposerOpen] = useState(false); const [deleteTarget, setDeleteTarget] = useState<CoupleCountdown | null>(null);
   const refresh = useCallback(async () => { try { setCountdowns(await getCountdowns()); } catch (error) { Alert.alert('Couldn’t load countdowns', messageFrom(error)); } finally { setLoading(false); } }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('countdowns', refresh);
   useEffect(() => { const timer = setInterval(() => setNowMs(Date.now()), 60_000); return () => clearInterval(timer); }, []);
 
   function resetForm(close = true) { setEditingId(null); setTitle(''); setDate(''); setStartDate(''); setType('visit'); setDetailsOpen(false); if (close) setComposerOpen(false); }
   function beginEdit(countdown: CoupleCountdown) { setEditingId(countdown.id); setTitle(countdown.title); setDate(storedDateKey(countdown.target_at)); setStartDate(storedDateKey(countdown.start_at)); setType(countdown.type); setDetailsOpen(true); setComposerOpen(true); }
-  useEffect(() => { if (!params.focus || editingId === params.focus || !countdowns.length) return; const focused = countdowns.find((item) => item.id === params.focus); if (focused) beginEdit(focused); }, [params.focus, countdowns]);
+  useEffect(() => { if (!params.focus || !countdowns.length) return; const focused = countdowns.find((item) => item.id === params.focus); if (focused) setViewTarget(focused); }, [params.focus, countdowns]);
+  useEffect(() => { if (!params.edit || editingId === params.edit || !countdowns.length) return; const target = countdowns.find((item) => item.id === params.edit); if (target) beginEdit(target); }, [params.edit, editingId, countdowns]);
   async function save() {
     if (!title.trim() || !date) return; const targetAt = dateKeyToStorageIso(date); const startAt = startDate ? dateKeyToStorageIso(startDate) : null;
     if (!targetAt) { Alert.alert('Check the target date', 'Choose a real target date.'); return; }
@@ -108,8 +110,19 @@ export default function CountdownsScreen() {
     <View style={{ gap: theme.spacing.md }}>
       {loading ? <AppText tone="muted">Loading countdowns…</AppText> : null}
       {!loading && countdowns.length === 0 ? <EmptyState icon="countdown" title="Something to look forward to" body="Create a visit, anniversary or milestone countdown." actionLabel="New countdown" onAction={() => setComposerOpen(true)} /> : null}
-      {countdowns.map((countdown) => { const time = remaining(countdown.target_at, nowMs); const passed = time.passed; const percent = progress(countdown.start_at, countdown.target_at, nowMs); return <Card key={countdown.id} participantColor="both" style={{ gap: theme.spacing.md, borderColor: editingId === countdown.id ? theme.colors.accent : theme.colors.border }}><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-start' }}><View style={{ flex: 1, gap: 5 }}><TagChip subtle label={countdown.type.toUpperCase()} /><AppText variant="section" style={{ marginTop: 3 }}>{countdown.title}</AppText><ParticipantAttribution userId={countdown.creator_id} /><AppText variant="bodySmall" tone="secondary">{formatTarget(countdown.target_at)}</AppText></View><IconButton icon="overflow" label={`More actions for ${countdown.title}`} onPress={() => openCountdownMenu(countdown)} /></View><View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.sm }}><AppText variant="numeric" style={{ color: passed ? theme.colors.textMuted : theme.colors.textPrimary }}>{passed ? '0' : Math.max(0, time.days)}</AppText><AppText variant="cardTitle" style={{ paddingBottom: 6 }}>{passed ? 'arrived' : 'days'}</AppText></View>{!passed ? <AppText variant="caption" tone="muted">{time.weeks ? `${time.weeks} weeks · ` : ''}{time.hours.toLocaleString()} hours remaining</AppText> : null}{percent != null ? <><ProgressBar value={percent} /><AppText variant="caption" tone="muted">{Math.round(percent)}% of the wait complete</AppText></> : null}</Card>; })}
+      {countdowns.map((countdown) => { const time = remaining(countdown.target_at, nowMs); const passed = time.passed; const percent = progress(countdown.start_at, countdown.target_at, nowMs); return <Card key={countdown.id} participantColor="both" style={{ gap: theme.spacing.md, borderColor: editingId === countdown.id ? theme.colors.accent : theme.colors.border }}><View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-start' }}><Pressable accessibilityRole="button" accessibilityLabel={`Open countdown ${countdown.title}`} onPress={() => setViewTarget(countdown)} style={({ pressed }) => ({ flex: 1, gap: 5, opacity: pressed ? 0.76 : 1 })}><TagChip subtle label={countdown.type.toUpperCase()} /><AppText variant="section" style={{ marginTop: 3 }}>{countdown.title}</AppText><ParticipantAttribution userId={countdown.creator_id} /><AppText variant="bodySmall" tone="secondary">{formatTarget(countdown.target_at)}</AppText></Pressable><IconButton icon="overflow" label={`More actions for ${countdown.title}`} onPress={() => openCountdownMenu(countdown)} /></View><View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing.sm }}><AppText variant="numeric" style={{ color: passed ? theme.colors.textMuted : theme.colors.textPrimary }}>{passed ? '0' : Math.max(0, time.days)}</AppText><AppText variant="cardTitle" style={{ paddingBottom: 6 }}>{passed ? 'arrived' : 'days'}</AppText></View>{!passed ? <AppText variant="caption" tone="muted">{time.weeks ? `${time.weeks} weeks · ` : ''}{time.hours.toLocaleString()} hours remaining</AppText> : null}{percent != null ? <><ProgressBar value={percent} /><AppText variant="caption" tone="muted">{Math.round(percent)}% of the wait complete</AppText></> : null}</Card>; })}
     </View>
+    <RecordViewSheet visible={!!viewTarget} onClose={() => setViewTarget(null)} eyebrow="Countdown" title={viewTarget?.title ?? ''} subtitle={viewTarget ? formatTarget(viewTarget.target_at) : undefined}>
+      {viewTarget ? <View style={{ gap: theme.spacing.md }}>
+        <ParticipantAttribution userId={viewTarget.creator_id} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <TagChip subtle label={viewTarget.type.toUpperCase()} />
+          {viewTarget.start_at ? <TagChip subtle label={`STARTED ${formatTarget(viewTarget.start_at).toUpperCase()}`} /> : null}
+        </View>
+        <AppText variant="numeric">{Math.max(0, remaining(viewTarget.target_at, nowMs).days)}</AppText>
+        <AppText tone="secondary">{remaining(viewTarget.target_at, nowMs).passed ? 'This countdown has arrived.' : 'days remaining'}</AppText>
+      </View> : null}
+    </RecordViewSheet>
     <ConfirmDialog visible={!!deleteTarget} title="Delete countdown?" body={deleteTarget ? `Delete “${deleteTarget.title}”?` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />
   </AppScreen>;
 }

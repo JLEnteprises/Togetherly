@@ -14,6 +14,7 @@ import { ParticipantAttribution } from '@/components/common/ParticipantAttributi
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
+import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -69,7 +70,7 @@ type StatusFilter = 'now' | 'open' | 'all' | 'completed';
 
 export default function TasksScreen() {
   const theme = useAppTheme();
-  const params = useLocalSearchParams<{ focus?: string }>();
+  const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
   const { colorForUser, profile, partnerProfile } = useWorkspace();
   const [tasks, setTasks] = useState<CoupleTask[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -98,6 +99,7 @@ export default function TasksScreen() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('now');
+  const [viewTarget, setViewTarget] = useState<CoupleTask | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CoupleTask | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -153,10 +155,15 @@ export default function TasksScreen() {
     setDraftSteps([]); setSelectedTagIds((task.tags ?? []).map((tag) => tag.id)); setAdvancedOpen(true); setComposerOpen(true);
   }
   useEffect(() => {
-    if (!params.focus || editingId === params.focus || !tasks.length) return;
+    if (!params.focus || !tasks.length) return;
     const focused = tasks.find((task) => task.id === params.focus);
-    if (focused) beginEdit(focused);
+    if (focused) setViewTarget(focused);
   }, [params.focus, tasks]);
+  useEffect(() => {
+    if (!params.edit || editingId === params.edit || !tasks.length) return;
+    const target = tasks.find((task) => task.id === params.edit);
+    if (target) beginEdit(target);
+  }, [params.edit, editingId, tasks]);
 
   async function saveTask() {
     if (!title.trim()) return;
@@ -289,7 +296,7 @@ export default function TasksScreen() {
             <Card key={task.id} participantColor={assignmentColor} style={{ gap: theme.spacing.md, opacity: done ? 0.68 : 1, borderColor: editingId === task.id ? theme.colors.accent : theme.colors.border }}>
               <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'flex-start' }}>
                 <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} onPress={() => setStatus(task, done ? 'not_started' : 'completed')} style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: assignmentPalette?.accent ?? theme.colors.textMuted, backgroundColor: done ? (assignmentPalette?.accentSoft ?? theme.colors.elevatedBackground) : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>{done ? <AppIcon name="check" size={16} color={assignmentPalette?.accent ?? theme.colors.textMuted} /> : null}</Pressable>
-                <Pressable accessibilityRole="button" onPress={() => beginEdit(task)} style={{ flex: 1, gap: 6 }}>
+                <Pressable accessibilityRole="button" onPress={() => setViewTarget(task)} style={{ flex: 1, gap: 6 }}>
                   <AppText variant="cardTitle" style={done ? { textDecorationLine: 'line-through' } : undefined}>{task.title}</AppText>
                   <ParticipantAttribution userId={task.creator_id} />
                   {task.description ? <AppText variant="bodySmall" tone="secondary">{task.description}</AppText> : null}
@@ -303,6 +310,25 @@ export default function TasksScreen() {
           );
         })}
       </View>
+      <RecordViewSheet visible={!!viewTarget} onClose={() => setViewTarget(null)} eyebrow="Task" title={viewTarget?.title ?? ''} subtitle={viewTarget ? dueLabel(viewTarget) : undefined}>
+        {viewTarget ? <View style={{ gap: theme.spacing.md }}>
+          <ParticipantIdentityBadge both={viewTarget.assign_to_both} userId={viewTarget.assignee_id} compact />
+          <ParticipantAttribution userId={viewTarget.creator_id} />
+          {viewTarget.description ? <AppText tone="secondary">{viewTarget.description}</AppText> : <AppText tone="muted">No extra details.</AppText>}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            <TagChip subtle label={viewTarget.status.replace('_', ' ').toUpperCase()} />
+            {viewTarget.start_date ? <TagChip subtle label={`START ${shortDate(viewTarget.start_date).toUpperCase()}`} /> : null}
+            {viewTarget.estimated_minutes ? <TagChip subtle label={`~${durationLabel(viewTarget.estimated_minutes).toUpperCase()}`} /> : null}
+            {viewTarget.recurrence !== 'none' ? <TagChip subtle label={`↻ ${recurrenceLabel(viewTarget.recurrence).toUpperCase()}`} /> : null}
+            {viewTarget.priority !== 'normal' ? <TagChip subtle label={`${viewTarget.priority.toUpperCase()} PRIORITY`} /> : null}
+            {(viewTarget.tags ?? []).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
+          </View>
+          {(viewTarget.subtasks ?? []).length ? <View style={{ gap: 8 }}>
+            <AppText variant="cardTitle">Steps</AppText>
+            {(viewTarget.subtasks ?? []).map((step) => <View key={step.id} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}><AppIcon name={step.completed ? 'squareCheck' : 'square'} size={17} color={step.completed ? theme.colors.textMuted : theme.colors.textSecondary} /><View style={{ flex: 1 }}><AppText variant="bodySmall" tone={step.completed ? 'muted' : 'secondary'} style={step.completed ? { textDecorationLine: 'line-through' } : undefined}>{step.title}</AppText>{step.due_date ? <AppText variant="caption" tone="muted">Due {shortDate(step.due_date)}</AppText> : null}</View></View>)}
+          </View> : null}
+        </View> : null}
+      </RecordViewSheet>
       <ConfirmDialog visible={!!deleteTarget} title="Delete task?" body={deleteTarget ? `Delete “${deleteTarget.title}”? This can’t be undone.` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />
     </AppScreen>
   );

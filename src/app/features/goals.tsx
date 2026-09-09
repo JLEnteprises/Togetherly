@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { IconButton } from '@/components/common/IconButton';
@@ -29,7 +30,7 @@ function amount(goal: CoupleGoal, value: number | string) { const n = Number(val
 
 export default function GoalsScreen() {
   const theme = useAppTheme();
-  const params = useLocalSearchParams<{ focus?: string }>();
+  const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
   const { colorForUser } = useWorkspace();
   const [goals, setGoals] = useState<CoupleGoal[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -44,6 +45,7 @@ export default function GoalsScreen() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [contributionOpen, setContributionOpen] = useState<string | null>(null);
   const [contributions, setContributions] = useState<Record<string, string>>({});
+  const [viewTarget, setViewTarget] = useState<CoupleGoal | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CoupleGoal | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,9 +65,13 @@ export default function GoalsScreen() {
     setEditingId(goal.id); setTitle(goal.title); setTarget(String(goal.target_value)); setCurrent(String(goal.current_value)); setUnit(goal.unit); setDeadline(goal.deadline ?? ''); setDescription(goal.description); setSelectedTags((goal.tags ?? []).map((tag) => tag.id)); setComposerOpen(true);
   }
   useEffect(() => {
-    if (!params.focus || editingId === params.focus || !goals.length) return;
-    const focused = goals.find((goal) => goal.id === params.focus); if (focused) beginEdit(focused);
+    if (!params.focus || !goals.length) return;
+    const focused = goals.find((goal) => goal.id === params.focus); if (focused) setViewTarget(focused);
   }, [params.focus, goals]);
+  useEffect(() => {
+    if (!params.edit || editingId === params.edit || !goals.length) return;
+    const target = goals.find((goal) => goal.id === params.edit); if (target) beginEdit(target);
+  }, [params.edit, editingId, goals]);
 
   async function saveGoal() {
     const targetValue = Number(target); const currentValue = Number(current || '0');
@@ -120,7 +126,7 @@ export default function GoalsScreen() {
           return (
             <Card key={goal.id} participantColor="both" style={{ gap: theme.spacing.md, borderColor: editingId === goal.id ? theme.colors.accent : theme.colors.border }}>
               <View style={{ gap: theme.spacing.md }}>
-                <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-start' }}><View style={{ flex: 1, gap: 5 }}><AppText variant="cardTitle">{goal.title}</AppText><ParticipantAttribution userId={goal.creator_id} />{goal.description ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{goal.description}</AppText> : null}</View><IconButton icon="overflow" label={`More actions for ${goal.title}`} onPress={() => openGoalMenu(goal)} /></View>
+                <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'flex-start' }}><Pressable accessibilityRole="button" accessibilityLabel={`Open goal ${goal.title}`} onPress={() => setViewTarget(goal)} style={({ pressed }) => ({ flex: 1, gap: 5, opacity: pressed ? 0.76 : 1 })}><AppText variant="cardTitle">{goal.title}</AppText><ParticipantAttribution userId={goal.creator_id} />{goal.description ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{goal.description}</AppText> : <AppText variant="bodySmall" tone="muted">Tap to view this goal.</AppText>}</Pressable><IconButton icon="overflow" label={`More actions for ${goal.title}`} onPress={() => openGoalMenu(goal)} /></View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}><AppText variant="section">{amount(goal, currentValue)} / {amount(goal, targetValue)}</AppText><AppText variant="cardTitle" tone={percent >= 100 ? 'success' : 'secondary'}>{Math.round(percent)}%</AppText></View>
                 <ProgressBar value={percent} />
                 {Object.keys(contributionsByUser).length > 0 ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{Object.entries(contributionsByUser).map(([userId, value]) => <ParticipantIdentityBadge key={userId} userId={userId} detail={amount(goal, Number(value))} compact />)}</View> : null}
@@ -131,6 +137,20 @@ export default function GoalsScreen() {
           );
         })}
       </View>
+      <RecordViewSheet visible={!!viewTarget} onClose={() => setViewTarget(null)} eyebrow="Shared goal" title={viewTarget?.title ?? ''}>
+        {viewTarget ? <View style={{ gap: theme.spacing.md }}>
+          <ParticipantAttribution userId={viewTarget.creator_id} />
+          {viewTarget.description ? <AppText tone="secondary">{viewTarget.description}</AppText> : null}
+          <AppText variant="section">{amount(viewTarget, viewTarget.current_value)} / {amount(viewTarget, viewTarget.target_value)}</AppText>
+          <ProgressBar value={Math.max(0, Math.min(100, Number(viewTarget.target_value) ? (Number(viewTarget.current_value) / Number(viewTarget.target_value)) * 100 : 0))} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            <TagChip subtle label={viewTarget.status.toUpperCase()} />
+            {viewTarget.deadline ? <TagChip subtle label={`BY ${viewTarget.deadline}`} /> : null}
+            {(viewTarget.tags ?? []).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
+          </View>
+          {(viewTarget.contributions ?? []).length ? <View style={{ gap: 7 }}><AppText variant="cardTitle">Contribution history</AppText>{(viewTarget.contributions ?? []).slice(-8).reverse().map((entry) => <ParticipantIdentityBadge key={entry.id} userId={entry.creator_id} detail={amount(viewTarget, Number(entry.amount))} compact />)}</View> : null}
+        </View> : null}
+      </RecordViewSheet>
       <ConfirmDialog visible={!!deleteTarget} title="Delete goal?" body={deleteTarget ? `Delete “${deleteTarget.title}” and its contribution history?` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />
     </AppScreen>
   );

@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
 import { DetailsToggle } from '@/components/common/DetailsToggle';
+import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { IconButton } from '@/components/common/IconButton';
 import { AppIcon } from '@/components/art/AppIcon';
@@ -29,16 +30,17 @@ function durationLabel(minutes: number | null) { if (!minutes) return 'Flexible'
 type Filter = 'all' | 'want_to_do' | 'planned' | 'favourite' | 'completed';
 
 export default function ActivitiesScreen() {
-  const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string }>(); const { profile, partnerProfile, colorForUser } = useWorkspace();
+  const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string; edit?: string }>(); const { profile, partnerProfile, colorForUser } = useWorkspace();
   const [activities, setActivities] = useState<CoupleActivity[]>([]); const [tags, setTags] = useState<Tag[]>([]); const [title, setTitle] = useState(''); const [description, setDescription] = useState(''); const [cost, setCost] = useState<ActivityCost>('free'); const [locationType, setLocationType] = useState<ActivityLocationType>('anywhere'); const [environment, setEnvironment] = useState<ActivityEnvironment>('either'); const [mood, setMood] = useState<ActivityMood>('any'); const [timeOfDay, setTimeOfDay] = useState<ActivityTime>('any'); const [rating, setRating] = useState(''); const [duration, setDuration] = useState(''); const [location, setLocation] = useState(''); const [kidFriendly, setKidFriendly] = useState(false); const [booking, setBooking] = useState(false); const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [composerOpen, setComposerOpen] = useState(false); const [advancedOpen, setAdvancedOpen] = useState(false); const [filter, setFilter] = useState<Filter>('all'); const [busy, setBusy] = useState(false); const [editingId, setEditingId] = useState<string | null>(null); const [deleteTarget, setDeleteTarget] = useState<CoupleActivity | null>(null); const [loading, setLoading] = useState(true);
+  const [composerOpen, setComposerOpen] = useState(false); const [viewTarget, setViewTarget] = useState<CoupleActivity | null>(null); const [advancedOpen, setAdvancedOpen] = useState(false); const [filter, setFilter] = useState<Filter>('all'); const [busy, setBusy] = useState(false); const [editingId, setEditingId] = useState<string | null>(null); const [deleteTarget, setDeleteTarget] = useState<CoupleActivity | null>(null); const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => { try { const [nextActivities, nextTags] = await Promise.all([getActivities(), getTags()]); setActivities(nextActivities); setTags(nextTags); } catch (error) { Alert.alert('Couldnâ€™t load activities', messageFrom(error)); } finally { setLoading(false); } }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('activities', refresh); useRealtimeRefresh('tags', refresh);
   const visible = useMemo(() => activities.filter((activity) => filter === 'all' || activity.status === filter), [activities, filter]);
   function resetForm(close = true) { setEditingId(null); setTitle(''); setDescription(''); setCost('free'); setLocationType('anywhere'); setLocation(''); setEnvironment('either'); setMood('any'); setTimeOfDay('any'); setRating(''); setDuration(''); setKidFriendly(false); setBooking(false); setSelectedTags([]); setAdvancedOpen(false); if (close) setComposerOpen(false); }
   function beginEdit(activity: CoupleActivity) { setEditingId(activity.id); setTitle(activity.title); setDescription(activity.description ?? ''); setCost(activity.cost_level); setLocationType(activity.location_type); setLocation(activity.location ?? ''); setEnvironment(activity.environment); setMood(activity.mood); setTimeOfDay(activity.time_of_day); setRating(activity.rating == null ? '' : String(activity.rating)); setDuration(activity.duration_minutes == null ? '' : String(activity.duration_minutes)); setKidFriendly(Boolean(activity.kid_friendly)); setBooking(Boolean(activity.booking_required)); setSelectedTags((activity.tags ?? []).map((tag) => tag.id)); setAdvancedOpen(true); setComposerOpen(true); }
-  useEffect(() => { if (!params.focus || editingId === params.focus || !activities.length) return; const focused = activities.find((activity) => activity.id === params.focus); if (focused) beginEdit(focused); }, [params.focus, activities]);
+  useEffect(() => { if (!params.focus || !activities.length) return; const focused = activities.find((activity) => activity.id === params.focus); if (focused) setViewTarget(focused); }, [params.focus, activities]);
+  useEffect(() => { if (!params.edit || editingId === params.edit || !activities.length) return; const target = activities.find((activity) => activity.id === params.edit); if (target) beginEdit(target); }, [params.edit, editingId, activities]);
   async function save() { const durationMinutes = duration.trim() ? Number(duration) : null; if (!title.trim() || (durationMinutes != null && (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > 1440))) { Alert.alert('Check the activity', 'Add a title and, if used, a duration between 1 and 1,440 minutes.'); return; } setBusy(true); try { const parsedRating = rating.trim() ? Number(rating) : null; if (parsedRating != null && (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5)) throw new Error('Rating must be a whole number from 1 to 5.'); const input = { title: title.trim(), description, costLevel: cost, locationType, location, environment, mood, timeOfDay, durationMinutes, kidFriendly, bookingRequired: booking, rating: parsedRating, tagIds: selectedTags }; if (editingId) await updateActivity(editingId, input); else await createActivity(input); resetForm(); await refresh(); } catch (error) { Alert.alert(editingId ? 'Couldnâ€™t update activity' : 'Couldnâ€™t add activity', messageFrom(error)); } finally { setBusy(false); } }
   async function toggleInterest(activity: CoupleActivity) { if (!profile) return; const current = activity.interests?.[profile.id] ?? false; try { await setActivityInterest(activity.id, !current); await refresh(); } catch (error) { Alert.alert('Couldnâ€™t update interest', messageFrom(error)); } }
   async function setStatus(activity: CoupleActivity, status: ActivityStatus) { try { await updateActivity(activity.id, { status }); await refresh(); } catch (error) { Alert.alert('Couldnâ€™t update activity', messageFrom(error)); } }
@@ -88,7 +90,7 @@ export default function ActivitiesScreen() {
         const statusText = myInterest && partnerInterest ? 'Both of you want this' : myInterest ? 'Youâ€™re interested' : partnerInterest ? `${partnerProfile!.display_name} is interested` : 'No interest votes yet';
         return <Card key={activity.id} participantColor="both" style={{ gap: theme.spacing.md, opacity: activity.status === 'skip' ? 0.56 : 1 }}>
           <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'flex-start' }}>
-            <View style={{ flex: 1, gap: 5 }}><AppText variant="section">{activity.title}</AppText><ParticipantAttribution userId={activity.creator_id} />{activity.description ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{activity.description}</AppText> : null}</View>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open date idea ${activity.title}`} onPress={() => setViewTarget(activity)} style={({ pressed }) => ({ flex: 1, gap: 5, opacity: pressed ? 0.76 : 1 })}><AppText variant="section">{activity.title}</AppText><ParticipantAttribution userId={activity.creator_id} />{activity.description ? <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{activity.description}</AppText> : <AppText variant="bodySmall" tone="muted">Tap to see the idea.</AppText>}</Pressable>
             <IconButton icon="overflow" label={`More actions for ${activity.title}`} onPress={() => openActivityMenu(activity)} />
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -105,6 +107,25 @@ export default function ActivitiesScreen() {
         </Card>;
       })}
     </View>
+    <RecordViewSheet visible={!!viewTarget} onClose={() => setViewTarget(null)} eyebrow="Date idea" title={viewTarget?.title ?? ''}>
+      {viewTarget ? <View style={{ gap: theme.spacing.md }}>
+        <ParticipantAttribution userId={viewTarget.creator_id} />
+        {viewTarget.description ? <AppText tone="secondary">{viewTarget.description}</AppText> : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <TagChip subtle label={viewTarget.cost_level.toUpperCase()} />
+          <TagChip subtle label={durationLabel(viewTarget.duration_minutes).toUpperCase()} />
+          <TagChip subtle label={viewTarget.location_type.toUpperCase()} />
+          <TagChip subtle label={viewTarget.environment.toUpperCase()} />
+          <TagChip subtle label={viewTarget.mood.toUpperCase()} />
+          <TagChip subtle label={viewTarget.time_of_day.toUpperCase()} />
+          {viewTarget.location ? <TagChip subtle label={viewTarget.location.toUpperCase()} /> : null}
+          {viewTarget.rating ? <TagChip subtle label={`${viewTarget.rating}/5 ★`} /> : null}
+          {viewTarget.kid_friendly ? <TagChip subtle label="KID FRIENDLY" /> : null}
+          {viewTarget.booking_required ? <TagChip subtle label="BOOKING NEEDED" /> : null}
+          {(viewTarget.tags ?? []).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
+        </View>
+      </View> : null}
+    </RecordViewSheet>
     <ConfirmDialog visible={!!deleteTarget} title="Delete activity?" body={deleteTarget ? `Delete â€œ${deleteTarget.title}â€?` : ''} onCancel={() => setDeleteTarget(null)} onConfirm={() => removeConfirmed().catch(() => undefined)} />
   </AppScreen>;
 }
