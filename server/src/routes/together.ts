@@ -4,9 +4,10 @@ import type { RealtimeHub } from '../realtime/hub.js';
 import { pool } from '../db/pool.js';
 import { authenticate } from '../auth/middleware.js';
 import { ApiError, sendError } from '../utils/http.js';
+import { dateKeyInTimeZone } from '../utils/sharedDay.js';
 import { broadcast, notifyPartner, numberOrNull, oneOf, optionalText, requiredText, requireCoupleId, setTags, tagsSql, validateTagIds } from './helpers.js';
 
-const activityStatuses = ['want_to_do', 'planned', 'completed', 'favourite', 'do_again', 'skip'] as const;
+const activityStatuses = ['want_to_do', 'planned', 'completed', 'do_again', 'skip'] as const;
 const costLevels = ['free', 'cheap', 'moderate', 'expensive'] as const;
 const locations = ['home', 'nearby', 'online', 'anywhere'] as const;
 const environments = ['indoor', 'outdoor', 'either'] as const;
@@ -15,18 +16,19 @@ const moods = ['relaxing', 'romantic', 'adventurous', 'active', 'lazy', 'silly',
 const questionCategories = ['cute','funny','deep','romantic','memories','childhood','future','relationship','hypothetical','would_you_rather','intimacy'] as const;
 
 async function loadTodaysQuestion(coupleId: string) {
-  const coupleResult = await pool.query('SELECT disabled_question_categories FROM couples WHERE id=$1', [coupleId]);
+  const coupleResult = await pool.query('SELECT disabled_question_categories,shared_day_timezone FROM couples WHERE id=$1', [coupleId]);
   const disabledCategories = Array.isArray(coupleResult.rows[0]?.disabled_question_categories)
     ? coupleResult.rows[0].disabled_question_categories as string[]
     : [];
+  const dayTimeZone = String(coupleResult.rows[0]?.shared_day_timezone || 'UTC');
   const questions = await pool.query(
     'SELECT id,question,category FROM questions WHERE enabled=true AND NOT(category = ANY($1::text[])) ORDER BY id',
     [disabledCategories],
   );
-  const today = new Date().toISOString().slice(0, 10);
-  if (!questions.rowCount) return { question: null, today, disabledCategories };
+  const today = dateKeyInTimeZone(dayTimeZone);
+  if (!questions.rowCount) return { question: null, today, dayTimeZone, disabledCategories };
   const dayNumber = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86_400_000);
-  return { question: questions.rows[dayNumber % questions.rows.length], today, disabledCategories };
+  return { question: questions.rows[dayNumber % questions.rows.length], today, dayTimeZone, disabledCategories };
 }
 
 function activitySelect() {
@@ -113,6 +115,22 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
     } catch (error) { return sendError(reply, error); }
   });
 
+  app.post('/activities/:id/favourite', { preHandler: authenticate }, async (request, reply) => {
+    try {
+      const coupleId = await requireCoupleId(request.userId);
+      const { id } = request.params as { id: string };
+      const body = request.body as Record<string, unknown>;
+      const favourite = body.favourite === true;
+      const result = await pool.query(
+        'UPDATE activities SET is_favourite=$1,updated_at=now() WHERE id=$2 AND couple_id=$3 RETURNING *',
+        [favourite, id, coupleId],
+      );
+      if (!result.rowCount) throw new ApiError(404, 'Activity not found.');
+      broadcast(realtime, coupleId, 'activities', 'favourite', id);
+      return reply.send({ activity: result.rows[0] });
+    } catch (error) { return sendError(reply, error); }
+  });
+
   app.post('/activities/:id/reject', { preHandler: authenticate }, async (request, reply) => {
     try {
       const coupleId = await requireCoupleId(request.userId);
@@ -143,7 +161,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       }
       const tagIds = rawTagIds.length ? [...new Set(rawTagIds)] : null;
       const result = await pool.query(
-        `${activitySelect()} WHERE a.couple_id=$1 AND a.status <> 'skip'
+        `${activitySelect()} WHERE a.couple_id=$1 AND a.status IN ('want_to_do','planned','do_again')
           AND ($2::text IS NULL OR a.cost_level=$2)
           AND ($3::text IS NULL OR a.location_type=$3 OR a.location_type='anywhere')
           AND ($4::text IS NULL OR a.environment=$4 OR a.environment='either')
@@ -176,14 +194,14 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
   app.get('/daily-question', { preHandler: authenticate }, async (request, reply) => {
     try {
       const coupleId = await requireCoupleId(request.userId);
-      const { question, today, disabledCategories } = await loadTodaysQuestion(coupleId);
-      if (!question) return reply.send({ question: null, date: today, myAnswer: null, partnerAnswer: null, bothAnswered: false, disabledCategories });
+      const { question, today, dayTimeZone, disabledCategories } = await loadTodaysQuestion(coupleId);
+      if (!question) return reply.send({ question: null, date: today, dayTimeZone, myAnswer: null, partnerAnswer: null, bothAnswered: false, disabledCategories });
       const answers = await pool.query('SELECT qa.*, u.display_name FROM question_answers qa JOIN users u ON u.id=qa.user_id WHERE qa.question_id=$1 AND qa.couple_id=$2 AND qa.answer_date=$3', [question.id, coupleId, today]);
       const mine = answers.rows.find((row) => String(row.user_id) === request.userId) ?? null;
       const partner = answers.rows.find((row) => String(row.user_id) !== request.userId) ?? null;
       const memberCount = await pool.query('SELECT count(*)::int AS count FROM couple_members WHERE couple_id=$1', [coupleId]);
       const bothAnswered = Number(memberCount.rows[0]?.count ?? 0) >= 2 && Boolean(mine && partner);
-      return reply.send({ question, date: today, myAnswer: mine, partnerAnswer: bothAnswered ? partner : null, bothAnswered, waitingForPartner: Boolean(mine && !bothAnswered), disabledCategories });
+      return reply.send({ question, date: today, dayTimeZone, myAnswer: mine, partnerAnswer: bothAnswered ? partner : null, bothAnswered, waitingForPartner: Boolean(mine && !bothAnswered), disabledCategories });
     } catch (error) { return sendError(reply, error); }
   });
 
@@ -238,7 +256,7 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       }
       const disabledCategories = [...new Set(body.disabledCategories as string[])];
       if (disabledCategories.length >= questionCategories.length) throw new ApiError(400, 'Keep at least one daily-question category enabled.');
-      const today = new Date().toISOString().slice(0, 10);
+      const { today } = await loadTodaysQuestion(coupleId);
       const answeredToday = await pool.query(
         'SELECT 1 FROM question_answers WHERE couple_id=$1 AND answer_date=$2 LIMIT 1',
         [coupleId, today],

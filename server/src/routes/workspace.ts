@@ -136,15 +136,15 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, realtime: Re
       await client.query('BEGIN');
       const existing = await client.query('SELECT couple_id FROM couple_members WHERE user_id = $1 FOR UPDATE', [request.userId]);
       if (existing.rowCount) throw new ApiError(409, 'This account is already linked to a couple.');
-      const profile = await client.query('SELECT preferred_participant_color FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [request.userId]);
+      const profile = await client.query('SELECT preferred_participant_color,timezone FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [request.userId]);
       if (!profile.rows[0]) throw new ApiError(404, 'Profile not found.');
       const fallback = normalizeColor(profile.rows[0].preferred_participant_color, LEGACY_PURPLE);
       const requested = body.participantColor === undefined ? fallback : requiredColor(body.participantColor);
 
       const coupleId = randomUUID();
       await client.query(
-        'INSERT INTO couples(id, relationship_start_date, long_distance_enabled, owner_user_id) VALUES($1, $2, $3, $4)',
-        [coupleId, relationshipStartDate, longDistanceEnabled, request.userId],
+        'INSERT INTO couples(id, relationship_start_date, long_distance_enabled, owner_user_id, shared_day_timezone) VALUES($1, $2, $3, $4, $5)',
+        [coupleId, relationshipStartDate, longDistanceEnabled, request.userId, String(profile.rows[0].timezone || 'UTC')],
       );
       await client.query('INSERT INTO couple_members(couple_id, user_id, participant_color) VALUES($1, $2, $3)', [coupleId, request.userId, requested]);
       await client.query('UPDATE users SET preferred_participant_color=$1,updated_at=now() WHERE id=$2', [requested, request.userId]);

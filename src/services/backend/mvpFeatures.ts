@@ -96,6 +96,7 @@ export async function updateActivity(id: string, input: Partial<{
 }>) { return (await apiRequest<{ activity: CoupleActivity }>(`/activities/${id}`, { method: 'PATCH', body: input })).activity; }
 export function deleteActivity(id: string) { return apiRequest<void>(`/activities/${id}`, { method: 'DELETE' }); }
 export async function setActivityInterest(id: string, interested: boolean) { return apiRequest<{ interested: boolean }>(`/activities/${id}/interest`, { method: 'POST', body: { interested } }); }
+export async function setActivityFavourite(id: string, favourite: boolean) { return (await apiRequest<{ activity: CoupleActivity }>(`/activities/${id}/favourite`, { method: 'POST', body: { favourite } })).activity; }
 export async function rejectActivity(id: string) { return (await apiRequest<{ activity: CoupleActivity }>(`/activities/${id}/reject`, { method: 'POST' })).activity; }
 export async function randomActivity(filters: Partial<{ cost: ActivityCost; locationType: ActivityLocationType; environment: ActivityEnvironment; mood: ActivityMood; timeOfDay: ActivityTime; maxMinutes: number; kidFriendly: boolean; tagIds: string[] }>) {
   const query = new URLSearchParams();

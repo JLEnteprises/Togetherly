@@ -19,7 +19,7 @@ import { RecordViewSheet } from '@/components/common/RecordViewSheet';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { IconButton } from '@/components/common/IconButton';
 import { AppIcon } from '@/components/art/AppIcon';
-import { createActivity, deleteActivity, getActivities, getTags, setActivityInterest, updateActivity } from '@/services/backend/mvpFeatures';
+import { createActivity, deleteActivity, getActivities, getTags, setActivityFavourite, setActivityInterest, updateActivity } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
@@ -36,19 +36,27 @@ export default function ActivitiesScreen() {
 
   const refresh = useCallback(async () => { try { const [nextActivities, nextTags] = await Promise.all([getActivities(), getTags()]); setActivities(nextActivities); setTags(nextTags); } catch (error) { Alert.alert('Couldnâ€™t load activities', messageFrom(error)); } finally { setLoading(false); } }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('activities', refresh); useRealtimeRefresh('tags', refresh);
-  const visible = useMemo(() => activities.filter((activity) => filter === 'all' || activity.status === filter), [activities, filter]);
+  const visible = useMemo(() => activities.filter((activity) => filter === 'all' || (filter === 'favourite' ? activity.is_favourite : activity.status === filter)), [activities, filter]);
   function resetForm(close = true) { setEditingId(null); setTitle(''); setDescription(''); setCost('free'); setLocationType('anywhere'); setLocation(''); setEnvironment('either'); setMood('any'); setTimeOfDay('any'); setRating(''); setDuration(''); setKidFriendly(false); setBooking(false); setSelectedTags([]); setAdvancedOpen(false); if (close) setComposerOpen(false); }
   function beginEdit(activity: CoupleActivity) { setEditingId(activity.id); setTitle(activity.title); setDescription(activity.description ?? ''); setCost(activity.cost_level); setLocationType(activity.location_type); setLocation(activity.location ?? ''); setEnvironment(activity.environment); setMood(activity.mood); setTimeOfDay(activity.time_of_day); setRating(activity.rating == null ? '' : String(activity.rating)); setDuration(activity.duration_minutes == null ? '' : String(activity.duration_minutes)); setKidFriendly(Boolean(activity.kid_friendly)); setBooking(Boolean(activity.booking_required)); setSelectedTags((activity.tags ?? []).map((tag) => tag.id)); setAdvancedOpen(true); setComposerOpen(true); }
   useEffect(() => { if (!params.focus || !activities.length) return; const focused = activities.find((activity) => activity.id === params.focus); if (focused) setViewTarget(focused); }, [params.focus, activities]);
   useEffect(() => { if (!params.edit || editingId === params.edit || !activities.length) return; const target = activities.find((activity) => activity.id === params.edit); if (target) beginEdit(target); }, [params.edit, editingId, activities]);
   async function save() { const durationMinutes = duration.trim() ? Number(duration) : null; if (!title.trim() || (durationMinutes != null && (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > 1440))) { Alert.alert('Check the activity', 'Add a title and, if used, a duration between 1 and 1,440 minutes.'); return; } setBusy(true); try { const parsedRating = rating.trim() ? Number(rating) : null; if (parsedRating != null && (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5)) throw new Error('Rating must be a whole number from 1 to 5.'); const input = { title: title.trim(), description, costLevel: cost, locationType, location, environment, mood, timeOfDay, durationMinutes, kidFriendly, bookingRequired: booking, rating: parsedRating, tagIds: selectedTags }; if (editingId) await updateActivity(editingId, input); else await createActivity(input); resetForm(); await refresh(); } catch (error) { Alert.alert(editingId ? 'Couldnâ€™t update activity' : 'Couldnâ€™t add activity', messageFrom(error)); } finally { setBusy(false); } }
   async function toggleInterest(activity: CoupleActivity) { if (!profile) return; const current = activity.interests?.[profile.id] ?? false; try { await setActivityInterest(activity.id, !current); await refresh(); } catch (error) { Alert.alert('Couldnâ€™t update interest', messageFrom(error)); } }
+  async function toggleFavourite(activity: CoupleActivity) {
+    try {
+      await setActivityFavourite(activity.id, !activity.is_favourite);
+      await refresh();
+    } catch (error) {
+      Alert.alert('Couldn’t update favourite', messageFrom(error));
+    }
+  }
   async function setStatus(activity: CoupleActivity, status: ActivityStatus) { try { await updateActivity(activity.id, { status }); await refresh(); } catch (error) { Alert.alert('Couldnâ€™t update activity', messageFrom(error)); } }
   async function removeConfirmed() { const target = deleteTarget; setDeleteTarget(null); if (!target) return; try { await deleteActivity(target.id); setActivities((current) => current.filter((activity) => activity.id !== target.id)); if (editingId === target.id) resetForm(); } catch (error) { Alert.alert('Couldnâ€™t delete activity', messageFrom(error)); } }
   function openActivityMenu(activity: CoupleActivity) {
     Alert.alert(activity.title, 'More actions', [
-      { text: activity.status === 'favourite' ? 'Remove favourite' : 'Favourite', onPress: () => setStatus(activity, activity.status === 'favourite' ? 'want_to_do' : 'favourite') },
-      { text: activity.status === 'completed' ? 'Move back to ideas' : 'Mark as done', onPress: () => setStatus(activity, activity.status === 'completed' ? 'want_to_do' : 'completed') },
+      { text: activity.is_favourite ? 'Remove favourite' : 'Favourite', onPress: () => toggleFavourite(activity) },
+      { text: activity.status === 'completed' ? 'Do this again' : activity.status === 'do_again' ? 'Move back to ideas' : 'Mark as done', onPress: () => setStatus(activity, activity.status === 'completed' ? 'do_again' : activity.status === 'do_again' ? 'want_to_do' : 'completed') },
       { text: 'Edit idea', onPress: () => beginEdit(activity) },
       { text: 'Delete', style: 'destructive', onPress: () => setDeleteTarget(activity) },
       { text: 'Cancel', style: 'cancel' },
@@ -95,7 +103,7 @@ export default function ActivitiesScreen() {
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <TagChip subtle label={activity.cost_level.toUpperCase()} /><TagChip subtle label={durationLabel(activity.duration_minutes).toUpperCase()} /><TagChip subtle label={activity.location_type.toUpperCase()} />
-            {activity.rating ? <TagChip subtle label={`${activity.rating}/5 â˜…`} /> : null}
+            {activity.is_favourite ? <TagChip subtle label="★ FAVOURITE" /> : null}{activity.rating ? <TagChip subtle label={`${activity.rating}/5 â˜…`} /> : null}
             {(activity.tags ?? []).slice(0, 1).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
             {(activity.tags ?? []).length > 1 ? <TagChip subtle label={`+${(activity.tags ?? []).length - 1} TAGS`} /> : null}
           </View>
@@ -122,6 +130,8 @@ export default function ActivitiesScreen() {
           {viewTarget.rating ? <TagChip subtle label={`${viewTarget.rating}/5 ★`} /> : null}
           {viewTarget.kid_friendly ? <TagChip subtle label="KID FRIENDLY" /> : null}
           {viewTarget.booking_required ? <TagChip subtle label="BOOKING NEEDED" /> : null}
+          {viewTarget.is_favourite ? <TagChip subtle label="★ FAVOURITE" /> : null}
+          <TagChip subtle label={viewTarget.status.replace('_', ' ').toUpperCase()} />
           {(viewTarget.tags ?? []).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
         </View>
       </View> : null}

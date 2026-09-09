@@ -12,7 +12,7 @@ import { TagSelector } from '@/components/common/TagSelector';
 import { ToggleRow } from '@/components/common/ToggleRow';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
-import { getTags, randomActivity, rejectActivity, updateActivity } from '@/services/backend/mvpFeatures';
+import { getTags, randomActivity, rejectActivity, setActivityFavourite } from '@/services/backend/mvpFeatures';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { ActivityCost, ActivityEnvironment, ActivityLocationType, ActivityMood, ActivityTime, CoupleActivity, Tag } from '@/types/database';
@@ -78,10 +78,14 @@ export default function ActivityRandomizerScreen() {
     router.push(`/features/calendar?${query.toString()}` as never);
   }
 
-  async function choose(status: 'favourite') {
+  async function toggleFavourite() {
     if (!pick) return;
-    try { const updated = await updateActivity(pick.id, { status }); setPick({ ...pick, ...updated }); }
-    catch (error) { Alert.alert('Couldnâ€™t update activity', messageFrom(error)); }
+    try {
+      const updated = await setActivityFavourite(pick.id, !pick.is_favourite);
+      setPick({ ...pick, ...updated });
+    } catch (error) {
+      Alert.alert('Couldn’t update favourite', messageFrom(error));
+    }
   }
 
   return (
@@ -115,7 +119,7 @@ export default function ActivityRandomizerScreen() {
           <View style={{ gap: theme.spacing.sm }}>
             <AppButton icon="heart" label="Letâ€™s do it" onPress={planPick} />
             <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton icon="spark" label="Reroll" variant="secondary" disabled={busy} onPress={roll} /></View><View style={{ flex: 1 }}><AppButton label="Not tonight" variant="ghost" disabled={busy} onPress={notTonight} /></View></View>
-            <AppButton label={pick.status === 'favourite' ? 'â˜… Favourite' : 'â˜† Save as favourite'} variant="ghost" disabled={busy} onPress={() => choose('favourite')} />
+            <AppButton label={pick.is_favourite ? '★ Favourite' : '☆ Save as favourite'} variant="ghost" disabled={busy} onPress={toggleFavourite} />
           </View>
         </Card>
       ) : null}

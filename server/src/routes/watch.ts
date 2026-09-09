@@ -5,6 +5,7 @@ import { pool } from '../db/pool.js';
 import { authenticate } from '../auth/middleware.js';
 import { authenticateWatch, createWatchSession, revokeWatchSessions } from '../auth/watch.js';
 import { ApiError, sendError } from '../utils/http.js';
+import { dateKeyInTimeZone } from '../utils/sharedDay.js';
 import { broadcast, notifyPartner, oneOf, requireCoupleId } from './helpers.js';
 
 const watchPreHandler = authenticateWatch;
@@ -71,7 +72,7 @@ async function loadWatchState(userId: string) {
      ORDER BY created_at DESC LIMIT 1`, [coupleId, partner.user_id],
   );
 
-  const couple = await pool.query('SELECT relationship_start_date,anniversary_date,long_distance_enabled FROM couples WHERE id=$1', [coupleId]);
+  const couple = await pool.query('SELECT relationship_start_date,anniversary_date,long_distance_enabled,shared_day_timezone FROM couples WHERE id=$1', [coupleId]);
   const nextVisit = await pool.query(
     `SELECT id,title,target_at,type FROM countdowns
      WHERE couple_id=$1 AND type IN ('visit','flight') AND target_at >= now()
@@ -81,7 +82,7 @@ async function loadWatchState(userId: string) {
   const disabled = await pool.query('SELECT disabled_question_categories FROM couples WHERE id=$1', [coupleId]);
   const disabledCategories = Array.isArray(disabled.rows[0]?.disabled_question_categories) ? disabled.rows[0].disabled_question_categories as string[] : [];
   const questions = await pool.query('SELECT id,question,category FROM questions WHERE enabled=true AND NOT(category = ANY($1::text[])) ORDER BY id', [disabledCategories]);
-  const questionDay = new Date().toISOString().slice(0, 10);
+  const questionDay = dateKeyInTimeZone(String(couple.rows[0]?.shared_day_timezone || 'UTC'));
   let question = null as Record<string, unknown> | null;
   if (questions.rows.length) {
     const dayNumber = Math.floor(Date.parse(`${questionDay}T00:00:00Z`) / 86_400_000);

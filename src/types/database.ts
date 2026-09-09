@@ -35,6 +35,7 @@ export type Couple = {
   photo_url: string | null;
   theme: string;
   long_distance_enabled: boolean;
+  shared_day_timezone: string;
   owner_user_id: string | null;
   created_at: string;
   updated_at: string;
@@ -242,7 +243,7 @@ export type ActivityLocationType = 'home' | 'nearby' | 'online' | 'anywhere';
 export type ActivityEnvironment = 'indoor' | 'outdoor' | 'either';
 export type ActivityTime = 'morning' | 'day' | 'night' | 'any';
 export type ActivityMood = 'relaxing' | 'romantic' | 'adventurous' | 'active' | 'lazy' | 'silly' | 'any';
-export type ActivityStatus = 'want_to_do' | 'planned' | 'completed' | 'favourite' | 'do_again' | 'skip';
+export type ActivityStatus = 'want_to_do' | 'planned' | 'completed' | 'do_again' | 'skip';
 export type CoupleActivity = {
   id: string;
   couple_id: string;
@@ -257,6 +258,7 @@ export type CoupleActivity = {
   time_of_day: ActivityTime;
   mood: ActivityMood;
   status: ActivityStatus;
+  is_favourite: boolean;
   kid_friendly: boolean;
   booking_required: boolean;
   rating: number | null;
@@ -273,6 +275,7 @@ export type QuestionAnswer = { id: string; question_id: string; user_id: string;
 export type DailyQuestionState = {
   question: DailyQuestion | null;
   date?: string;
+  dayTimeZone?: string;
   myAnswer: QuestionAnswer | null;
   partnerAnswer: QuestionAnswer | null;
   bothAnswered: boolean;
