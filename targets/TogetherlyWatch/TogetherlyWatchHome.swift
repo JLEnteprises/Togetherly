@@ -212,7 +212,7 @@ private struct QuickCheckInView: View {
                     ForEach(moods, id: \.0) { item in
                         Button("\(item.1) \(item.0.capitalized)") { mood = item.0 }
                             .buttonStyle(.bordered)
-                            .tint(mood == item.0 ? purple : .gray)
+                            .tint(mood == item.0 ? identityColor("purple") : .gray)
                             .font(.caption2)
                     }
                 }

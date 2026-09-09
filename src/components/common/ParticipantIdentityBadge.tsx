@@ -24,6 +24,9 @@ export function ParticipantIdentityBadge({
   const theme = useAppTheme();
   const { profile, partnerProfile, myColor, partnerColor, colorForUser } = useWorkspace();
   const size = compact ? 22 : 28;
+  const myPalette = participantPalette(myColor);
+  const partnerPaletteValue = participantPalette(partnerColor);
+  // E1_SHARED_OURS_VISUAL_IDENTITY: 'ours' uses both identities, never a third arbitrary colour.
 
   if (both) {
     const meName = profile?.display_name ?? 'You';
@@ -42,12 +45,29 @@ export function ParticipantIdentityBadge({
           borderWidth: 1,
           borderLeftWidth: 3,
           borderRightWidth: 3,
-          borderLeftColor: participantPalette(myColor).accent,
-          borderRightColor: participantPalette(partnerColor).accent,
+          borderLeftColor: myPalette.accent,
+          borderRightColor: partnerPaletteValue.accent,
           borderColor: theme.colors.border,
           backgroundColor: theme.colors.elevatedBackground,
+          position: 'relative',
         }}
       >
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 1,
+            right: 1,
+            bottom: 1,
+            left: 1,
+            borderRadius: theme.radii.pill,
+            overflow: 'hidden',
+            flexDirection: 'row',
+          }}
+        >
+          <View style={{ flex: 1, backgroundColor: myPalette.accentSoft }} />
+          <View style={{ flex: 1, backgroundColor: partnerPaletteValue.accentSoft }} />
+        </View>
         <View style={{ width: size + 10, height: size, flexDirection: 'row', alignItems: 'center' }}>
           <Avatar initials={initial(profile?.display_name, '?')} imageUrl={profile?.avatar_url} size={size} participantColor={myColor} />
           <View style={{ marginLeft: -8 }}>
@@ -55,7 +75,7 @@ export function ParticipantIdentityBadge({
           </View>
         </View>
         <View style={{ gap: 1 }}>
-          <AppText variant="caption" style={{ color: theme.colors.textPrimary }}>US · {meName} + {partnerName}</AppText>
+          <AppText variant="caption" style={{ color: theme.colors.textPrimary }}>OURS · {meName} + {partnerName}</AppText>
           {detail ? <AppText variant="caption" tone="muted">{detail}</AppText> : null}
         </View>
       </View>
