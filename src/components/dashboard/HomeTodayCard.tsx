@@ -52,7 +52,7 @@ function Row({ icon, title, value, href, valueTone = 'primary', topBorder = fals
   const theme = useAppTheme();
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`${title}. ${value}`} onPress={() => router.push(href as never)} style={({ pressed }) => ({ minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, paddingVertical: 10, borderTopWidth: topBorder ? 1 : 0, borderTopColor: theme.colors.border, opacity: pressed ? 0.7 : 1 })}>
-      <View style={{ width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={19} color={theme.colors.accent} /></View>
+      <View style={{ width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.elevatedBackground }}><AppIcon name={icon} size={19} color={theme.colors.textSecondary} /></View>
       <View style={{ flex: 1, gap: 2 }}><AppText variant="bodySmall" tone="secondary" style={{ fontWeight: '700' }}>{title}</AppText><AppText variant="bodySmall" tone={valueTone} numberOfLines={2}>{value}</AppText></View>
       <AppIcon name="chevron" size={16} color={theme.colors.textMuted} />
     </Pressable>
@@ -82,35 +82,91 @@ export function HomeTodayCard() {
   const moodSummary = `${moods.mine ? moodShort[moods.mine.mood] : '—'} ${profile?.display_name ?? 'You'}  ·  ${moods.partner ? moodShort[moods.partner.mood] : '—'} ${partnerProfile?.display_name ?? 'Partner'}`;
   const partnerMood = moods.partner;
   const partnerNeedsAttention = isRecent(partnerMood) && partnerMood?.need !== 'nothing';
-  const questionNeedsAttention = !!question?.question && (question.bothAnswered || !question.myAnswer);
+  const revealReady = Boolean(question?.question && question.bothAnswered);
+  const answerWaiting = Boolean(question?.question && !question.myAnswer);
+
+  const priority: 'partner_mood' | 'reveal' | 'question' | null =
+    partnerNeedsAttention ? 'partner_mood' : revealReady ? 'reveal' : answerWaiting ? 'question' : null;
 
   const regularRows: Array<{ icon: AppIconName; title: string; value: string; href: string; tone?: 'primary' | 'secondary' | 'muted' | 'accent' | 'success' | 'warning' | 'error' }> = [];
-  if (questionNeedsAttention) regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary, href: '/features/daily-question', tone: question?.bothAnswered ? 'accent' : 'primary' });
   regularRows.push({ icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: '/features/calendar' });
   regularRows.push({ icon: 'task', title: 'Tasks', value: taskSummary.text, href: '/features/tasks', tone: taskSummary.tone });
-  if (!questionNeedsAttention) regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary, href: '/features/daily-question' });
-  if (!partnerNeedsAttention) regularRows.push({ icon: 'mood', title: 'Check-in', value: moodSummary, href: '/features/mood' });
+  if (!priority || priority === 'partner_mood') regularRows.push({ icon: 'question', title: 'Daily question', value: questionSummary, href: '/features/daily-question' });
+  if (priority !== 'partner_mood') regularRows.push({ icon: 'mood', title: 'Check-in', value: moodSummary, href: '/features/mood' });
 
   return (
     <View style={{ gap: theme.spacing.md }}>
-      <AppText variant="section">Today</AppText>
-      {partnerNeedsAttention && partnerMood ? (
+      <View style={{ gap: 2 }}>
+        <AppText variant="section">Today</AppText>
+        <AppText variant="bodySmall" tone="muted">The things that matter right now.</AppText>
+      </View>
+
+      {priority === 'partner_mood' && partnerMood ? (
         <FadeSlideIn>
           <Pressable accessibilityRole="button" onPress={() => router.push('/features/mood' as never)}>
-            {({ pressed }) => <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
-              <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
-                <View style={{ width: 42, height: 42, borderRadius: 15, backgroundColor: theme.colors.partnerAccentSoft, alignItems: 'center', justifyContent: 'center' }}><AppText variant="section">{moodShort[partnerMood.mood]}</AppText></View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <ParticipantIdentityBadge userId={partnerProfile?.id} compact />
-                  <AppText variant="cardTitle">{partnerProfile?.display_name ?? 'Your partner'} could use {needText[partnerMood.need]}.</AppText>
-                  <AppText variant="bodySmall" tone="secondary">Open their check-in and respond in a way that helps.</AppText>
+            {({ pressed }) => (
+              <Card participantColor={partnerColor} style={{ gap: theme.spacing.sm, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
+                <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
+                  <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: theme.colors.partnerAccentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                    <AppText variant="section">{moodShort[partnerMood.mood]}</AppText>
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <ParticipantIdentityBadge userId={partnerProfile?.id} compact />
+                    <AppText variant="cardTitle">{partnerProfile?.display_name ?? 'Your partner'} could use {needText[partnerMood.need]}.</AppText>
+                    <AppText variant="bodySmall" tone="secondary">Open their check-in and respond in a way that helps.</AppText>
+                  </View>
+                  <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
                 </View>
-                <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
-              </View>
-            </Card>}
+              </Card>
+            )}
           </Pressable>
         </FadeSlideIn>
       ) : null}
+
+      {priority === 'reveal' ? (
+        <FadeSlideIn>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/features/daily-question' as never)}>
+            {({ pressed }) => (
+              <Card participantColor="both" style={{ gap: theme.spacing.md, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+                  <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: theme.colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                    <AppIcon name="spark" size={22} color={theme.colors.textPrimary} />
+                  </View>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <AppText variant="caption" tone="secondary">YOU’RE BOTH READY</AppText>
+                    <AppText variant="cardTitle">Reveal today’s answers</AppText>
+                    <AppText variant="bodySmall" tone="secondary">You’ve both answered. Open the question when you want the reveal.</AppText>
+                  </View>
+                  <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
+                </View>
+              </Card>
+            )}
+          </Pressable>
+        </FadeSlideIn>
+      ) : null}
+
+      {priority === 'question' ? (
+        <FadeSlideIn>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/features/daily-question' as never)}>
+            {({ pressed }) => (
+              <Card participantColor="both" style={{ gap: theme.spacing.md, opacity: pressed ? 0.78 : 1, padding: theme.spacing.lg }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+                  <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: theme.colors.elevatedBackground, alignItems: 'center', justifyContent: 'center' }}>
+                    <AppIcon name="question" size={22} color={theme.colors.textSecondary} />
+                  </View>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <AppText variant="caption" tone="secondary">TODAY’S QUESTION</AppText>
+                    <AppText variant="cardTitle" numberOfLines={2}>{question?.question?.question ?? 'A question is waiting for you'}</AppText>
+                    <AppText variant="bodySmall" tone="secondary">Answer privately. You won’t see each other’s answer until both of you are ready.</AppText>
+                  </View>
+                  <AppIcon name="chevron" size={17} color={theme.colors.textMuted} />
+                </View>
+              </Card>
+            )}
+          </Pressable>
+        </FadeSlideIn>
+      ) : null}
+
       <View style={{ paddingHorizontal: theme.spacing.sm }}>
         {regularRows.map((row, index) => <Row key={row.title} icon={row.icon} title={row.title} value={row.value} href={row.href} valueTone={row.tone} topBorder={index > 0} />)}
       </View>
