@@ -11,6 +11,7 @@ import { TagChip } from '@/components/common/TagChip';
 import { TagSelector } from '@/components/common/TagSelector';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { EmptyState } from '@/components/common/EmptyState';
 import { createList, getLists } from '@/services/backend/coreFeatures';
 import { getTags } from '@/services/backend/mvpFeatures';
@@ -30,6 +31,7 @@ export default function ListsScreen() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [newListTitle, setNewListTitle] = useState('');
   const [composerOpen, setComposerOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +48,7 @@ export default function ListsScreen() {
     setBusy(true);
     try {
       const created = await createList(newListTitle.trim(), selectedTagIds);
-      setNewListTitle(''); setSelectedTagIds([]); setComposerOpen(false); await refresh();
+      setNewListTitle(''); setSelectedTagIds([]); setDetailsOpen(false); setComposerOpen(false); await refresh();
       router.push(`/features/lists/${created.id}` as never);
     } catch (error) { Alert.alert('Couldn’t create list', messageFrom(error)); }
     finally { setBusy(false); }
@@ -56,8 +58,9 @@ export default function ListsScreen() {
     <AppScreen>
       <BackHeader eyebrow="Plan" title="Shared lists" subtitle="Shopping, packing and shared lists." />
       <CollapsibleComposer title="Our lists" subtitle={`${lists.length} ${lists.length === 1 ? 'list' : 'lists'} in your shared space`} open={composerOpen} actionLabel="New list" tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => setComposerOpen((value) => !value)}>
-        <FormField label="LIST NAME" value={newListTitle} onChangeText={setNewListTitle} placeholder="Things to pack" />
-        <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} />
+        <FormField label="What is this list for?" value={newListTitle} onChangeText={setNewListTitle} placeholder="Things to pack" />
+        <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add tags" openLabel="Hide tags" />
+        {detailsOpen ? <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} /> : null}
         <AppButton label={busy ? 'Creating…' : 'Create list'} disabled={busy || !newListTitle.trim()} onPress={addList} />
       </CollapsibleComposer>
 

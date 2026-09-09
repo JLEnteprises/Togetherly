@@ -12,6 +12,7 @@ import { TagChip } from '@/components/common/TagChip';
 import { TagSelector } from '@/components/common/TagSelector';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { FeatureGroupCard } from '@/components/navigation/FeatureGroupCard';
 import { createNote, deleteNote, getNotes, updateNote } from '@/services/backend/coreFeatures';
@@ -31,17 +32,19 @@ const noteTools = [
 export default function NotesScreen() {
   const theme = useAppTheme();
   const params = useLocalSearchParams<{ focus?: string }>();
-  const { colorForUser } = useWorkspace();
+  const { colorForUser, profile } = useWorkspace();
   const [notes, setNotes] = useState<CoupleNote[]>([]); const [tags, setTags] = useState<Tag[]>([]); const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null); const [selectedUpdatedAt, setSelectedUpdatedAt] = useState<string | null>(null); const [title, setTitle] = useState(''); const [body, setBody] = useState(''); const [visibility, setVisibility] = useState<'shared' | 'private'>('shared'); const [pinned, setPinned] = useState(false);
-  const [composerOpen, setComposerOpen] = useState(false); const [filter, setFilter] = useState<Filter>('all'); const [deleteOpen, setDeleteOpen] = useState(false); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
+  const [composerOpen, setComposerOpen] = useState(false); const [detailsOpen, setDetailsOpen] = useState(false); const [filter, setFilter] = useState<Filter>('all'); const [deleteOpen, setDeleteOpen] = useState(false); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => { try { const [nextNotes, nextTags] = await Promise.all([getNotes(), getTags()]); setNotes(nextNotes); setTags(nextTags); } catch (error) { Alert.alert('Couldn’t load notes', messageFrom(error)); } finally { setLoading(false); } }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('notes', refresh); useRealtimeRefresh('tags', refresh);
   const visible = useMemo(() => notes.filter((note) => filter === 'all' || (filter === 'pinned' ? note.pinned : note.visibility === filter)), [filter, notes]);
+  const selectedNote = selectedId ? notes.find((note) => note.id === selectedId) ?? null : null;
+  const canMakePrivate = !selectedNote || selectedNote.creator_id === profile?.id;
 
-  function resetEditor(close = true) { setSelectedId(null); setSelectedUpdatedAt(null); setTitle(''); setBody(''); setVisibility('shared'); setPinned(false); setSelectedTagIds([]); if (close) setComposerOpen(false); }
-  function select(note: CoupleNote) { setSelectedId(note.id); setSelectedUpdatedAt(note.updated_at); setTitle(note.title); setBody(note.body); setVisibility(note.visibility); setPinned(note.pinned); setSelectedTagIds((note.tags ?? []).map((tag) => tag.id)); setComposerOpen(true); }
+  function resetEditor(close = true) { setSelectedId(null); setSelectedUpdatedAt(null); setTitle(''); setBody(''); setVisibility('shared'); setPinned(false); setSelectedTagIds([]); setDetailsOpen(false); if (close) setComposerOpen(false); }
+  function select(note: CoupleNote) { setSelectedId(note.id); setSelectedUpdatedAt(note.updated_at); setTitle(note.title); setBody(note.body); setVisibility(note.visibility); setPinned(note.pinned); setSelectedTagIds((note.tags ?? []).map((tag) => tag.id)); setDetailsOpen(true); setComposerOpen(true); }
   useEffect(() => { if (!params.focus || selectedId === params.focus || !notes.length) return; const focused = notes.find((note) => note.id === params.focus); if (focused) select(focused); }, [params.focus, notes]);
 
   async function save() { if (!title.trim()) return; setBusy(true); try { if (selectedId) await updateNote(selectedId, { title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds, updatedAt: selectedUpdatedAt ?? undefined }); else await createNote({ title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds }); resetEditor(); await refresh(); } catch (error) { Alert.alert('Couldn’t save note', messageFrom(error)); } finally { setBusy(false); } }
@@ -51,11 +54,18 @@ export default function NotesScreen() {
     <BackHeader eyebrow="Plan" title="Notes" subtitle="Saved writing you want to keep. Scratchpad stays quick and shared." />
     <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard title="Scratchpad" items={noteTools} /></View>
     <CollapsibleComposer title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="New note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
-      <FormField label="TITLE" value={title} onChangeText={setTitle} placeholder="Flight details" />
-      <FormField label="NOTE" value={body} onChangeText={setBody} placeholder="Keep the useful bits in one place…" multiline />
-      <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">WHO CAN SEE THIS?</AppText><ChoiceChips value={visibility} onChange={setVisibility} options={[{ value: 'shared', label: '♥ Shared' }, { value: 'private', label: '🔒 Private' }]} /></View>
-      <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} />
-      <Pressable accessibilityRole="button" onPress={() => setPinned((value) => !value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: pinned ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: pinned ? theme.colors.secondarySoft : 'transparent', alignItems: 'center', justifyContent: 'center' }}><AppText variant="caption" tone="secondary">{pinned ? '✓' : ''}</AppText></View><AppText variant="bodySmall" tone="secondary">Pin this note to the top</AppText></Pressable>
+      <FormField label="What is this note about?" value={title} onChangeText={setTitle} placeholder="Flight details" />
+      <FormField label="Write it down" value={body} onChangeText={setBody} placeholder="Keep the useful bits in one place…" multiline />
+      <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add note options" openLabel="Hide note options" hint="Privacy, pinning and tags." />
+      {detailsOpen ? <View style={{ gap: theme.spacing.lg }}>
+        <View style={{ gap: theme.spacing.sm }}>
+          <AppText variant="bodySmall" tone="secondary">Who can see this?</AppText>
+          <ChoiceChips value={visibility} onChange={setVisibility} options={canMakePrivate ? [{ value: 'shared' as const, label: '♥ Shared' }, { value: 'private' as const, label: '🔒 Private to me' }] : [{ value: 'shared' as const, label: '♥ Shared' }]} />
+          {!canMakePrivate ? <AppText variant="caption" tone="muted">Only the person who created a shared note can make it private.</AppText> : null}
+        </View>
+        <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} />
+        <Pressable accessibilityRole="button" onPress={() => setPinned((value) => !value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: pinned ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: pinned ? theme.colors.secondarySoft : 'transparent', alignItems: 'center', justifyContent: 'center' }}><AppText variant="caption" tone="secondary">{pinned ? '✓' : ''}</AppText></View><AppText variant="bodySmall" tone="secondary">Pin this note to the top</AppText></Pressable>
+      </View> : null}
       <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : selectedId ? 'Save changes' : 'Add note'} disabled={busy || !title.trim()} onPress={save} /></View>{selectedId ? <AppButton compact label="Delete" variant="danger" disabled={busy} onPress={() => setDeleteOpen(true)} /> : null}</View>
     </CollapsibleComposer>
     <Card tone="secondary" style={{ marginBottom: theme.spacing.xxl, gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">FILTER</AppText><ChoiceChips value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, { value: 'shared', label: 'Shared' }, { value: 'private', label: 'Private' }, { value: 'pinned', label: 'Pinned' }]} /></Card>

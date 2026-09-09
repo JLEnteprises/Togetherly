@@ -11,6 +11,7 @@ import { TagChip } from '@/components/common/TagChip';
 import { ProgressBar } from '@/components/common/ProgressBar';
 import { ParticipantAttribution } from '@/components/common/ParticipantAttribution';
 import { CollapsibleComposer } from '@/components/common/CollapsibleComposer';
+import { DetailsToggle } from '@/components/common/DetailsToggle';
 import { DatePickerField } from '@/components/common/DatePickerField';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -69,13 +70,13 @@ function formatTarget(target: string) {
 export default function CountdownsScreen() {
   const theme = useAppTheme(); const params = useLocalSearchParams<{ focus?: string }>(); const { colorForUser } = useWorkspace();
   const [countdowns, setCountdowns] = useState<CoupleCountdown[]>([]); const [title, setTitle] = useState(''); const [startDate, setStartDate] = useState(''); const [date, setDate] = useState(''); const [type, setType] = useState<CountdownType>('visit');
-  const [busy, setBusy] = useState(false); const [nowMs, setNowMs] = useState(() => Date.now()); const [loading, setLoading] = useState(true); const [editingId, setEditingId] = useState<string | null>(null); const [composerOpen, setComposerOpen] = useState(false); const [deleteTarget, setDeleteTarget] = useState<CoupleCountdown | null>(null);
+  const [busy, setBusy] = useState(false); const [detailsOpen, setDetailsOpen] = useState(false); const [nowMs, setNowMs] = useState(() => Date.now()); const [loading, setLoading] = useState(true); const [editingId, setEditingId] = useState<string | null>(null); const [composerOpen, setComposerOpen] = useState(false); const [deleteTarget, setDeleteTarget] = useState<CoupleCountdown | null>(null);
   const refresh = useCallback(async () => { try { setCountdowns(await getCountdowns()); } catch (error) { Alert.alert('Couldn’t load countdowns', messageFrom(error)); } finally { setLoading(false); } }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]); useRealtimeRefresh('countdowns', refresh);
   useEffect(() => { const timer = setInterval(() => setNowMs(Date.now()), 60_000); return () => clearInterval(timer); }, []);
 
-  function resetForm(close = true) { setEditingId(null); setTitle(''); setDate(''); setStartDate(''); setType('visit'); if (close) setComposerOpen(false); }
-  function beginEdit(countdown: CoupleCountdown) { setEditingId(countdown.id); setTitle(countdown.title); setDate(storedDateKey(countdown.target_at)); setStartDate(storedDateKey(countdown.start_at)); setType(countdown.type); setComposerOpen(true); }
+  function resetForm(close = true) { setEditingId(null); setTitle(''); setDate(''); setStartDate(''); setType('visit'); setDetailsOpen(false); if (close) setComposerOpen(false); }
+  function beginEdit(countdown: CoupleCountdown) { setEditingId(countdown.id); setTitle(countdown.title); setDate(storedDateKey(countdown.target_at)); setStartDate(storedDateKey(countdown.start_at)); setType(countdown.type); setDetailsOpen(true); setComposerOpen(true); }
   useEffect(() => { if (!params.focus || editingId === params.focus || !countdowns.length) return; const focused = countdowns.find((item) => item.id === params.focus); if (focused) beginEdit(focused); }, [params.focus, countdowns]);
   async function save() {
     if (!title.trim() || !date) return; const targetAt = dateKeyToStorageIso(date); const startAt = startDate ? dateKeyToStorageIso(startDate) : null;
@@ -95,10 +96,13 @@ export default function CountdownsScreen() {
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Countdowns" subtitle="Visits, anniversaries and dates worth looking forward to." />
     <CollapsibleComposer title={editingId ? 'Edit countdown' : 'Our countdowns'} subtitle={`${countdowns.filter((item) => !remaining(item.target_at, nowMs).passed).length} upcoming`} open={composerOpen} actionLabel="New countdown" closeLabel={editingId ? 'Cancel edit' : 'Close'} tone="accent" style={{ marginBottom: theme.spacing.xxl }} onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}>
-      <FormField label="COUNTDOWN NAME" value={title} onChangeText={setTitle} placeholder="Next time we're together" />
-      <DatePickerField label="TARGET DATE" value={date} onChange={setDate} />
-      <DatePickerField label="START DATE · OPTIONAL" value={startDate} onChange={setStartDate} optional />
-      <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">TYPE</AppText><ChoiceChips value={type} onChange={setType} options={[{ value: 'visit', label: 'Visit' }, { value: 'flight', label: 'Flight' }, { value: 'anniversary', label: 'Anniversary' }, { value: 'birthday', label: 'Birthday' }, { value: 'moving', label: 'Moving' }, { value: 'wedding', label: 'Wedding' }, { value: 'holiday', label: 'Holiday' }, { value: 'custom', label: 'Custom' }]} /></View>
+      <FormField label="What are you counting down to?" value={title} onChangeText={setTitle} placeholder="Next time we're together" />
+      <DatePickerField label="When is it?" value={date} onChange={setDate} />
+      <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add details" openLabel="Hide details" hint="Start date and countdown type." />
+      {detailsOpen ? <View style={{ gap: theme.spacing.lg }}>
+        <DatePickerField label="When did the wait start?" value={startDate} onChange={setStartDate} optional />
+        <View style={{ gap: theme.spacing.sm }}><AppText variant="bodySmall" tone="secondary">What kind of countdown is it?</AppText><ChoiceChips value={type} onChange={setType} options={[{ value: 'visit', label: 'Visit' }, { value: 'flight', label: 'Flight' }, { value: 'anniversary', label: 'Anniversary' }, { value: 'birthday', label: 'Birthday' }, { value: 'moving', label: 'Moving' }, { value: 'wedding', label: 'Wedding' }, { value: 'holiday', label: 'Holiday' }, { value: 'custom', label: 'Custom' }]} /></View>
+      </View> : null}
       <AppButton label={busy ? 'Saving…' : editingId ? 'Save changes' : 'Create countdown'} disabled={busy || !title.trim() || !date} onPress={save} />
     </CollapsibleComposer>
     <View style={{ gap: theme.spacing.md }}>
