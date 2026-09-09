@@ -11,11 +11,11 @@ export default function UsScreen() {
 
   return (
     <AppScreen>
-      <PageHeader eyebrow="Our story" title="Us" subtitle="The part of Togetherly that becomes more yours over time." />
+      <PageHeader title="Our story" subtitle="The moments worth keeping." />
 
       <View style={{ gap: theme.spacing.xl }}>
         {/* E3_PAIRED_COUPLE_IDENTITY */}
-        <CoupleIdentitySignature detail="Your shared story belongs to both of you." />
+
         <UsStoryDashboard />
       </View>
     </AppScreen>

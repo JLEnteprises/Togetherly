@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
-import { router } from 'expo-router';
+import { moodResponse, moodIsCurrent } from '@/utils/experience';
+import { FormField } from '@/components/common/FormField';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
 import { Card } from '@/components/common/Card';
@@ -13,9 +14,9 @@ import { FadeSlideIn } from '@/components/motion/Motion';
 import { acknowledgeMood, createMood, getLatestMoods } from '@/services/backend/mvpFeatures';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
+import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { MoodEntry, MoodValue, NeedValue } from '@/types/database';
-import { moodSupportForNeed } from '@/utils/moodSupport';
 
 const moodLabels: Record<MoodValue, string> = { amazing: '😄 Amazing', good: '🙂 Good', okay: '😐 Okay', low: '😔 Low', frustrated: '😡 Frustrated', overwhelmed: '😫 Overwhelmed', tired: '😴 Tired', stressed: '😰 Stressed' };
 const needLabels: Record<NeedValue, string> = { affection: 'Affection', reassurance: 'Reassurance', advice: 'Advice', listen: 'Listen to me', distraction: 'Distraction', space: 'Space', call: 'Call me', nothing: 'Nothing' };
@@ -25,6 +26,8 @@ function relative(entry: MoodEntry | null) { if (!entry) return ''; const mins =
 export default function MoodScreen() {
   const theme = useAppTheme();
   const { profile, partnerProfile, myColor, partnerColor } = useWorkspace();
+  const [context, setContext] = useState('');
+  const [hours, setHours] = useState('12');
   const [mood, setMood] = useState<MoodValue | null>(null);
   const [need, setNeed] = useState<NeedValue | null>(null);
   const [visibility, setVisibility] = useState<'shared' | 'private'>('shared');
@@ -32,6 +35,7 @@ export default function MoodScreen() {
   const [partner, setPartner] = useState<MoodEntry | null>(null);
   const [busy, setBusy] = useState(false);
   const [ackBusy, setAckBusy] = useState(false);
+  const [acknowledgedId, setAcknowledgedId] = useState<string | null>(null);
   const [, setRelativeTick] = useState(0);
 
   useEffect(() => {
@@ -49,7 +53,7 @@ export default function MoodScreen() {
   async function save() {
     if (!mood || !need) return;
     setBusy(true);
-    try { await createMood({ mood, need, visibility }); setMood(null); setNeed(null); await refresh(); }
+    try { await createMood({ mood, need, visibility, context, validForHours: Number(hours) }); setMood(null); setNeed(null); setContext(''); await refresh(); }
     catch (error) { Alert.alert('Couldn’t save check-in', messageFrom(error)); }
     finally { setBusy(false); }
   }
@@ -67,34 +71,29 @@ export default function MoodScreen() {
   }
 
   const acknowledged = Boolean(partner?.acknowledged_by_me);
-  const partnerSupport = partner ? moodSupportForNeed(partner.need) : null;
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Together" title="Mood check-in" subtitle="Say how you are — and what would actually help." />
+      <BackHeader eyebrow="Connect" title="Mood check-in" subtitle="Say how you are — and what would actually help." />
       <Card participantColor={myColor} style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xxl }}>
         <ParticipantIdentityBadge userId={profile?.id} compact />
-        <View style={{ gap: theme.spacing.sm }}><AppText variant="section">How are you feeling?</AppText><AppText variant="bodySmall" tone="secondary">Choose it deliberately. Nothing is pre-selected for you.</AppText></View>
+        <View style={{ gap: theme.spacing.sm }}><AppText variant="section">How are you feeling?</AppText><AppText variant="bodySmall" tone="secondary">A quick way to let your partner know.</AppText></View>
         <ChoiceChips value={mood} onChange={setMood} options={(Object.keys(moodLabels) as MoodValue[]).map((value) => ({ value, label: moodLabels[value] }))} />
-        <View style={{ gap: theme.spacing.sm }}><AppText variant="section">What do you need?</AppText><AppText variant="bodySmall" tone="secondary">Give your partner something useful to respond to. Togetherly will tailor the response around what you choose.</AppText></View>
+        <View style={{ gap: theme.spacing.sm }}><AppText variant="section">What do you need?</AppText><AppText variant="bodySmall" tone="secondary">Give your partner something useful to respond to.</AppText></View>
         <ChoiceChips value={need} onChange={setNeed} options={(Object.keys(needLabels) as NeedValue[]).map((value) => ({ value, label: needLabels[value] }))} />
+        <FormField label="Anything else? · optional" value={context} onChangeText={setContext} maxLength={300} placeholder="Just letting you know, or could we talk later?" />
+        <AppText variant="bodySmall" tone="secondary">Show this as current for</AppText>
+        <ChoiceChips value={hours} onChange={setHours} options={[{ value: '1', label: '1 hour' }, { value: '4', label: '4 hours' }, { value: '12', label: '12 hours' }, { value: '24', label: '24 hours' }]} />
         <View style={{ gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">VISIBILITY</AppText><ChoiceChips value={visibility} onChange={setVisibility} options={[{ value: 'shared', label: 'Shared' }, { value: 'private', label: 'Private' }]} /></View>
-        <AppButton label={busy ? 'Saving…' : 'Share check-in'} disabled={busy || !mood || !need} onPress={save} />
+        <AppButton label={busy ? 'Saving…' : visibility === 'private' ? 'Save privately' : 'Share check-in'} disabled={busy || !mood || !need} onPress={save} />
       </Card>
 
       <View style={{ gap: theme.spacing.md }}>
         <AppText variant="section">Latest</AppText>
-        {partner && partnerSupport ? <FadeSlideIn><Card participantColor={partnerColor} style={{ gap: theme.spacing.md }}>
-          <View style={{ gap: 7 }}>
-            <ParticipantIdentityBadge userId={partnerProfile?.id} detail={relative(partner)} compact />
-            <AppText variant="section">{moodLabels[partner.mood]}</AppText>
-            <TagChip participantColor={partnerColor} label={`NEEDS: ${needLabels[partner.need].toUpperCase()}`} />
-            <AppText variant="bodySmall" tone="secondary">{partnerSupport.helper}</AppText>
-          </View>
-          {partner.need !== 'nothing' ? <View style={{ gap: theme.spacing.sm }}>
-            <AppButton compact variant={acknowledged ? 'secondary' : 'primary'} label={acknowledged ? partnerSupport.acknowledgedLabel : ackBusy ? 'Sending…' : partnerSupport.actionLabel} disabled={ackBusy || acknowledged} onPress={acknowledge} />
-            {partnerSupport.secondaryHref && partnerSupport.secondaryLabel ? <AppButton compact variant="secondary" label={partnerSupport.secondaryLabel} onPress={() => router.push(partnerSupport.secondaryHref as never)} /> : null}
-          </View> : <AppText variant="bodySmall" tone="muted">No response needed — they just wanted you to know.</AppText>}
+        {partner ? <FadeSlideIn><Card participantColor={partnerColor} style={{ gap: theme.spacing.md }}>
+          <View style={{ gap: 7 }}><ParticipantIdentityBadge userId={partnerProfile?.id} detail={relative(partner)} compact /><AppText variant="section">{moodLabels[partner.mood]}</AppText><TagChip participantColor={partnerColor} label={`NEEDS: ${needLabels[partner.need].toUpperCase()}`} /></View>
+          {partner.context ? <AppText tone="secondary">{partner.context}</AppText> : null}
+          {partner.need !== 'nothing' && moodIsCurrent(partner) ? <AppButton compact variant={acknowledged ? 'secondary' : 'primary'} label={acknowledged ? 'Support sent' : ackBusy ? 'Sending…' : moodResponse(partner.need)} disabled={ackBusy || acknowledged} onPress={acknowledge} /> : <AppText variant="bodySmall" tone="muted">{moodIsCurrent(partner) ? 'No response needed — they just wanted you to know.' : 'An earlier check-in. They may be feeling differently now.'}</AppText>}
         </Card></FadeSlideIn> : <Card tone="secondary"><AppText tone="secondary">{partnerProfile ? `${partnerProfile.display_name} hasn’t shared a check-in yet. Private check-ins never appear here.` : 'Invite your partner to share check-ins together.'}</AppText></Card>}
         {mine ? <Card participantColor={myColor} tone="secondary" style={{ gap: 7 }}><ParticipantIdentityBadge userId={profile?.id} detail={relative(mine)} compact /><AppText variant="cardTitle">{moodLabels[mine.mood]}</AppText><AppText variant="bodySmall" tone="secondary">Needs: {needLabels[mine.need]}{mine.visibility === 'private' ? ' · private' : ''}</AppText></Card> : null}
       </View>

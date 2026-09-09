@@ -51,7 +51,7 @@ export default function CoupleProfileScreen() {
       : { title: 'Delete this couple space?', body: 'This permanently deletes the shared tasks, lists, notes, memories, events, goals, trips, countdowns and activities for both accounts. This cannot be undone.', label: 'Delete space' };
 
   return <AppScreen>
-    <BackHeader eyebrow="More" title="Couple profile" subtitle="Relationship details and settings." />
+    <BackHeader eyebrow="Account" title="Couple profile" subtitle="Relationship details and settings." />
     <Card participantColor="both" style={{ gap: theme.spacing.lg, marginBottom: theme.spacing.xxl }}>
       {/* E3_PAIRED_COUPLE_IDENTITY */}
       <CoupleIdentitySignature detail="Two accounts · one shared relationship space." />

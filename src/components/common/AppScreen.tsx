@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/theme/useAppTheme';
+import { useStaleData } from '@/services/backend/freshness';
+import { AppText } from './AppText';
 import { CosmicBackdrop } from './CosmicBackdrop';
 import { FadeSlideIn } from '@/components/motion/Motion';
 
@@ -19,9 +21,10 @@ type Props = {
 
 export function AppScreen({ children, scroll = true, contentStyle }: Props) {
   const theme = useAppTheme();
+  const stale = useStaleData();
   const [scrollLocked, setScrollLocked] = useState(false);
   const setDrawingScrollLock = useCallback((locked: boolean) => setScrollLocked(locked), []);
-  const content = <FadeSlideIn distance={8}><View style={[styles.content, { paddingHorizontal: theme.spacing.xl }, contentStyle]}>{children}</View></FadeSlideIn>;
+  const content = <FadeSlideIn distance={8}><View style={[styles.content, { paddingHorizontal: theme.spacing.xl }, contentStyle]}>{stale ? <AppText accessibilityLiveRegion="polite" variant="bodySmall" tone="warning" style={{ marginBottom: 12 }}>Some information is unavailable or saved from an earlier visit. It may be out of date.</AppText> : null}{children}</View></FadeSlideIn>;
 
   return (
     <ScreenScrollLockContext.Provider value={setDrawingScrollLock}>

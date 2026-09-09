@@ -1,3 +1,4 @@
+import { registerExperienceRoutes } from './routes/experience.js';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { registerAuthRoutes } from './routes/auth.js';
@@ -86,5 +87,6 @@ export async function buildApp() {
   await registerGameRoutes(app, realtime);
   await registerLocationRoutes(app, realtime);
   await registerWatchRoutes(app, realtime);
+  await registerExperienceRoutes(app, realtime);
   return app;
 }

@@ -30,7 +30,7 @@ export default function MoreScreen() {
 
   return (
     <AppScreen>
-      <PageHeader eyebrow="Your space" title="More" subtitle="The quieter settings and tools behind your shared space." />
+      <PageHeader eyebrow="Your space" title="Account" subtitle="Your profile, preferences, and shared space." />
       <View style={{ gap: theme.spacing.lg }}>
         <Pressable accessibilityRole="button" accessibilityLabel="Open account and profile" onPress={() => router.push('/features/account' as never)}>
           {({ pressed }) => <Card participantColor={myColor} style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, opacity: pressed ? 0.75 : 1 }}>

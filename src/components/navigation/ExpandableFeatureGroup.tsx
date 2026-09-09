@@ -60,6 +60,11 @@ export function ExpandableFeatureGroup({
   const open = expanded ?? localExpanded;
 
   function toggle() {
+    if (items.length === 1 && !children && items[0]) {
+      const item = items[0];
+      if (item.onPress) { item.onPress(); return; }
+      if (item.href) { router.push(item.href as never); return; }
+    }
     const next = !open;
     feedback();
     if (expanded === undefined) setLocalExpanded(next);
@@ -74,9 +79,9 @@ export function ExpandableFeatureGroup({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
+        accessibilityState={items.length === 1 && !children ? undefined : { expanded: open }}
         accessibilityLabel={accessibilityLabel ?? `${title}. ${summary}${status ? `. ${status}` : ''}`}
-        accessibilityHint={accessibilityHint ?? (open ? 'Collapse this section' : 'Expand this section')}
+        accessibilityHint={items.length === 1 && !children ? `Open ${items[0]?.title}` : accessibilityHint ?? (open ? 'Collapse this section' : 'Expand this section')}
         onPress={toggle}
         style={({ pressed }) => ({
           minHeight: 76,
@@ -126,7 +131,7 @@ export function ExpandableFeatureGroup({
           </View>
         ) : null}
 
-        <AppIcon name={open ? 'chevronUp' : 'chevronDown'} size={16} color={theme.colors.textMuted} />
+        <AppIcon name={items.length === 1 && !children ? 'chevron' : open ? 'chevronUp' : 'chevronDown'} size={16} color={theme.colors.textMuted} />
       </Pressable>
 
       {open ? (

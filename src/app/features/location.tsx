@@ -54,7 +54,7 @@ export default function LocationScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Together" title="Live location" />
+      <BackHeader eyebrow="Connect" title="Live location" />
       <View style={{ gap: theme.spacing.lg }}>
         <Card participantColor="both" style={{ gap: theme.spacing.md }}>
           <ToggleRow

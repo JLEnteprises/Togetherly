@@ -61,7 +61,7 @@ export default function PlayTogetherScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Together" title="Play Together" subtitle="A reason to do something at the same time." />
+      <BackHeader eyebrow="Connect" title="Play Together" subtitle="A reason to do something at the same time." />
 
       <Card participantColor="both" tone="accent" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl, overflow: 'hidden' }}>
         <View style={{ alignItems: 'center', marginTop: -10, marginBottom: -14 }}><GentleFloat distance={3}><ConnectionOrbitArt width={235} height={110} /></GentleFloat></View>

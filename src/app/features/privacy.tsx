@@ -9,7 +9,7 @@ export default function PrivacyScreen() {
   const theme = useAppTheme();
   return (
     <AppScreen>
-      <BackHeader eyebrow="More" title="Privacy" subtitle="Choose what stays between you and what only you can see." />
+      <BackHeader eyebrow="Account" title="Privacy" subtitle="Choose what stays between you and what only you can see." />
       <View style={{ gap: theme.spacing.md }}>
         <Card tone="secondary" style={{ gap: 6 }}><AppText variant="cardTitle">🔒 Private notes</AppText><AppText tone="secondary">Only the person who created a private note can read or edit it.</AppText></Card>
         <Card tone="secondary" style={{ gap: 6 }}><AppText variant="cardTitle">🔒 Private check-ins</AppText><AppText tone="secondary">Private check-ins stay visible only to the person who created them. Shared check-ins appear to both of you.</AppText></Card>

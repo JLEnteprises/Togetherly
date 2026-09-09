@@ -1,3 +1,5 @@
+import { router } from 'expo-router';
+import { MemoryReflections } from '@/components/experience/MemoryReflections';
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -94,6 +96,8 @@ export function MemoryDetailModal({
               {(memory.tags ?? []).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}
             </View>
 
+            {memory.source_event_id || memory.source_trip_id ? <AppButton variant="secondary" label="Open the original plan" onPress={() => { onClose(); router.push((memory.source_event_id ? `/features/calendar?focus=${memory.source_event_id}` : `/features/trip-detail?id=${memory.source_trip_id}`) as never); }} /> : null}
+            <MemoryReflections key={memory.id} memoryId={memory.id} />
             {onEdit ? <AppButton variant="secondary" label="Edit memory" onPress={() => onEdit(memory)} /> : null}
           </View>
         </ScrollView>

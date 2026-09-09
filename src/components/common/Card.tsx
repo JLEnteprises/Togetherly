@@ -37,10 +37,7 @@ export function Card({ children, style, tone = 'default', padded = true, partici
           borderLeftColor: ownerPalette.accent,
         } : null,
         sharedOwner ? {
-          borderLeftWidth: 4,
-          borderLeftColor: theme.participants.me.accent,
-          borderRightWidth: 4,
-          borderRightColor: theme.participants.partner.accent,
+          borderColor: theme.colors.border,
         } : null,
         style,
       ]}
@@ -64,8 +61,7 @@ export function Card({ children, style, tone = 'default', padded = true, partici
           pointerEvents="none"
           style={[styles.sharedWash, { borderRadius: Math.max(0, theme.radii.lg - 1) }]}
         >
-          <View style={{ flex: 1, backgroundColor: theme.participants.me.accentSoft }} />
-          <View style={{ flex: 1, backgroundColor: theme.participants.partner.accentSoft }} />
+
           <View style={styles.sharedRail}>
             <View style={{ flex: 1, backgroundColor: theme.participants.me.accent }} />
             <View style={{ flex: 1, backgroundColor: theme.participants.partner.accent }} />

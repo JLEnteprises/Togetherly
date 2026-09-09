@@ -1,3 +1,4 @@
+import { reportFreshness, clearFreshness } from './freshness';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -41,6 +42,7 @@ let refreshPromise: Promise<AuthSession | null> | null = null;
 const sessionListeners = new Set<(session: AuthSession | null) => void>();
 
 type RequestOptions = {
+  cache?: boolean;
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   authenticated?: boolean;
@@ -86,6 +88,7 @@ async function clearCachedResponsesForUser(userId: string) {
 async function persist(next: AuthSession | null) {
   const previousUserId = session?.user?.id ?? null;
   session = next;
+  clearFreshness();
   if (next) {
     const storedSession = Platform.OS === 'web' ? next : sessionForStorage(next);
     await writeStoredValue(JSON.stringify(storedSession));
@@ -145,7 +148,8 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
         return rawRequest<T>(path, { ...options, retryAfterConfig: false });
       }
     }
-    if (authenticated && method === 'GET') {
+    if (authenticated && method === 'GET' && options.cache !== false) {
+      reportFreshness(path, false);
       const cached = await readCachedResponse<T>(path);
       if (cached !== null) return cached;
     }
@@ -158,12 +162,13 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
   }
 
   if (!response.ok) {
+    if (authenticated && method === 'GET') reportFreshness(path, false);
     const payload = await response.json().catch(() => null) as { error?: string } | null;
     throw new ApiClientError(response.status, payload?.error ?? `Request failed (${response.status}).`);
   }
   if (response.status === 204) return undefined as T;
   const payload = await response.json() as T;
-  if (authenticated && method === 'GET') await cacheResponse(path, payload);
+  if (authenticated && method === 'GET') { reportFreshness(path, true); if (options.cache !== false) await cacheResponse(path, payload); }
   return payload;
 }
 

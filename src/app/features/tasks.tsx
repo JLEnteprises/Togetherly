@@ -102,7 +102,7 @@ export default function TasksScreen() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('now');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [viewTarget, setViewTarget] = useState<CoupleTask | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CoupleTask | null>(null);
   const [busy, setBusy] = useState(false);
@@ -185,7 +185,7 @@ export default function TasksScreen() {
       } else {
         await createTask({ ...input, subtasks: draftSteps.map((step) => ({ title: step.title, dueDate: step.dueDate, estimatedMinutes: step.estimatedMinutes })) });
       }
-      resetEditor(); await refresh();
+      setStatusFilter('open'); setAssignmentFilter('all'); resetEditor(); await refresh();
     } catch (error) { Alert.alert(editingId ? 'Couldn’t update task' : 'Couldn’t add task', messageFrom(error)); }
     finally { setBusy(false); }
   }
@@ -270,7 +270,7 @@ export default function TasksScreen() {
         closeLabel={editingId ? 'Cancel edit' : 'Close'}
         tone="accent"
         style={{ marginBottom: theme.spacing.lg }}
-        onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}
+        busy={busy} dirty={Boolean(title.trim() || description.trim() || draftSteps.length)} onDiscard={() => resetEditor()} onToggle={() => setComposerOpen((value) => !value)}
       >
         <FormField label="What needs doing?" value={title} onChangeText={setTitle} placeholder="Book dinner for Saturday" returnKeyType="done" />
         <View style={{ gap: theme.spacing.sm }}><AppText variant="bodySmall" tone="secondary">Who’s doing it?</AppText><ChoiceChips value={assignee} onChange={setAssignee} options={[{ value: 'both', label: 'Both of us' }, { value: 'me', label: profile?.display_name ? `Me · ${profile.display_name}` : 'Me' }, ...(partnerProfile ? [{ value: 'partner' as const, label: partnerProfile.display_name }] : [])]} /></View>
@@ -314,7 +314,7 @@ export default function TasksScreen() {
           return (
             <Card key={task.id} participantColor={assignmentColor} style={{ gap: theme.spacing.md, opacity: done ? 0.68 : 1, borderColor: editingId === task.id ? theme.colors.accent : theme.colors.border }}>
               <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'flex-start' }}>
-                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} onPress={() => setStatus(task, done ? 'not_started' : 'completed')} style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: assignmentPalette?.accent ?? theme.colors.textMuted, backgroundColor: done ? (assignmentPalette?.accentSoft ?? theme.colors.elevatedBackground) : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>{done ? <AppIcon name="check" size={16} color={assignmentPalette?.accent ?? theme.colors.textMuted} /> : null}</Pressable>
+                <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} onPress={() => setStatus(task, done ? 'not_started' : 'completed')} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: assignmentPalette?.accent ?? theme.colors.textMuted, backgroundColor: done ? (assignmentPalette?.accentSoft ?? theme.colors.elevatedBackground) : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>{done ? <AppIcon name="check" size={16} color={assignmentPalette?.accent ?? theme.colors.textMuted} /> : null}</Pressable>
                 <Pressable accessibilityRole="button" onPress={() => setViewTarget(task)} style={{ flex: 1, gap: 6 }}>
                   <AppText variant="cardTitle" style={done ? { textDecorationLine: 'line-through' } : undefined}>{task.title}</AppText>
                   <ParticipantAttribution userId={task.creator_id} />

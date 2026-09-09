@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { router } from 'expo-router';
+import { DataStatus } from '@/components/common/DataStatus';
+import { AppButton } from '@/components/common/AppButton';
 import { View } from 'react-native';
 import { Card } from '@/components/common/Card';
 import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { AppText } from '@/components/common/AppText';
 import { getCountdowns } from '@/services/backend/coreFeatures';
+import { getTrips } from '@/services/backend/mvpFeatures';
 import { getAvailabilityOverlaps } from '@/services/backend/availability';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
-import type { AvailabilityOverlap, CoupleCountdown, LiveLocationMember } from '@/types/database';
+import type { AvailabilityOverlap, CoupleTrip, CoupleCountdown, LiveLocationMember } from '@/types/database';
 import { useLocationSharing } from '@/providers/LocationProvider';
 import { AppIcon } from '@/components/art/AppIcon';
 import { countdownRemaining } from '@/utils/countdown';
@@ -74,13 +78,19 @@ export function LongDistanceOverviewCard() {
   const theme = useAppTheme();
   const { profile, partnerProfile, myColor, partnerColor } = useWorkspace();
   const { members } = useLocationSharing();
-  const [countdown, setCountdown] = useState<CoupleCountdown | null>(null);
+  const [visit, setVisit] = useState<CoupleCountdown | null>(null);
+  const [trip, setTrip] = useState<CoupleTrip | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [overlap, setOverlap] = useState<AvailabilityOverlap | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
-    const [countdownsResult, overlapResult] = await Promise.allSettled([getCountdowns(), getAvailabilityOverlaps(14, 30)]);
-    if (countdownsResult.status === 'fulfilled') setCountdown(countdownsResult.value.find((item) => !countdownRemaining(item.target_at, Date.now()).passed) ?? null);
+    setLoading(true);
+    const [tripsResult, overlapResult, visitsResult] = await Promise.allSettled([getTrips(), getAvailabilityOverlaps(14, 30), getCountdowns()]);
+    setLoading(false); setLoadError(tripsResult.status === 'rejected' || overlapResult.status === 'rejected' || visitsResult.status === 'rejected');
+    if (visitsResult.status === 'fulfilled') setVisit(visitsResult.value.filter((item) => (item.type === 'visit' || item.type === 'flight') && Date.parse(item.target_at) >= Date.now()).sort((a, b) => Date.parse(a.target_at) - Date.parse(b.target_at))[0] ?? null);
+    if (tripsResult.status === 'fulfilled') setTrip(tripsResult.value.filter((item) => item.start_date && new Date(`${item.start_date}T23:59:59`).getTime() >= Date.now()).sort((a, b) => a.start_date!.localeCompare(b.start_date!))[0] ?? null);
     if (overlapResult.status === 'fulfilled') setOverlap(overlapResult.value.overlaps[0] ?? null);
   }, []);
   useEffect(() => { refresh().catch(() => undefined); }, [refresh]);
@@ -88,11 +98,12 @@ export function LongDistanceOverviewCard() {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
+  useRealtimeRefresh('trips', refresh);
   useRealtimeRefresh('countdowns', refresh);
   useRealtimeRefresh('schedules', refresh);
 
   const currentDate = new Date(now);
-  const remaining = countdown ? countdownRemaining(countdown.target_at, now) : null;
+  const remaining = visit ? countdownRemaining(visit.target_at, now) : trip?.start_date ? countdownRemaining(`${trip.start_date}T00:00:00`, now) : null;
   const myMember = members.find((member) => member.userId === profile?.id);
   const partnerMember = members.find((member) => member.userId === partnerProfile?.id);
   const separationKm = useMemo(() => distanceKm(myMember, partnerMember), [myMember?.latitude, myMember?.longitude, partnerMember?.latitude, partnerMember?.longitude]);
@@ -105,6 +116,7 @@ export function LongDistanceOverviewCard() {
 
   return (
     <Card participantColor="both" tone="secondary" style={{ gap: theme.spacing.lg, padding: theme.spacing.lg }}>
+      <DataStatus loading={loading} error={loadError} retry={() => { void refresh(); }} />
       <View style={{ gap: 3 }}>
         <AppText variant="section">Across the distance</AppText>
         <AppText variant="bodySmall" tone="muted">Your two days, in one shared view.</AppText>
@@ -132,16 +144,18 @@ export function LongDistanceOverviewCard() {
 
       <View
         accessible
-        accessibilityLabel={remaining ? `${remaining.days} ${remaining.days === 1 ? 'day' : 'days'} until ${countdown?.title ?? 'you are together'}` : 'No upcoming countdown'}
+        accessibilityLabel={remaining ? `${remaining.days} ${remaining.days === 1 ? 'day' : 'days'} until ${visit?.title ?? trip?.title ?? 'your trip'}` : 'No upcoming countdown'}
         style={{ borderRadius: theme.radii.lg, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.accentSoft, padding: theme.spacing.md, gap: 3 }}
       >
-        <AppText variant="caption" tone="secondary">{countdown ? 'UNTIL YOU’RE TOGETHER' : 'NEXT TIME TOGETHER'}</AppText>
-        <AppText variant="section">{remaining ? `${remaining.days} ${remaining.days === 1 ? 'day' : 'days'}` : 'Nothing planned yet'}</AppText>
-        <AppText variant="bodySmall" tone="secondary">{countdown?.title ?? 'Your next shared countdown will appear here.'}</AppText>
+        <AppText variant="caption" tone="secondary">{visit ? 'NEXT VISIT OR FLIGHT' : 'NEXT TRIP'}</AppText>
+        <AppText variant="section">{loading ? 'Loading…' : loadError ? 'Trip information may be out of date' : remaining ? `${Math.max(0, remaining.days)} ${remaining.days === 1 ? 'day' : 'days'}` : 'Plan your next trip'}</AppText>
+        <AppText variant="bodySmall" tone="secondary">{visit?.title ?? trip?.title ?? 'A visit countdown or your next trip will appear here.'}</AppText>
       </View>
 
       <View style={{ gap: 0 }}>
-        <StatusRow icon="availability" title="Next free together" detail={overlapDetail} />
+        <AppButton compact variant="secondary" label={visit ? "Open visit countdown" : trip ? "Open trip" : "Plan a trip"} onPress={() => router.push((visit ? `/features/countdowns?focus=${visit.id}` : trip ? `/features/trip-detail?id=${trip.id}` : "/features/trips") as never)} />
+        <StatusRow icon="availability" title="Next free together" detail={loading ? 'Loading…' : loadError ? 'Availability could not be refreshed.' : overlapDetail} />
+        <AppButton compact variant="ghost" label="Find time together" onPress={() => router.push('/features/availability')} />
         {anySharing ? (
           <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.border }}>
             <StatusRow

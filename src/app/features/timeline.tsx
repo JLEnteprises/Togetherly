@@ -85,7 +85,7 @@ export default function TimelineScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Us" title="Relationship timeline" subtitle="The moments that became your story." />
+      <BackHeader eyebrow="Our story" title="Relationship timeline" subtitle="The moments that became your story." />
 
       {loading ? <AppText tone="muted">Loading timeline…</AppText> : null}
       {!loading && timeline.length === 0 ? (

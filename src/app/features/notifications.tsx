@@ -28,7 +28,7 @@ function notificationTime(value: string) {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
 }
 
-export default function NotificationsScreen() {
+export function NotificationsScreen({ inboxOnly = false }: { inboxOnly?: boolean }) {
   const theme = useAppTheme();
   const { colorForUser, partnerProfile } = useWorkspace();
   const { preferences, save } = usePreferences();
@@ -40,7 +40,7 @@ export default function NotificationsScreen() {
 
   const refresh = useCallback(async () => {
     try {
-      await refreshScheduledReminders();
+      await refreshScheduledReminders().catch(() => undefined);
       const result = await getNotifications();
       setNotifications(result.notifications);
       setUnreadCount(result.unreadCount);
@@ -110,9 +110,10 @@ export default function NotificationsScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Settings" title="Notifications" subtitle="Updates from your shared space." />
+      <BackHeader title={inboxOnly ? "Inbox" : "Notifications"} subtitle={inboxOnly ? "Updates from your shared space." : "Choose what reaches you."} />
+      {inboxOnly ? <AppButton compact variant="ghost" label="Notification settings" onPress={() => router.push('/features/notifications')} /> : null}
 
-      <Card participantColor="both" tone="secondary" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xl }}>
+      {!inboxOnly ? <><Card participantColor="both" tone="secondary" style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.accentSoft }}><AppIcon name="notification" size={21} color={theme.colors.accent} /></View>
           <View style={{ flex: 1, gap: 2 }}>
@@ -139,7 +140,8 @@ export default function NotificationsScreen() {
         <AppButton compact variant="secondary" label={watch.isSyncing ? 'Syncing…' : 'Refresh Watch state'} disabled={watch.isSyncing} onPress={() => watch.refresh().catch((error) => Alert.alert('Couldn’t sync Watch', messageFrom(error)))} />
       </Card> : null}
 
-      <View style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl }}>
+      </> : null}
+      {inboxOnly ? <View style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <View><AppText variant="section">Inbox</AppText><AppText variant="bodySmall" tone="secondary">{unreadCount} unread</AppText></View>
           {unreadCount > 0 ? <AppButton compact variant="secondary" label="Mark all read" onPress={readAll} /> : null}
@@ -168,7 +170,8 @@ export default function NotificationsScreen() {
         ))}
       </View>
 
-      <Card style={{ gap: theme.spacing.sm }}>
+      : <AppButton compact variant="secondary" label="Open inbox" onPress={() => router.push('/features/inbox' as never)} />}
+      {!inboxOnly ? <Card style={{ gap: theme.spacing.sm }}>
         <AppText variant="section" style={{ marginBottom: theme.spacing.sm }}>What reaches your inbox</AppText>
         <ToggleRow label="Upcoming events" subtitle="Shared changes and events starting within 24 hours." value={preferences.notification_events} onChange={(value) => change({ notificationEvents: value })} />
         <ToggleRow label="Tasks" subtitle="Shared changes and tasks due within 24 hours." value={preferences.notification_tasks} onChange={(value) => change({ notificationTasks: value })} />
@@ -180,7 +183,9 @@ export default function NotificationsScreen() {
         <ToggleRow label="Goal milestones" subtitle="Shared progress plus goals due within seven days." value={preferences.notification_goal_milestones} onChange={(value) => change({ notificationGoalMilestones: value })} />
         <ToggleRow label="New memories" value={preferences.notification_memories} onChange={(value) => change({ notificationMemories: value })} />
         <ToggleRow label="Visit approaching" subtitle="Visit/flight milestones as the date gets closer." value={preferences.notification_visit_approaching} onChange={(value) => change({ notificationVisitApproaching: value })} />
-      </Card>
+      </Card> : null}
     </AppScreen>
   );
 }
+
+export default function NotificationSettingsScreen() { return <NotificationsScreen />; }

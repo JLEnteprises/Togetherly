@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
@@ -21,12 +21,13 @@ import { IconButton } from '@/components/common/IconButton';
 import { MemoryDetailModal } from '@/components/memories/MemoryDetailModal';
 import { MemoryPhotoField } from '@/components/memories/MemoryPhotoField';
 import { PhotoViewer } from '@/components/photos/PhotoViewer';
-import { createMemory, deleteMemory, getMemories, getTags, updateMemory } from '@/services/backend/mvpFeatures';
+import { createMemory, deleteMemory, getMemories, getTags, updateMemory, getEvents, getTrip } from '@/services/backend/mvpFeatures';
 import { getPhotos } from '@/services/backend/photos';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { formatMemoryDate, memoryPhotoCount } from '@/utils/memories';
+import { localDateKey } from '@/utils/experience';
 import type { CoupleMemory, CouplePhoto, Tag } from '@/types/database';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
@@ -37,12 +38,14 @@ type Filter = 'all' | 'milestones' | 'mine' | 'partner';
 // H3_MEMORY_PHOTO_INTEGRATION: Memories link to first-class Photos, can choose existing images, and photo taps open PhotoViewer.
 export default function MemoriesScreen() {
   const theme = useAppTheme();
-  const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
+  const params = useLocalSearchParams<{ focus?: string; edit?: string; sourceEvent?: string; sourceTrip?: string }>();
   const { profile, partnerProfile } = useWorkspace();
 
   const [memories, setMemories] = useState<CoupleMemory[]>([]);
   const [photos, setPhotos] = useState<CouplePhoto[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [source, setSource] = useState<{ event?: string; trip?: string }>({});
+  const hydratedSource = useRef('');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
@@ -99,6 +102,7 @@ export default function MemoriesScreen() {
   );
 
   function resetForm(close = true) {
+    setSource({});
     setEditingId(null);
     setTitle('');
     setDate('');
@@ -114,6 +118,7 @@ export default function MemoriesScreen() {
   }
 
   function beginEdit(memory: CoupleMemory) {
+    setSource({});
     setEditingId(memory.id);
     setTitle(memory.title);
     setDate(memory.memory_date);
@@ -160,6 +165,28 @@ export default function MemoriesScreen() {
     if (target) beginEdit(target);
   }, [params.edit, memories, editingId]);
 
+  useEffect(() => {
+    const key = params.sourceEvent || params.sourceTrip || '';
+    if (!key || hydratedSource.current === key) return;
+    let active = true;
+    async function loadSource() {
+      try {
+        if (params.sourceEvent) {
+          const event = (await getEvents()).find((item) => item.id === params.sourceEvent);
+          if (!event) throw new Error('The calendar event is no longer available.');
+          if (!active) return;
+          setTitle(event.title); setDate(event.start_date || localDateKey(new Date(event.start_at))); setLocation(event.location || ''); setSource({ event: event.id });
+        } else if (params.sourceTrip) {
+          const { trip } = await getTrip(params.sourceTrip);
+          if (!active) return;
+          setTitle(trip.title); setDate(trip.start_date || localDateKey()); setLocation(trip.destination || ''); setSource({ trip: trip.id });
+        }
+        hydratedSource.current = key; setComposerOpen(true);
+      } catch (error) { if (active) Alert.alert('Couldn’t open the plan', messageFrom(error)); }
+    }
+    void loadSource(); return () => { active = false; };
+  }, [params.sourceEvent, params.sourceTrip]);
+
   async function save() {
     if (!title.trim() || !date) {
       Alert.alert('Check the memory', 'Add a title and choose a date.');
@@ -169,6 +196,8 @@ export default function MemoriesScreen() {
     setBusy(true);
     try {
       const input = {
+        sourceEventId: source.event,
+        sourceTripId: source.trip,
         title: title.trim(),
         memoryDate: date,
         description,
@@ -224,7 +253,7 @@ export default function MemoriesScreen() {
   }
 
   return <AppScreen>
-    <BackHeader eyebrow="Us" title="Memories" subtitle="The moments you chose to keep, all in one place." />
+    <BackHeader eyebrow="Our story" title="Memories" subtitle="The moments you chose to keep, all in one place." />
 
     <ComposerSheet
       title={editingId ? 'Edit memory' : 'Add a memory'}
@@ -234,7 +263,7 @@ export default function MemoriesScreen() {
       closeLabel={editingId ? 'Cancel edit' : 'Close'}
       tone="accent"
       style={{ marginBottom: theme.spacing.lg }}
-      onToggle={() => composerOpen ? resetForm() : setComposerOpen(true)}
+      dirty={Boolean(title || description || uploadUrls.length || selectedPhotoIds.length)} onDiscard={() => resetForm()} busy={busy} onToggle={() => setComposerOpen(!composerOpen)}
     >
       <FormField label="What happened?" value={title} onChangeText={setTitle} placeholder="First meeting" />
       <DatePickerField label="When was it?" value={date} onChange={setDate} />

@@ -1,3 +1,4 @@
+import { PlanToday } from '@/components/experience/PlanToday';
 import { View } from 'react-native';
 import { AppScreen } from '@/components/common/AppScreen';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -12,6 +13,7 @@ export default function PlanScreen() {
     <AppScreen>
       <PageHeader eyebrow="Shared life" title="Plan" subtitle="The practical bits of life you’re building together." />
       <View style={{ gap: theme.spacing.lg }}>
+        <PlanToday />
         <PlanHubGroups />
       </View>
     </AppScreen>

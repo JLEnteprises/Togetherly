@@ -69,7 +69,7 @@ export function deleteTrip(id: string) { return apiRequest<void>(`/trips/${id}`,
 
 export async function getMemories() { return (await apiRequest<{ memories: CoupleMemory[] }>('/memories')).memories; }
 // H3_MEMORY_PHOTO_INTEGRATION: Memories can link existing first-class Photos and create new standalone Photos in the same save.
-export async function createMemory(input: { title: string; description?: string; memoryDate: string; location?: string; isMilestone?: boolean; emoji?: string; photoUrl?: string | null; photoIds?: string[]; photoUrls?: string[]; tagIds?: string[] }) {
+export async function createMemory(input: { sourceEventId?: string; sourceTripId?: string; title: string; description?: string; memoryDate: string; location?: string; isMilestone?: boolean; emoji?: string; photoUrl?: string | null; photoIds?: string[]; photoUrls?: string[]; tagIds?: string[] }) {
   return (await apiRequest<{ memory: CoupleMemory }>('/memories', { method: 'POST', body: input })).memory;
 }
 export async function updateMemory(id: string, input: Partial<{ title: string; description: string; memoryDate: string; location: string; isMilestone: boolean; emoji: string; photoUrl: string | null; photoIds: string[]; photoUrls: string[]; tagIds: string[] }>) {
@@ -120,7 +120,7 @@ export async function getDailyQuestionHistory(limit = 60) { return (await apiReq
 export async function answerDailyQuestion(questionId: string, answer: string) { return apiRequest<{ answer: unknown }>('/daily-question/answer', { method: 'POST', body: { questionId, answer } }); }
 export async function updateDailyQuestionSettings(disabledCategories: string[]) { return apiRequest<{ disabledCategories: string[] }>('/daily-question/settings', { method: 'PATCH', body: { disabledCategories } }); }
 export async function getLatestMoods() { return apiRequest<{ mine: MoodEntry | null; partner: MoodEntry | null }>('/moods/latest'); }
-export async function createMood(input: { mood: MoodValue; need: NeedValue; visibility: 'shared' | 'private' }) { return (await apiRequest<{ mood: MoodEntry }>('/moods', { method: 'POST', body: input })).mood; }
+export async function createMood(input: { context?: string; validForHours?: number; mood: MoodValue; need: NeedValue; visibility: 'shared' | 'private' }) { return (await apiRequest<{ mood: MoodEntry }>('/moods', { method: 'POST', body: input })).mood; }
 export function acknowledgeMood(moodId: string) { return apiRequest<{ ok: true }>(`/moods/${moodId}/acknowledge`, { method: 'POST' }); }
 
 export async function getTags() { return (await apiRequest<{ tags: Tag[] }>('/tags')).tags; }

@@ -1,5 +1,6 @@
+import { DataStatus } from '@/components/common/DataStatus';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppIcon, type AppIconName } from '@/components/art/AppIcon';
 import { AppText } from '@/components/common/AppText';
@@ -58,14 +59,6 @@ function sameMonthAndDay(date: string, now = new Date()) {
     && Number(parts[0]) < now.getFullYear();
 }
 
-function aroundThisWeek(date: string, now = new Date()) {
-  const parts = date.split('-');
-  if (parts.length !== 3 || Number(parts[0]) >= now.getFullYear()) return false;
-  const thisYear = new Date(now.getFullYear(), Number(parts[1]) - 1, Number(parts[2]), 12);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
-  return Math.abs(thisYear.getTime() - today.getTime()) <= 3 * 86_400_000;
-}
-
 function StorySummaryCard({
   icon,
   title,
@@ -118,34 +111,37 @@ function StorySummaryCard({
 }
 
 // G5_US_STORY_CONSOLIDATION: Us owns the relationship-story navigation layer; Memories itself stays focused on memory entries.
-// CONTEXT_COMPOUNDING: rediscovery now surfaces nearby anniversaries instead of waiting for an exact-date match, and refreshes stay domain-specific.
 export function UsStoryDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [memories, setMemories] = useState<CoupleMemory[]>([]);
   const [photos, setPhotos] = useState<CouplePhoto[]>([]);
   const [photoAlbums, setPhotoAlbums] = useState<PhotoAlbum[]>([]);
   const [timeline, setTimeline] = useState<TimelineSummary | null>(null);
 
-  const refreshStory = useCallback(async () => {
-    const [memoryResult, timelineResult] = await Promise.allSettled([getMemories(), getTimeline()]);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const [memoryResult, photoResult, albumResult, timelineResult] = await Promise.allSettled([
+      getMemories(),
+      getPhotos(),
+      getPhotoAlbums(),
+      getTimeline(),
+    ]);
+
+    setLoading(false); setLoadError([memoryResult, photoResult, albumResult, timelineResult].some((result) => result.status === 'rejected'));
     if (memoryResult.status === 'fulfilled') setMemories(memoryResult.value);
-    if (timelineResult.status === 'fulfilled') setTimeline(timelineResult.value);
-  }, []);
-  const refreshPhotos = useCallback(async () => {
-    const [photoResult, albumResult] = await Promise.allSettled([getPhotos(), getPhotoAlbums()]);
     if (photoResult.status === 'fulfilled') setPhotos(photoResult.value);
     if (albumResult.status === 'fulfilled') setPhotoAlbums(albumResult.value);
+    if (timelineResult.status === 'fulfilled') setTimeline(timelineResult.value);
   }, []);
-  const refreshAll = useCallback(async () => {
-    await Promise.allSettled([refreshStory(), refreshPhotos()]);
-  }, [refreshPhotos, refreshStory]);
 
   useEffect(() => {
-    refreshAll().catch(() => undefined);
-  }, [refreshAll]);
+    refresh().catch(() => undefined);
+  }, [refresh]);
 
-  useRealtimeRefresh('memories', refreshStory);
-  // H2_STANDALONE_PHOTO_GALLERY: the Us summary reflects the same first-class Photos data as the Photos screen.
-  useRealtimeRefresh('photos', refreshPhotos);
+  useRealtimeRefresh('memories', refresh);
+  // H2_STANDALONE_PHOTO_GALLERY: the Us summary now reflects the same first-class Photos data as the Photos screen.
+  useRealtimeRefresh('photos', refresh);
 
   const sortedMemories = useMemo(
     () => [...memories].sort((a, b) => b.memory_date.localeCompare(a.memory_date)),
@@ -154,10 +150,6 @@ export function UsStoryDashboard() {
   const latest = sortedMemories[0] ?? null;
   const onThisDay = useMemo(
     () => sortedMemories.find((memory) => sameMonthAndDay(memory.memory_date)) ?? null,
-    [sortedMemories],
-  );
-  const aroundNow = useMemo(
-    () => sortedMemories.find((memory) => !sameMonthAndDay(memory.memory_date) && aroundThisWeek(memory.memory_date)) ?? null,
     [sortedMemories],
   );
   const photoCount = photos.length;
@@ -175,24 +167,6 @@ export function UsStoryDashboard() {
         subtitle: `${onThisDay.emoji} ${onThisDay.title} · ${onThisDay.memory_date.slice(0, 4)}`,
         href: `/features/memories?focus=${encodeURIComponent(onThisDay.id)}`,
       });
-    } else if (aroundNow) {
-      items.push({
-        key: 'around-this-time',
-        icon: 'timeline',
-        title: 'Around this time',
-        subtitle: `${aroundNow.emoji} ${aroundNow.title} · ${aroundNow.memory_date.slice(0, 4)}`,
-        href: `/features/memories?focus=${encodeURIComponent(aroundNow.id)}`,
-      });
-    }
-
-    if (latest) {
-      items.push({
-        key: 'latest-story',
-        icon: 'memory',
-        title: 'Your latest chapter',
-        subtitle: `${latest.emoji} ${latest.title} · ${relativeMemoryDate(latest.memory_date) ?? 'recently'}`,
-        href: `/features/memories?focus=${encodeURIComponent(latest.id)}`,
-      });
     }
 
     items.push({
@@ -203,8 +177,9 @@ export function UsStoryDashboard() {
       href: '/features/memory-jar',
     });
 
+    items.push({ key: 'capsules', icon: 'heart', title: 'Open together', subtitle: 'Notes and photos saved for a future moment', href: '/features/time-capsules' });
     return items;
-  }, [aroundNow, latest, onThisDay]);
+  }, [onThisDay]);
 
   const memorySummary = memories.length
     ? `${memories.length} ${memories.length === 1 ? 'memory' : 'memories'} · latest ${relativeMemoryDate(latest?.memory_date) ?? 'saved'}`
@@ -213,19 +188,26 @@ export function UsStoryDashboard() {
   const photoSummary = `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'} · ${photoAlbums.length} ${photoAlbums.length === 1 ? 'album' : 'albums'}`;
   const timelineSummary = `${milestoneCount} ${milestoneCount === 1 ? 'milestone' : 'milestones'}${age ? ` · ${age} together` : ''}`;
   const rediscoverSummary = onThisDay
-    ? `On this day: ${onThisDay.title} · your latest chapter · Memory Jar`
-    : aroundNow
-      ? `Around this time: ${aroundNow.title} · your latest chapter`
-      : memories.length
-        ? 'Your latest chapter · Memory Jar · old moments will resurface around their dates'
-        : 'Rediscovery tools will grow with your story';
+    ? `On this day: ${onThisDay.title} · Memory Jar`
+    : memories.length
+      ? 'Memory Jar · On This Day when a date comes around'
+      : 'Rediscovery tools will grow with your story';
 
   return (
     <View style={{ gap: 12 }}>
+      <DataStatus loading={loading} error={loadError} retry={() => { void refresh(); }} />
+      {!loading && latest ? <Pressable accessibilityRole="button" accessibilityLabel={`Open memory: ${latest.title}`} onPress={() => router.push(`/features/memories?focus=${latest.id}` as never)}>
+        <Card style={{ gap: 10 }}>
+          {(latest.photo_url || latest.photos?.[0]?.media_url) ? <Image source={{ uri: latest.photo_url || latest.photos?.[0]?.media_url || '' }} accessibilityLabel={latest.title} style={{ width: '100%', height: 240, borderRadius: 16 }} resizeMode="cover" /> : null}
+          <AppText variant="caption" tone="secondary">{onThisDay?.id === latest.id ? 'ON THIS DAY' : 'OUR LATEST MOMENT'}</AppText>
+          <AppText variant="section">{latest.emoji} {latest.title}</AppText>
+          {latest.description ? <AppText tone="secondary" numberOfLines={3}>{latest.description}</AppText> : null}
+        </Card>
+      </Pressable> : null}
       <StorySummaryCard
         icon="memory"
         title="Memories"
-        summary={memorySummary}
+        summary={loading ? 'Loading…' : loadError ? 'Some information unavailable' : memorySummary}
         status={memories.length ? String(memories.length) : undefined}
         href="/features/memories"
       />
@@ -233,7 +215,7 @@ export function UsStoryDashboard() {
       <StorySummaryCard
         icon="photo"
         title="Photos"
-        summary={photoSummary}
+        summary={loading ? 'Loading…' : loadError ? 'Some information unavailable' : photoSummary}
         status={photoCount ? String(photoCount) : undefined}
         href="/features/photos"
       />
@@ -241,7 +223,7 @@ export function UsStoryDashboard() {
       <StorySummaryCard
         icon="timeline"
         title="Timeline"
-        summary={timelineSummary}
+        summary={loading ? 'Loading…' : loadError ? 'Some information unavailable' : timelineSummary}
         status={milestoneCount ? String(milestoneCount) : undefined}
         href="/features/timeline"
       />
@@ -250,7 +232,7 @@ export function UsStoryDashboard() {
         eyebrow="REDISCOVER"
         icon="jar"
         title="Rediscover"
-        summary={rediscoverSummary}
+        summary={loading ? 'Loading…' : loadError ? 'Some information unavailable' : rediscoverSummary}
         items={rediscoverItems}
         participantColor="both"
       />

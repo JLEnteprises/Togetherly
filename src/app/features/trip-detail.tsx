@@ -276,6 +276,7 @@ export default function TripDetailScreen() {
         </View>
       ) : null}
 
+      {trip.start_date && new Date(`${trip.end_date || trip.start_date}T23:59:59`).getTime() < Date.now() ? <View style={{ marginBottom: 16 }}><AppButton label="Keep a little of this trip" onPress={() => router.push(`/features/memories?sourceTrip=${trip.id}` as never)} /></View> : null}
       <View style={{ marginBottom: theme.spacing.md }}>
         <AppButton label={manageOpen ? 'Done managing trip' : '+ Add to trip'} variant={manageOpen ? 'secondary' : 'primary'} onPress={() => { setManageOpen((value) => !value); if (manageOpen) setLinkerOpen(false); }} />
       </View>

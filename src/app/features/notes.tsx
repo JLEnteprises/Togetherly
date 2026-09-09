@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
@@ -94,7 +95,11 @@ function SharedNotePresence({
 export default function NotesScreen() {
   const theme = useAppTheme();
   const params = useLocalSearchParams<{ focus?: string; edit?: string }>();
-  const { colorForUser, profile } = useWorkspace();
+  const { colorForUser, profile, couple } = useWorkspace();
+  const draftKey = `togetherly:note-draft:${profile?.id}:${couple?.id}`;
+  const draftWrite = useRef<Promise<void>>(Promise.resolve());
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [draftError, setDraftError] = useState(false);
   const [notes, setNotes] = useState<CoupleNote[]>([]); const [tags, setTags] = useState<Tag[]>([]); const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null); const [selectedUpdatedAt, setSelectedUpdatedAt] = useState<string | null>(null); const [title, setTitle] = useState(''); const [body, setBody] = useState(''); const [visibility, setVisibility] = useState<'shared' | 'private'>('shared'); const [pinned, setPinned] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false); const [detailsOpen, setDetailsOpen] = useState(false); const [filter, setFilter] = useState<Filter>('all'); const [viewTarget, setViewTarget] = useState<CoupleNote | null>(null); const [deleteTarget, setDeleteTarget] = useState<CoupleNote | null>(null); const [deleteOpen, setDeleteOpen] = useState(false); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(true);
@@ -128,12 +133,49 @@ export default function NotesScreen() {
   );
   const partnerNoteMode: 'view' | 'edit' = partnerScope?.endsWith(':edit') ? 'edit' : 'view';
 
+  function persistDraft() {
+    const value = JSON.stringify({ selectedId, selectedUpdatedAt, title, body, visibility, pinned, selectedTagIds });
+    draftWrite.current = draftWrite.current.catch(() => undefined).then(() => AsyncStorage.setItem(draftKey, value));
+    return draftWrite.current;
+  }
+  useEffect(() => {
+    if (!composerOpen || busy || (!title.trim() && !body.trim())) return;
+    setDraftSaved(false);
+    const timer = setTimeout(() => {
+      persistDraft().then(() => { setDraftSaved(true); setDraftError(false); }).catch(() => setDraftError(true));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [composerOpen, busy, title, body, visibility, pinned, selectedTagIds, selectedId, selectedUpdatedAt, draftKey]);
+
+  async function closeDraft() {
+    if (busy) return;
+    try {
+      if (title.trim() || body.trim()) await persistDraft();
+      else { await draftWrite.current.catch(() => undefined); await AsyncStorage.removeItem(draftKey); }
+      setComposerOpen(false);
+    } catch { Alert.alert('Draft not saved', 'Keep this note open and try again.'); }
+  }
+  async function openDraft() {
+    try {
+      const raw = await AsyncStorage.getItem(draftKey);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (typeof draft.title === 'string' && typeof draft.body === 'string') {
+          setSelectedId(draft.selectedId ?? null); setSelectedUpdatedAt(draft.selectedUpdatedAt ?? null);
+          setTitle(draft.title); setBody(draft.body); setVisibility(draft.visibility === 'private' ? 'private' : 'shared');
+          setPinned(draft.pinned === true); setSelectedTagIds(Array.isArray(draft.selectedTagIds) ? draft.selectedTagIds : []);
+        }
+      }
+      setComposerOpen(true);
+    } catch { Alert.alert('Couldn’t open your draft', 'Please try again. Your saved draft has not been removed.'); }
+  }
+  function discardDraft() { draftWrite.current.catch(() => undefined).then(() => AsyncStorage.removeItem(draftKey)).then(() => resetEditor()).catch(() => Alert.alert('Couldn’t discard draft', 'Please try again.')); }
   function resetEditor(close = true) { setSelectedId(null); setSelectedUpdatedAt(null); setTitle(''); setBody(''); setVisibility('shared'); setPinned(false); setSelectedTagIds([]); setDetailsOpen(false); if (close) setComposerOpen(false); }
   function select(note: CoupleNote) { setSelectedId(note.id); setSelectedUpdatedAt(note.updated_at); setTitle(note.title); setBody(note.body); setVisibility(note.visibility); setPinned(note.pinned); setSelectedTagIds((note.tags ?? []).map((tag) => tag.id)); setDetailsOpen(true); setComposerOpen(true); }
   useEffect(() => { if (!params.focus || !notes.length) return; const focused = notes.find((note) => note.id === params.focus); if (focused) setViewTarget(focused); }, [params.focus, notes]);
   useEffect(() => { if (!params.edit || selectedId === params.edit || !notes.length) return; const target = notes.find((note) => note.id === params.edit); if (target) select(target); }, [params.edit, notes, selectedId]);
 
-  async function save() { if (!title.trim()) return; setBusy(true); try { if (selectedId) await updateNote(selectedId, { title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds, updatedAt: selectedUpdatedAt ?? undefined }); else await createNote({ title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds }); resetEditor(); await refresh(); } catch (error) { Alert.alert('Couldn’t save note', messageFrom(error)); } finally { setBusy(false); } }
+  async function save() { if (!title.trim()) return; setBusy(true); try { if (selectedId) await updateNote(selectedId, { title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds, updatedAt: selectedUpdatedAt ?? undefined }); else await createNote({ title: title.trim(), body, visibility, pinned, tagIds: selectedTagIds }); await draftWrite.current.catch(() => undefined); await AsyncStorage.removeItem(draftKey).catch(() => Alert.alert('Note saved', 'The saved draft could not be cleared on this device.')); resetEditor(); await refresh(); } catch (error) { Alert.alert('Couldn’t save note', messageFrom(error)); } finally { setBusy(false); } }
   async function removeConfirmed() { const target = deleteTarget ?? selectedNote; if (!target) return; setDeleteOpen(false); setDeleteTarget(null); setBusy(true); try { await deleteNote(target.id); setNotes((current) => current.filter((note) => note.id !== target.id)); if (selectedId === target.id) resetEditor(); if (viewTarget?.id === target.id) setViewTarget(null); } catch (error) { Alert.alert('Couldn’t delete note', messageFrom(error)); } finally { setBusy(false); } }
   function openNoteMenu(note: CoupleNote) {
     Alert.alert(note.title, 'Choose what to do.', [
@@ -146,21 +188,21 @@ export default function NotesScreen() {
   return <AppScreen>
     <BackHeader eyebrow="Plan" title="Notes" subtitle="Saved writing you want to keep. Scratchpad stays quick and shared." />
     <View style={{ marginBottom: theme.spacing.lg }}><FeatureGroupCard title="Scratchpad" items={noteTools} /></View>
-    <ComposerSheet title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="Add note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} onToggle={() => composerOpen ? resetEditor() : setComposerOpen(true)}>
+    <ComposerSheet title={selectedId ? 'Edit note' : 'Notes'} subtitle={selectedId ? 'Private notes remain private to their creator.' : `${notes.length} saved`} open={composerOpen} actionLabel="Add note" closeLabel={selectedId ? 'Cancel edit' : 'Close'} tone={visibility === 'private' ? 'secondary' : 'accent'} style={{ marginBottom: theme.spacing.lg }} busy={busy} dirty={Boolean(title.trim() || body.trim())} onDiscard={discardDraft} onToggle={() => { if (composerOpen) void closeDraft(); else void openDraft(); }}>
       {editingSharedNote && partnerOnSameNote ? <SharedNotePresence partnerName={livePartnerName} partnerMode={partnerNoteMode} /> : null}
+      {draftError ? <AppText variant="bodySmall" tone="warning">Your draft couldn’t be saved on this device. Keep the editor open and try saving the note.</AppText> : draftSaved ? <AppText variant="caption" tone="muted">Draft saved on this device</AppText> : null}
       <FormField label="What is this note about?" value={title} onChangeText={setTitle} placeholder="Flight details" />
       <FormField label="Write it down" value={body} onChangeText={setBody} placeholder="Keep the useful bits in one place…" multiline />
-      <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add note options" openLabel="Hide note options" hint="Privacy, pinning and tags." />
+      <View style={{ gap: theme.spacing.sm }}>
+        <AppText variant="bodySmall" tone="secondary">Who can see this?</AppText>
+        <ChoiceChips value={visibility} onChange={setVisibility} options={canMakePrivate ? [{ value: 'shared' as const, label: 'Both of us' }, { value: 'private' as const, label: 'Only me' }] : [{ value: 'shared' as const, label: 'Both of us' }]} />
+      </View>
+      <DetailsToggle open={detailsOpen} onToggle={() => setDetailsOpen((value) => !value)} closedLabel="Add note options" openLabel="Hide note options" hint="Pinning and tags." />
       {detailsOpen ? <View style={{ gap: theme.spacing.lg }}>
-        <View style={{ gap: theme.spacing.sm }}>
-          <AppText variant="bodySmall" tone="secondary">Who can see this?</AppText>
-          <ChoiceChips value={visibility} onChange={setVisibility} options={canMakePrivate ? [{ value: 'shared' as const, label: '♥ Shared' }, { value: 'private' as const, label: '🔒 Private to me' }] : [{ value: 'shared' as const, label: '♥ Shared' }]} />
-          {!canMakePrivate ? <AppText variant="caption" tone="muted">Only the person who created a shared note can make it private.</AppText> : null}
-        </View>
         <TagSelector tags={tags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} />
         <Pressable accessibilityRole="button" onPress={() => setPinned((value) => !value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: pinned ? theme.colors.secondaryAccent : theme.colors.border, backgroundColor: pinned ? theme.colors.secondarySoft : 'transparent', alignItems: 'center', justifyContent: 'center' }}><AppText variant="caption" tone="secondary">{pinned ? '✓' : ''}</AppText></View><AppText variant="bodySmall" tone="secondary">Pin this note to the top</AppText></Pressable>
       </View> : null}
-      <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : selectedId ? 'Save changes' : 'Add note'} disabled={busy || !title.trim()} onPress={save} /></View>{selectedId ? <AppButton compact label="Delete" variant="danger" disabled={busy} onPress={() => { if (selectedNote) setDeleteTarget(selectedNote); setDeleteOpen(true); }} /> : null}</View>
+      <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}><View style={{ flex: 1 }}><AppButton label={busy ? 'Saving…' : visibility === 'private' ? 'Save privately' : selectedId ? 'Save shared changes' : 'Save for both of us'} disabled={busy || !title.trim()} onPress={save} /></View>{selectedId ? <AppButton compact label="Delete" variant="danger" disabled={busy} onPress={() => { if (selectedNote) setDeleteTarget(selectedNote); setDeleteOpen(true); }} /> : null}</View>
     </ComposerSheet>
     <Card tone="secondary" style={{ marginBottom: theme.spacing.xxl, gap: theme.spacing.sm }}><AppText variant="caption" tone="secondary">FILTER</AppText><ChoiceChips value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All' }, { value: 'shared', label: 'Shared' }, { value: 'private', label: 'Private' }, { value: 'pinned', label: 'Pinned' }]} /></Card>
     <View style={{ gap: theme.spacing.md }}>
@@ -173,7 +215,7 @@ export default function NotesScreen() {
         body={notes.length ? 'Your notes are still saved. This filter just has nothing in it yet.' : 'Notes are for the details you will want to find again — not everything has to become a task.'}
         tip={notes.length ? 'Go back to All, then pin the notes you reach for most often.' : 'Try flight details, an address, a gift idea, or something your partner said you want to remember.'}
         actionLabel={notes.length ? 'Show all notes' : 'Add a note'}
-        onAction={notes.length ? () => setFilter('all') : () => setComposerOpen(true)}
+        onAction={notes.length ? () => setFilter('all') : () => { void openDraft(); }}
       /> : null}
       {visible.map((note) => {
         const creatorColor = colorForUser(note.creator_id);

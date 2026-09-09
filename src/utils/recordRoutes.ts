@@ -20,6 +20,8 @@ export function recordHref(type: SearchResult['type'], id: string) {
 
 export function notificationHref(entityType: string | null, entityId: string | null) {
   if (!entityType) return null;
+  if (entityType === 'date_proposal') return '/features/date-plans';
+  if (entityType === 'time_capsule') return '/features/time-capsules';
   if (entityType === 'question') return '/features/daily-question';
   if (entityType === 'mood') return '/features/mood';
   if (entityType === 'relationship_ping') return '/(tabs)/together';

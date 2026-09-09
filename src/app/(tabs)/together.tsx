@@ -4,7 +4,6 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { PartnerPresencePill } from '@/components/common/PartnerPresencePill';
 import { CoupleIdentitySignature } from '@/components/common/CoupleIdentitySignature';
 import { HomeConnectionActions } from '@/components/dashboard/HomeConnectionActions';
-import { RightNowActivityCard } from '@/components/together/RightNowActivityCard';
 import { TogetherHubGroups } from '@/components/together/TogetherHubGroups';
 import { useAppTheme } from '@/theme/useAppTheme';
 
@@ -14,15 +13,14 @@ export default function TogetherScreen() {
 
   return (
     <AppScreen>
-      <PageHeader eyebrow="Right now" title="Together" subtitle="The part of your space for actually being together." />
+      <PageHeader eyebrow="Right now" title="Connect" subtitle="A little time for the two of you." />
 
       <View style={{ gap: theme.spacing.lg }}>
         {/* E3_PAIRED_COUPLE_IDENTITY */}
-        <CoupleIdentitySignature detail="A space for the two of you to be present together." />
+
         <PartnerPresencePill scope="together" />
 
         <HomeConnectionActions context="together" />
-        <RightNowActivityCard />
         <TogetherHubGroups />
       </View>
     </AppScreen>

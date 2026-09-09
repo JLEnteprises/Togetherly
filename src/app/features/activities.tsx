@@ -104,7 +104,7 @@ export default function ActivitiesScreen() {
   }
 
   return <AppScreen>
-    <BackHeader eyebrow="Together" title="Date ideas" subtitle="Keep the ideas. Surface the one you might actually do." />
+    <BackHeader eyebrow="Connect" title="Date ideas" subtitle="Keep the ideas. Surface the one you might actually do." />
       <PartnerPresencePill scope="date-ideas" />
     <View style={{ flexDirection: 'row', gap: theme.spacing.sm, marginBottom: theme.spacing.lg, alignItems: 'center' }}>
       <View style={{ flex: 1 }}><AppButton compact label="Pick one for us" onPress={() => router.push('/features/activity-randomizer' as never)} /></View>
