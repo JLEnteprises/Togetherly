@@ -1,10 +1,12 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppText } from './AppText';
+import { EyebrowText } from './EyebrowText';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { useInteractionFeedback } from '@/hooks/useInteractionFeedback';
 import { AppIcon } from '@/components/art/AppIcon';
 
+// E4_FINAL_VISUAL_CONSISTENCY: detail headers share the same eyebrow treatment as top-level pages.
 export function BackHeader({ eyebrow, title, subtitle, onBack }: { eyebrow?: string; title: string; subtitle?: string; onBack?: () => void }) {
   const theme = useAppTheme();
   const feedback = useInteractionFeedback();
@@ -20,7 +22,7 @@ export function BackHeader({ eyebrow, title, subtitle, onBack }: { eyebrow?: str
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><AppIcon name="back" size={16} color={theme.colors.accent} /><AppText tone="accent">Back</AppText></View>
       </Pressable>
       <View style={{ gap: theme.spacing.xs }}>
-        {eyebrow ? <AppText variant="caption" tone="accent">{eyebrow.toUpperCase()}</AppText> : null}
+        {eyebrow ? <EyebrowText>{eyebrow}</EyebrowText> : null}
         <AppText variant="pageTitle" accessibilityRole="header">{title}</AppText>
         {subtitle ? <AppText tone="secondary">{subtitle}</AppText> : null}
       </View>

@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
+import { EyebrowText } from '@/components/common/EyebrowText';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { AppIcon, isAppIconName } from '@/components/art/AppIcon';
 
@@ -20,6 +21,7 @@ type Props = {
   accent?: boolean;
 };
 
+// E4_FINAL_VISUAL_CONSISTENCY: grouped navigation shares one visual hierarchy and touch rhythm.
 export function FeatureGroupCard({ eyebrow, title, subtitle, items, accent = false }: Props) {
   const theme = useAppTheme();
 
@@ -27,7 +29,7 @@ export function FeatureGroupCard({ eyebrow, title, subtitle, items, accent = fal
     <>
       <View style={{ gap: 4, paddingHorizontal: accent ? 0 : 2 }}>
         {eyebrow ? (
-          <AppText variant="caption" tone={accent ? 'accent' : 'secondary'}>{eyebrow}</AppText>
+          <EyebrowText tone={accent ? 'accent' : 'secondary'}>{eyebrow}</EyebrowText>
         ) : null}
         <AppText variant="section">{title}</AppText>
         {subtitle ? <AppText variant="bodySmall" tone="secondary">{subtitle}</AppText> : null}
@@ -48,7 +50,7 @@ export function FeatureGroupCard({ eyebrow, title, subtitle, items, accent = fal
             accessibilityLabel={`${item.title}. ${item.subtitle}`}
             onPress={() => router.push(item.href as never)}
             style={({ pressed }) => ({
-              minHeight: accent ? 58 : 56,
+              minHeight: 58,
               flexDirection: 'row',
               alignItems: 'center',
               gap: theme.spacing.md,
@@ -56,28 +58,28 @@ export function FeatureGroupCard({ eyebrow, title, subtitle, items, accent = fal
               paddingVertical: accent ? 10 : 11,
               borderTopWidth: index === 0 ? 0 : 1,
               borderTopColor: theme.colors.border,
-              backgroundColor: pressed && !accent ? theme.colors.elevatedBackground : 'transparent',
-              borderRadius: pressed && !accent ? theme.radii.sm : 0,
+              backgroundColor: pressed ? theme.colors.elevatedBackground : 'transparent',
+              borderRadius: pressed ? theme.radii.sm : 0,
               opacity: pressed ? 0.72 : 1,
             })}
           >
             <View
               style={{
-                width: accent ? 36 : 32,
-                height: accent ? 36 : 32,
-                borderRadius: accent ? 12 : 11,
+                width: 36,
+                height: 36,
+                borderRadius: 12,
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor: accent ? theme.colors.elevatedBackground : theme.colors.accentSoft,
               }}
             >
               {isAppIconName(item.icon)
-                ? <AppIcon name={item.icon} size={accent ? 19 : 17} color={accent ? theme.colors.accent : theme.colors.textSecondary} />
-                : <AppText variant="cardTitle" tone={accent ? 'accent' : 'secondary'}>{item.icon}</AppText>}
+                ? <AppIcon name={item.icon} size={18} color={theme.colors.accent} />
+                : <AppText variant="cardTitle" tone="accent">{item.icon}</AppText>}
             </View>
 
             <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant={accent ? 'cardTitle' : 'body'} style={{ fontWeight: '700' }}>{item.title}</AppText>
+              <AppText variant="cardTitle">{item.title}</AppText>
               <AppText variant="caption" tone="muted">{item.subtitle}</AppText>
             </View>
 
