@@ -3,6 +3,8 @@ import { Alert, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppScreen } from '@/components/common/AppScreen';
 import { BackHeader } from '@/components/common/BackHeader';
+import { AppIcon } from '@/components/art/AppIcon';
+import { GentleFloat } from '@/components/motion/Motion';
 import { Card } from '@/components/common/Card';
 import { AppText } from '@/components/common/AppText';
 import { AppButton } from '@/components/common/AppButton';
@@ -11,12 +13,22 @@ import { TagChip } from '@/components/common/TagChip';
 import { DrawingCanvas } from '@/components/common/DrawingCanvas';
 import { abandonGame, gameAction, getGame } from '@/services/backend/games';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { usePartnerPresence } from '@/hooks/usePartnerPresence';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { participantPalettes, participantPalette } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/useAppTheme';
 import type { BingoGameState, BingoSquare, DrawTogetherGameState, DrawingStroke, GameSession, HangmanGameState, KnowMeGameState, ThisOrThatGameState } from '@/types/database';
 
 function messageFrom(error: unknown) { return error instanceof Error ? error.message : 'Something went wrong.'; }
+
+function liveRoomCopy(gameType: GameSession['game_type']) {
+  if (gameType === 'draw_together') return 'You both have the canvas open ♥';
+  if (gameType === 'hangman') return 'You’re both watching the same puzzle ♥';
+  if (gameType === 'this_or_that') return 'You’re both in this round ♥';
+  if (gameType === 'know_me') return 'You’re both in this question ♥';
+  if (gameType === 'bingo') return 'You’re both in the same game room ♥';
+  return 'You’re both here ♥';
+}
 
 export default function GameDetailScreen() {
   const theme = useAppTheme();
@@ -25,6 +37,8 @@ export default function GameDetailScreen() {
   const [game, setGame] = useState<GameSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const gamePresenceScope = id ? `game:${id}` : 'game:loading';
+  const { hasPartner, partnerName: livePartnerName, isHere: partnerInRoom } = usePartnerPresence(gamePresenceScope, Boolean(id));
 
   const refresh = useCallback(async () => {
     if (!id) return;
@@ -64,6 +78,63 @@ export default function GameDetailScreen() {
   return (
     <AppScreen>
       <BackHeader eyebrow="Play Together" title={game.title} subtitle={game.reward ? `Reward: ${game.reward}` : 'Just for bragging rights.'} />
+      {hasPartner ? (
+        <Card
+          tone={partnerInRoom ? 'accent' : 'secondary'}
+          participantColor={partnerInRoom ? 'both' : undefined}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: theme.spacing.md,
+            marginBottom: theme.spacing.lg,
+            paddingVertical: theme.spacing.md,
+          }}
+        >
+          <GentleFloat distance={partnerInRoom ? 3 : 1} duration={partnerInRoom ? 1800 : 2600}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 15,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: partnerInRoom ? theme.colors.accentSoft : theme.colors.elevatedBackground,
+                borderWidth: 1,
+                borderColor: partnerInRoom ? theme.colors.accent : theme.colors.border,
+              }}
+            >
+              <AppIcon
+                name={partnerInRoom ? 'heart' : 'game'}
+                size={19}
+                color={partnerInRoom ? theme.colors.accentStrong : theme.colors.textMuted}
+              />
+            </View>
+          </GentleFloat>
+
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="caption" tone={partnerInRoom ? 'accent' : 'muted'}>
+              {partnerInRoom ? 'LIVE GAME ROOM' : 'WAITING IN THIS GAME'}
+            </AppText>
+            <AppText variant="bodySmall" tone={partnerInRoom ? 'primary' : 'secondary'}>
+              {partnerInRoom
+                ? liveRoomCopy(game.game_type)
+                : game.status === 'active'
+                  ? `Waiting for ${livePartnerName} to open this game…`
+                  : `${livePartnerName} isn’t viewing this game right now.`}
+            </AppText>
+          </View>
+
+          <View
+            accessibilityLabel={partnerInRoom ? `${livePartnerName} is viewing this game` : `${livePartnerName} is not viewing this game`}
+            style={{
+              width: 9,
+              height: 9,
+              borderRadius: 5,
+              backgroundColor: partnerInRoom ? theme.colors.accentStrong : theme.colors.textMuted,
+            }}
+          />
+        </Card>
+      ) : null}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.md, marginBottom: theme.spacing.xl }}>
         <TagChip label={statusCopy} participantColor={game.status === 'active' ? 'both' : undefined} />
         {game.status === 'active' ? <AppButton compact variant="ghost" label="End game" onPress={endGame} disabled={busy} /> : null}
@@ -133,7 +204,7 @@ function HangmanGame({ game, me, myName, partnerName, busy, act }: SharedGamePro
   const maskedWords = (state.maskedWord ?? '').split(' ');
   return <View style={{ gap: theme.spacing.xl }}>
     <Card participantColor="both" tone="accent" style={{ gap: theme.spacing.md, alignItems: 'center', paddingVertical: theme.spacing.xxl }}><AppText variant="caption" tone="accent">{isGuesser ? `${myName.toUpperCase()} IS GUESSING` : `${partnerName.toUpperCase()} IS GUESSING`}</AppText><View accessibilityLabel={`Hangman phrase with ${maskedWords.length} ${maskedWords.length === 1 ? 'word' : 'words'}`} style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-end', columnGap: 28, rowGap: 15, paddingHorizontal: theme.spacing.md }}>{maskedWords.map((word, wordIndex) => <View key={`${word}-${wordIndex}`} style={{ flexDirection: 'row', gap: 6 }}>{word.split('').map((char, charIndex) => <AppText key={`${char}-${charIndex}`} variant="hero" align="center" style={{ minWidth: char === "'" || char === '-' ? 10 : 18 }}>{char === '_' ? '_' : char}</AppText>)}</View>)}</View><AppText variant="bodySmall" tone="muted">{maskedWords.length > 1 ? `${maskedWords.length} words` : '1 word'}</AppText><AppText tone="secondary">Wrong guesses: {state.wrongGuesses}/{state.maxWrong}</AppText>{!isGuesser && state.secretWord ? <AppText variant="bodySmall" tone="muted">Your secret: {state.secretWord}</AppText> : null}</Card>
-    {isGuesser && game.status === 'active' ? <><Card style={{ gap: theme.spacing.md }}><AppText variant="section">Pick a letter</AppText><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{letters.map((letter) => { const used = state.guesses.includes(letter); return <Pressable key={letter} accessibilityRole="button" disabled={used || busy} onPress={() => void act({ action: 'guess_letter', letter })} style={({ pressed }) => ({ width: 42, minHeight: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: used ? theme.colors.border : theme.colors.accent, backgroundColor: used ? theme.colors.elevatedBackground : theme.colors.accentSoft, opacity: used ? 0.35 : pressed ? 0.7 : 1 })}><AppText variant="button">{letter}</AppText></Pressable>; })}</View></Card><Card style={{ gap: theme.spacing.md }}><FormField label="GUESS THE WHOLE WORD · OPTIONAL" value={wordGuess} onChangeText={setWordGuess} autoCapitalize="characters" placeholder="Take a shot…" /><AppButton label="Guess word" disabled={busy || !wordGuess.trim()} onPress={() => { const guess = wordGuess; setWordGuess(''); void act({ action: 'guess_word', guess }); }} /></Card></> : game.status === 'active' ? <Card tone="secondary"><AppText tone="secondary">You set the challenge. Watch {partnerName}’s guesses appear live.</AppText></Card> : null}
+    {isGuesser && game.status === 'active' ? <><Card style={{ gap: theme.spacing.md }}><AppText variant="section">Pick a letter</AppText><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>{letters.map((letter) => { const used = state.guesses.includes(letter); return <Pressable key={letter} accessibilityRole="button" disabled={used || busy} onPress={() => void act({ action: 'guess_letter', letter })} style={({ pressed }) => ({ width: 42, minHeight: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: used ? theme.colors.border : theme.colors.accent, backgroundColor: used ? theme.colors.elevatedBackground : theme.colors.accentSoft, opacity: used ? 0.35 : pressed ? 0.7 : 1 })}><AppText variant="button">{letter}</AppText></Pressable>; })}</View></Card><Card style={{ gap: theme.spacing.md }}><FormField label="GUESS THE WHOLE WORD · OPTIONAL" value={wordGuess} onChangeText={setWordGuess} autoCapitalize="characters" placeholder="Take a shot…" /><AppButton label="Guess word" disabled={busy || !wordGuess.trim()} onPress={() => { const guess = wordGuess; setWordGuess(''); void act({ action: 'guess_word', guess }); }} /></Card></> : game.status === 'active' ? <Card tone="secondary"><AppText tone="secondary">You set the challenge. {partnerName}’s guesses will appear here as they play.</AppText></Card> : null}
   </View>;
 }
 
