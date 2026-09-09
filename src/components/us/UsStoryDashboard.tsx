@@ -6,9 +6,10 @@ import { AppText } from '@/components/common/AppText';
 import { Card } from '@/components/common/Card';
 import { ExpandableFeatureGroup, type ExpandableFeatureGroupItem } from '@/components/navigation/ExpandableFeatureGroup';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
-import { getMemories, getMemoryAlbums, getTimeline } from '@/services/backend/mvpFeatures';
+import { getMemories, getTimeline } from '@/services/backend/mvpFeatures';
+import { getPhotoAlbums, getPhotos } from '@/services/backend/photos';
 import { useAppTheme } from '@/theme/useAppTheme';
-import type { CoupleMemory, MemoryAlbum } from '@/types/database';
+import type { CoupleMemory, CouplePhoto, PhotoAlbum } from '@/types/database';
 
 type TimelineSummary = {
   couple: {
@@ -111,18 +112,21 @@ function StorySummaryCard({
 // G5_US_STORY_CONSOLIDATION: Us owns the relationship-story navigation layer; Memories itself stays focused on memory entries.
 export function UsStoryDashboard() {
   const [memories, setMemories] = useState<CoupleMemory[]>([]);
-  const [albums, setAlbums] = useState<MemoryAlbum[]>([]);
+  const [photos, setPhotos] = useState<CouplePhoto[]>([]);
+  const [photoAlbums, setPhotoAlbums] = useState<PhotoAlbum[]>([]);
   const [timeline, setTimeline] = useState<TimelineSummary | null>(null);
 
   const refresh = useCallback(async () => {
-    const [memoryResult, albumResult, timelineResult] = await Promise.allSettled([
+    const [memoryResult, photoResult, albumResult, timelineResult] = await Promise.allSettled([
       getMemories(),
-      getMemoryAlbums(),
+      getPhotos(),
+      getPhotoAlbums(),
       getTimeline(),
     ]);
 
     if (memoryResult.status === 'fulfilled') setMemories(memoryResult.value);
-    if (albumResult.status === 'fulfilled') setAlbums(albumResult.value);
+    if (photoResult.status === 'fulfilled') setPhotos(photoResult.value);
+    if (albumResult.status === 'fulfilled') setPhotoAlbums(albumResult.value);
     if (timelineResult.status === 'fulfilled') setTimeline(timelineResult.value);
   }, []);
 
@@ -131,6 +135,8 @@ export function UsStoryDashboard() {
   }, [refresh]);
 
   useRealtimeRefresh('memories', refresh);
+  // H2_STANDALONE_PHOTO_GALLERY: the Us summary now reflects the same first-class Photos data as the Photos screen.
+  useRealtimeRefresh('photos', refresh);
 
   const sortedMemories = useMemo(
     () => [...memories].sort((a, b) => b.memory_date.localeCompare(a.memory_date)),
@@ -141,13 +147,7 @@ export function UsStoryDashboard() {
     () => sortedMemories.find((memory) => sameMonthAndDay(memory.memory_date)) ?? null,
     [sortedMemories],
   );
-  const photoCount = useMemo(
-    () => memories.reduce(
-      (total, memory) => total + ((memory.photos?.length ?? 0) || (memory.photo_url ? 1 : 0)),
-      0,
-    ),
-    [memories],
-  );
+  const photoCount = photos.length;
   const milestoneCount = timeline?.milestones.length ?? memories.filter((memory) => memory.is_milestone).length;
   const age = relationshipAge(timeline?.couple?.relationship_start_date);
 
@@ -179,7 +179,7 @@ export function UsStoryDashboard() {
     ? `${memories.length} ${memories.length === 1 ? 'memory' : 'memories'} · latest ${relativeMemoryDate(latest?.memory_date) ?? 'saved'}`
     : 'No memories yet · start with one moment';
 
-  const photoSummary = `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'} · ${albums.length} ${albums.length === 1 ? 'album' : 'albums'}`;
+  const photoSummary = `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'} · ${photoAlbums.length} ${photoAlbums.length === 1 ? 'album' : 'albums'}`;
   const timelineSummary = `${milestoneCount} ${milestoneCount === 1 ? 'milestone' : 'milestones'}${age ? ` · ${age} together` : ''}`;
   const rediscoverSummary = onThisDay
     ? `On this day: ${onThisDay.title} · Memory Jar`

@@ -5,16 +5,18 @@ import { AppText } from './AppText';
 import { AppButton } from './AppButton';
 import { AppIcon } from '@/components/art/AppIcon';
 
-export function MultiPhotoPickerField({ label, values, onChange, max = 8 }: {
+// H2_STANDALONE_PHOTO_GALLERY: the existing picker can describe Memory uploads or standalone gallery uploads without misleading copy.
+export function MultiPhotoPickerField({ label, values, onChange, max = 8, contextLabel = 'this memory' }: {
   label: string;
   values: string[];
   onChange: (values: string[]) => void;
   max?: number;
+  contextLabel?: string;
 }) {
   const theme = useAppTheme();
 
   async function pick() {
-    if (values.length >= max) { Alert.alert('Photo limit reached', `A memory can contain up to ${max} photos.`); return; }
+    if (values.length >= max) { Alert.alert('Photo limit reached', `You can add up to ${max} photos to ${contextLabel}.`); return; }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { Alert.alert('Photo access needed', 'Allow photo-library access to add images.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ allowsMultipleSelection: true, selectionLimit: max - values.length, quality: 0.35, base64: true });
@@ -37,7 +39,7 @@ export function MultiPhotoPickerField({ label, values, onChange, max = 8 }: {
 
   return <View style={{ gap: theme.spacing.sm }}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><AppText variant="caption" tone="secondary">{label}</AppText><AppText variant="caption" tone="muted">{values.length}/{max}</AppText></View>
-    {values.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>{values.map((value, index) => <View key={`${value.slice(0, 30)}-${index}`} style={{ position: 'relative' }}><Image source={{ uri: value }} style={{ width: 86, height: 86, borderRadius: theme.radii.md, backgroundColor: theme.colors.elevatedBackground }} resizeMode="cover" /><Pressable accessibilityRole="button" accessibilityLabel={`Remove photo ${index + 1}`} onPress={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} style={{ position: 'absolute', top: 4, right: 4, width: 26, height: 26, borderRadius: 13, backgroundColor: theme.colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border }}><AppIcon name="close" size={14} color={theme.colors.textPrimary} /></Pressable></View>)}</View> : <AppText variant="bodySmall" tone="muted">Add up to {max} photos to this memory.</AppText>}
+    {values.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>{values.map((value, index) => <View key={`${value.slice(0, 30)}-${index}`} style={{ position: 'relative' }}><Image source={{ uri: value }} style={{ width: 86, height: 86, borderRadius: theme.radii.md, backgroundColor: theme.colors.elevatedBackground }} resizeMode="cover" /><Pressable accessibilityRole="button" accessibilityLabel={`Remove photo ${index + 1}`} onPress={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} style={{ position: 'absolute', top: 4, right: 4, width: 26, height: 26, borderRadius: 13, backgroundColor: theme.colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border }}><AppIcon name="close" size={14} color={theme.colors.textPrimary} /></Pressable></View>)}</View> : <AppText variant="bodySmall" tone="muted">Add up to {max} photos to {contextLabel}.</AppText>}
     <AppButton compact variant="secondary" label={values.length ? 'Add more photos' : 'Choose photos'} onPress={pick} disabled={values.length >= max} />
   </View>;
 }
