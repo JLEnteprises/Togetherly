@@ -11,7 +11,7 @@ export default function UsScreen() {
 
   return (
     <AppScreen>
-      <PageHeader title="Our story" subtitle="The moments worth keeping." />
+      <PageHeader chapter="story" title="Our story" subtitle="The moments worth keeping." />
 
       <View style={{ gap: theme.spacing.xl }}>
         {/* E3_PAIRED_COUPLE_IDENTITY */}

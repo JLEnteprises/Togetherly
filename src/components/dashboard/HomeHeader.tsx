@@ -1,3 +1,5 @@
+import { ChapterArt } from '@/components/art/ChapterArt';
+import { useAppTheme } from '@/theme/useAppTheme';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
@@ -10,6 +12,7 @@ import { useFocusEffect } from 'expo-router';
 
 export function HomeHeader() {
   const { profile, partnerProfile } = useWorkspace();
+  const theme = useAppTheme();
   const [unread, setUnread] = useState(0);
   const [now, setNow] = useState(() => new Date());
   const refresh = useCallback(() => { getNotifications().then((result) => setUnread(result.unreadCount)).catch(() => undefined); }, []);
@@ -20,12 +23,16 @@ export function HomeHeader() {
   try { if (partnerProfile) partnerTime = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: partnerProfile.timezone }).format(now); } catch { /* Missing timezone is optional. */ }
   return <View style={{ gap: 10 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <AppText variant="caption" tone="secondary" style={{ flex: 1 }}>OUR SHARED SPACE</AppText>
+      <AppText variant="caption" tone="secondary" style={{ flex: 1 }}>TOGETHERLY</AppText>
       <IconButton icon="search" label="Search your shared space" onPress={() => router.push('/features/search')} />
       <IconButton icon="notification" label={`Inbox${unread ? `, ${unread} unread` : ''}`} onPress={() => router.push('/features/inbox' as never)} />
       <IconButton icon="settings" label="Account and settings" onPress={() => router.push('/(tabs)/more')} />
     </View>
-    <AppText variant="pageTitle">{profile?.display_name || 'You'}{partnerProfile ? ` + ${partnerProfile.display_name}` : ''}</AppText>
+    <View style={{ padding: 22, gap: 10, borderRadius: theme.radii.xl, backgroundColor: theme.colors.elevatedBackground, borderWidth: 1, borderColor: theme.colors.border }}>
+    <AppText variant="caption" tone="accent">A LITTLE WORLD, JUST OURS</AppText>
+    <AppText variant="hero" accessibilityRole="header">{profile?.display_name || 'You'}{partnerProfile ? ` + ${partnerProfile.display_name}` : ''}</AppText>
+    <ChapterArt height={122} />
+    </View>
     {unread > 0 ? <AppText variant="caption" tone="accent" onPress={() => router.push('/features/inbox' as never)}>{unread} unread in your inbox</AppText> : null}
     {partnerTime ? <AppText variant="bodySmall" tone="secondary">{partnerProfile?.display_name}’s time · {partnerTime}</AppText> : null}
   </View>;

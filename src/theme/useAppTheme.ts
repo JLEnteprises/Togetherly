@@ -11,7 +11,7 @@ export function useAppTheme() {
 
   return {
     scheme: 'dark' as const,
-    name: 'Dual Orbit' as const,
+    name: 'Evening Journal' as const,
     myColor,
     partnerColor,
     participantPalettes,
@@ -28,7 +28,7 @@ export function useAppTheme() {
       textMuted: highContrast ? '#C1B7C9' : colors.cosmic.textMuted,
       border: highContrast ? '#665B70' : colors.cosmic.border,
 
-      // Generic controls intentionally remain neutral.
+      // App actions use the warm brand accent; identity stays participant-specific.
       accent: colors.cosmic.accent,
       accentStrong: colors.cosmic.accentStrong,
       accentSoft: colors.cosmic.accentSoft,

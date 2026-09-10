@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useId } from 'react';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useAppTheme } from '@/theme/useAppTheme';
 import { usePreferences } from '@/providers/PreferencesProvider';
@@ -10,6 +11,7 @@ const stars = [
 
 export function CosmicBackdrop() {
   const theme = useAppTheme();
+  const gradientId = useId().replace(/:/g, '');
   const { preferences } = usePreferences();
   const variant = preferences.backdrop_theme;
   const minimal = variant === 'minimal_night';
@@ -32,8 +34,8 @@ export function CosmicBackdrop() {
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {!minimal ? <Animated.View style={[styles.glow, { backgroundColor: theme.participants.me.glowSoft, top: -130, right: -105, opacity: gothic ? 0.5 : 0.72 }, firstOrbitTransform ? { transform: firstOrbitTransform } : null]} /> : null}
-      {!minimal ? <Animated.View style={[styles.glow, { backgroundColor: theme.participants.partner.glowSoft, top: 250, left: -125, opacity: cottage ? 0.72 : 0.58 }, secondOrbitTransform ? { transform: secondOrbitTransform } : null]} /> : null}
+      {!minimal ? <Animated.View style={[styles.glow, { top: -130, right: -105, opacity: gothic ? 0.5 : 0.72 }, firstOrbitTransform ? { transform: firstOrbitTransform } : null]}><AmbientGlow id={`${gradientId}a`} color={theme.participants.me.accent} /></Animated.View> : null}
+      {!minimal ? <Animated.View style={[styles.glow, { top: 250, left: -125, opacity: cottage ? 0.72 : 0.58 }, secondOrbitTransform ? { transform: secondOrbitTransform } : null]}><AmbientGlow id={`${gradientId}b`} color={theme.participants.partner.accent} /></Animated.View> : null}
       {warm ? <View style={[styles.warmGlow, { backgroundColor: 'rgba(222,174,112,0.09)' }]} /> : null}
       {!minimal ? <View style={[styles.orbit, { borderColor: theme.participants.me.border, right: -92, top: 78 }]} /> : null}
       {!minimal ? <View style={[styles.orbitSmall, { borderColor: theme.participants.partner.border, left: -72, top: 420 }]} /> : null}
@@ -43,6 +45,10 @@ export function CosmicBackdrop() {
       ))}
     </View>
   );
+}
+
+function AmbientGlow({ id, color }: { id: string; color: string }) {
+  return <Svg width="100%" height="100%" viewBox="0 0 310 310"><Defs><RadialGradient id={id}><Stop offset="0" stopColor={color} stopOpacity="0.14"/><Stop offset="1" stopColor={color} stopOpacity="0"/></RadialGradient></Defs><Rect width="310" height="310" fill={`url(#${id})`} /></Svg>;
 }
 
 const styles = StyleSheet.create({
