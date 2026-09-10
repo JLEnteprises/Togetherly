@@ -49,5 +49,5 @@ export function AppScreen({ children, scroll = true, contentStyle }: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scrollContent: { paddingBottom: 120 },
-  content: { flexGrow: 1, width: '100%', maxWidth: 1040, alignSelf: 'center', paddingTop: 10 },
+  content: { flexGrow: 1, width: '100%', maxWidth: 880, alignSelf: 'center', paddingTop: 18 },
 });

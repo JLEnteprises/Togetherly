@@ -18,7 +18,7 @@ export function AppIcon({ name, color, size = 22, strokeWidth = 1.8 }: { name: A
   const p = { fill: 'none', stroke: color, strokeWidth, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      {name === 'home' ? <><Path {...p} d="M12 3.3 13.7 8.3 18.7 10l-5 1.7-1.7 5-1.7-5-5-1.7 5-1.7 1.7-5Z"/><Circle {...p} cx="18.2" cy="17.8" r="1.7"/></> : null}
+      {name === 'home' ? <><Path {...p} d="m3 10 9-7 9 7M5 9v11h14V9M9 20v-7h6v7"/></> : null}
       {name === 'plan' ? <><Rect {...p} x="5" y="4.5" width="14" height="15" rx="2.6"/><Line {...p} x1="8.2" y1="9" x2="15.8" y2="9"/><Line {...p} x1="8.2" y1="13" x2="13.8" y2="13"/><Line {...p} x1="8.2" y1="17" x2="15" y2="17"/></> : null}
       {name === 'together' ? <><Circle {...p} cx="9" cy="12" r="5"/><Circle {...p} cx="15" cy="12" r="5"/><Path {...p} d="M12 7.9c1.35.95 2.2 2.42 2.2 4.1S13.35 15.15 12 16.1c-1.35-.95-2.2-2.42-2.2-4.1S10.65 8.85 12 7.9Z"/></> : null}
       {name === 'us' || name === 'heart' ? <Path {...p} d="M12 19.5s-7-4.1-7-9.3A3.7 3.7 0 0 1 11.5 7.8L12 8.4l.5-.6A3.7 3.7 0 0 1 19 10.2c0 5.2-7 9.3-7 9.3Z"/> : null}

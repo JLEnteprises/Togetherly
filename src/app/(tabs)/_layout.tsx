@@ -15,7 +15,7 @@ export default function TabsLayout() {
     tabBarLabelStyle: { fontSize: 11, fontWeight: '700' as const, marginTop: 1 },
     tabBarStyle: {
       height: Platform.OS === 'ios' ? 88 : 70,
-      paddingTop: 8,
+      paddingTop: 10,
       backgroundColor: theme.colors.tabBar,
       borderTopColor: theme.colors.border,
       borderTopWidth: 1,
@@ -25,11 +25,11 @@ export default function TabsLayout() {
 
   return (
     <Tabs screenOptions={sharedOptions}>
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarAccessibilityLabel: 'Home tab', tabBarIcon: ({ color }) => <TabIcon name="home" color={color} /> }} />
-      <Tabs.Screen name="plan" options={{ title: 'Plan', tabBarAccessibilityLabel: 'Plan tab', tabBarIcon: ({ color }) => <TabIcon name="plan" color={color} /> }} />
-      <Tabs.Screen name="together" options={{ title: 'Connect', tabBarAccessibilityLabel: 'Connect tab', tabBarIcon: ({ color }) => <TabIcon name="together" color={color} /> }} />
-      <Tabs.Screen name="us" options={{ title: 'Our story', tabBarAccessibilityLabel: 'Our story tab', tabBarIcon: ({ color }) => <TabIcon name="us" color={color} /> }} />
-      <Tabs.Screen name="more" options={{ href: null, title: 'Account', tabBarAccessibilityLabel: 'Account', tabBarIcon: ({ color }) => <TabIcon name="more" color={color} size={20} /> }} />
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarAccessibilityLabel: 'Home tab', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} name="home" color={color} /> }} />
+      <Tabs.Screen name="plan" options={{ title: 'Plan', tabBarAccessibilityLabel: 'Plan tab', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} name="plan" color={color} /> }} />
+      <Tabs.Screen name="together" options={{ title: 'Connect', tabBarAccessibilityLabel: 'Connect tab', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} name="together" color={color} /> }} />
+      <Tabs.Screen name="us" options={{ title: 'Our story', tabBarAccessibilityLabel: 'Our story tab', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} name="us" color={color} /> }} />
+      <Tabs.Screen name="more" options={{ href: null, title: 'Account', tabBarAccessibilityLabel: 'Account', tabBarIcon: ({ color, focused }) => <TabIcon focused={focused} name="more" color={color} size={20} /> }} />
     </Tabs>
   );
 }

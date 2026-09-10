@@ -14,7 +14,7 @@ export default function TogetherScreen() {
 
   return (
     <AppScreen>
-      <PageHeader eyebrow="Right now" title="Connect" subtitle="A little time for the two of you." />
+      <PageHeader chapter="connect" eyebrow="Right now" title="Connect" subtitle="A little time for the two of you." />
 
       <View style={{ gap: theme.spacing.lg }}>
         {/* E3_PAIRED_COUPLE_IDENTITY */}

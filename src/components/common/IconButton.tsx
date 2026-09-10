@@ -29,7 +29,9 @@ export function IconButton({ icon, label, onPress, tone = 'muted', disabled = fa
       style={({ pressed }) => ({
         width: 44,
         height: 44,
-        borderRadius: 14,
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: pressed && !disabled ? theme.colors.cardElevated : theme.colors.elevatedBackground,

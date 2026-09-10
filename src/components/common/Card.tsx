@@ -29,7 +29,7 @@ export function Card({ children, style, tone = 'default', padded = true, partici
           backgroundColor,
           borderColor: theme.colors.border,
           borderRadius: theme.radii.lg,
-          padding: padded ? theme.spacing.lg : 0,
+          padding: padded ? theme.spacing.xl : 0,
           shadowColor: theme.colors.shadow,
         },
         ownerPalette ? {

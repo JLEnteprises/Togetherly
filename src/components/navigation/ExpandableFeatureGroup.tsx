@@ -84,12 +84,12 @@ export function ExpandableFeatureGroup({
         accessibilityHint={items.length === 1 && !children ? `Open ${items[0]?.title}` : accessibilityHint ?? (open ? 'Collapse this section' : 'Expand this section')}
         onPress={toggle}
         style={({ pressed }) => ({
-          minHeight: 76,
+          minHeight: 100,
           flexDirection: 'row',
           alignItems: 'center',
           gap: theme.spacing.md,
           paddingHorizontal: theme.spacing.lg,
-          paddingVertical: theme.spacing.md,
+          paddingVertical: theme.spacing.xl,
           backgroundColor: pressed ? theme.colors.elevatedBackground : 'transparent',
           opacity: pressed ? 0.82 : 1,
         })}
@@ -97,9 +97,9 @@ export function ExpandableFeatureGroup({
         {icon ? (
           <View
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 13,
+              width: 46,
+              height: 46,
+              borderRadius: 16,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: accent ? theme.colors.elevatedBackground : theme.colors.accentSoft,

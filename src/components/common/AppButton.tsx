@@ -45,11 +45,11 @@ export function AppButton({ label, onPress, variant = 'primary', compact = false
       disabled={unavailable}
       onPress={press}
       style={({ pressed }) => [styles.base, {
-        minHeight: compact ? 44 : 50,
+        minHeight: compact ? 44 : 54,
         paddingHorizontal: compact ? theme.spacing.lg : theme.spacing.xl,
-        borderRadius: theme.radii.pill,
+        borderRadius: compact ? theme.radii.pill : theme.radii.md,
         backgroundColor,
-        borderColor: variant === 'primary' ? 'rgba(255,255,255,0.10)' : theme.colors.border,
+        borderColor: variant === 'ghost' ? 'transparent' : variant === 'primary' ? 'rgba(255,255,255,0.20)' : theme.colors.border,
         opacity: unavailable ? 0.48 : pressed ? 0.82 : 1,
         transform: [{ scale: pressed ? 0.985 : 1 }],
       }]}

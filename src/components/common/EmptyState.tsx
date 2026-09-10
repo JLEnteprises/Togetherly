@@ -23,7 +23,7 @@ export function EmptyState({ icon, title, body, eyebrow, tip, actionLabel, onAct
   const theme = useAppTheme();
   return (
     <Card tone="secondary" style={{ alignItems: 'center', gap: theme.spacing.md, paddingVertical: theme.spacing.xxxl, paddingHorizontal: theme.spacing.xl }}>
-      <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 62 }}>
+      <View style={{ alignItems: 'center', justifyContent: 'center', width: 76, height: 76, borderRadius: 28, backgroundColor: theme.colors.accentSoft, borderWidth: 1, borderColor: theme.colors.border }}>
         {isAppIconName(icon) ? <AppIcon name={icon} size={34} color={theme.colors.accent} /> : <AppText variant="hero" tone="accent">{icon}</AppText>}
       </View>
       <View style={{ gap: 5, alignItems: 'center' }}>

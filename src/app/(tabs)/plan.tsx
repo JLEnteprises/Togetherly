@@ -11,7 +11,7 @@ export default function PlanScreen() {
 
   return (
     <AppScreen>
-      <PageHeader eyebrow="Shared life" title="Plan" subtitle="The practical bits of life you’re building together." />
+      <PageHeader chapter="plan" eyebrow="Shared life" title="Plan" subtitle="The practical bits of life you’re building together." />
       <View style={{ gap: theme.spacing.lg }}>
         <PlanToday />
         <PlanHubGroups />

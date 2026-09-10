@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export type ParticipantPalette = {
   base: string;
   accent: string;
@@ -120,37 +122,37 @@ export const participantPalettes: Record<string, ParticipantPalette> = new Proxy
 
 export const colors = {
   cosmic: {
-    background: '#0B0A0F',
-    elevatedBackground: '#141218',
-    card: '#19161E',
-    cardElevated: '#211C28',
-    textPrimary: '#F6F2FA',
-    textSecondary: '#C9C1D0',
-    textMuted: '#8F8798',
+    background: '#11151C',
+    elevatedBackground: '#1A2029',
+    card: '#1E2530',
+    cardElevated: '#29323E',
+    textPrimary: '#FFF6EB',
+    textSecondary: '#C8CDD4',
+    textMuted: '#A0ABB9',
 
-    // Togetherly controls stay neutral. Participant colours are reserved for
+    // Warm peach identifies app actions. Participant colours are reserved for
     // identity/ownership and are supplied separately by useAppTheme().
-    accent: '#DED7E5',
-    accentStrong: '#F0EBF4',
-    accentSoft: '#28242D',
-    onAccent: '#151219',
+    accent: '#F2BD9D',
+    accentStrong: '#FFD3B7',
+    accentSoft: '#343039',
+    onAccent: '#26202A',
 
     // Kept for compatibility with partner-specific UI. useAppTheme overrides
     // these with the current partner identity colour.
-    partnerAccent: '#D1C6DB',
+    partnerAccent: '#C5D8CF',
     partnerAccentStrong: '#E4DDE9',
-    partnerAccentSoft: '#242029',
-    partnerOnAccent: '#151219',
+    partnerAccentSoft: '#233138',
+    partnerOnAccent: '#26202A',
 
-    secondaryAccent: '#D1C6DB',
-    secondarySoft: '#242029',
+    secondaryAccent: '#C5D8CF',
+    secondarySoft: '#233138',
     success: '#73C7AB',
     warning: '#DEAE70',
     error: '#E47E95',
-    border: 'rgba(215, 202, 224, 0.14)',
+    border: 'rgba(205, 218, 231, 0.13)',
     overlay: 'rgba(5, 4, 8, 0.74)',
     shadow: '#000000',
-    tabBar: 'rgba(14, 12, 18, 0.98)',
+    tabBar: '#171E27',
     skyGlow: 'rgba(215, 202, 224, 0.08)',
     skyGlowSoft: 'rgba(215, 202, 224, 0.04)',
     star: 'rgba(242, 235, 248, 0.66)',
@@ -173,15 +175,17 @@ export const spacing = {
 export const radii = {
   sm: 10,
   md: 16,
-  lg: 22,
-  xl: 28,
+  lg: 26,
+  xl: 32,
   pill: 999,
 } as const;
 
+const displayFont = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, serif' });
+
 export const typography = {
-  hero: { fontSize: 34, lineHeight: 40, fontWeight: '800' as const, letterSpacing: -0.8 },
-  pageTitle: { fontSize: 28, lineHeight: 34, fontWeight: '800' as const, letterSpacing: -0.5 },
-  section: { fontSize: 20, lineHeight: 26, fontWeight: '700' as const, letterSpacing: -0.2 },
+  hero: { fontFamily: displayFont, fontSize: 38, lineHeight: 46, fontWeight: '400' as const, letterSpacing: -1 },
+  pageTitle: { fontFamily: displayFont, fontSize: 34, lineHeight: 42, fontWeight: '400' as const, letterSpacing: -0.7 },
+  section: { fontSize: 21, lineHeight: 28, fontWeight: '600' as const, letterSpacing: -0.4 },
   cardTitle: { fontSize: 17, lineHeight: 22, fontWeight: '700' as const },
   body: { fontSize: 16, lineHeight: 23, fontWeight: '400' as const },
   bodySmall: { fontSize: 14, lineHeight: 20, fontWeight: '400' as const },
