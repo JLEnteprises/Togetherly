@@ -49,28 +49,82 @@ $config = [ordered]@{
   apiUrl = $url
   updatedAt = (Get-Date).ToUniversalTime().ToString('o')
 }
-$runtimeConfigPath = Join-Path $RepoRoot 'runtime-config.json'
 $runtimeConfigJson = $config | ConvertTo-Json
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($runtimeConfigPath, $runtimeConfigJson + [Environment]::NewLine, $utf8NoBom)
 
 Write-Host "Discovered API URL: $url"
-Write-Host "Publishing runtime-config.json to GitHub..."
+Write-Host "Publishing only runtime-config.json to GitHub main..."
 
-git add runtime-config.json
-$changes = git diff --cached --name-only
-if ($changes) {
-  git commit -m "Update Togetherly runtime API URL"
-  if ($LASTEXITCODE -ne 0) { throw "git commit failed." }
-  git push origin main
-  if ($LASTEXITCODE -ne 0) { throw "git push failed. The tunnel is still running, but GitHub was not updated." }
-} else {
-  Write-Host "runtime-config.json already points at this URL; no Git commit required."
+# Never commit from the user's current checkout. Build a temporary clean worktree
+# from GitHub's latest main so local branches, staged files and unfinished work
+# cannot accidentally become part of the runtime URL commit.
+git fetch origin main
+if ($LASTEXITCODE -ne 0) {
+  throw "git fetch origin main failed. The tunnel is still running, but GitHub was not updated."
+}
+
+$publishWorktree = Join-Path $env:TEMP "togetherly-runtime-publish-$stamp"
+$worktreeAdded = $false
+$pushed = $false
+
+try {
+  if (Test-Path $publishWorktree) {
+    Remove-Item -Recurse -Force $publishWorktree
+  }
+
+  git worktree add --detach $publishWorktree origin/main
+  if ($LASTEXITCODE -ne 0) { throw "Could not create a clean temporary worktree from origin/main." }
+  $worktreeAdded = $true
+
+  $publishConfigPath = Join-Path $publishWorktree 'runtime-config.json'
+  [System.IO.File]::WriteAllText($publishConfigPath, $runtimeConfigJson + [Environment]::NewLine, $utf8NoBom)
+
+  Push-Location $publishWorktree
+  try {
+    git add -- runtime-config.json
+    if ($LASTEXITCODE -ne 0) { throw "Could not stage runtime-config.json in the temporary worktree." }
+
+    $stagedFiles = @(git diff --cached --name-only)
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect the temporary commit." }
+
+    if ($stagedFiles.Count -eq 0) {
+      Write-Host "runtime-config.json already matches GitHub; no commit required."
+      $pushed = $true
+    } elseif ($stagedFiles.Count -ne 1 -or $stagedFiles[0] -ne 'runtime-config.json') {
+      throw "Safety check failed: the temporary commit contains something other than runtime-config.json. Nothing was pushed."
+    } else {
+      git commit -m "Update Togetherly runtime API URL"
+      if ($LASTEXITCODE -ne 0) { throw "git commit failed in the isolated worktree." }
+
+      # Fast-forward only. If GitHub main moved after our fetch, this fails safely
+      # instead of overwriting or bundling unrelated work.
+      git push origin HEAD:main
+      if ($LASTEXITCODE -ne 0) {
+        throw "git push failed. GitHub main may have changed; nothing was force-pushed. Run the launcher again to retry."
+      }
+      $pushed = $true
+    }
+  } finally {
+    Pop-Location
+  }
+} finally {
+  if ($worktreeAdded) {
+    git worktree remove --force $publishWorktree 2>$null
+  }
+  if (Test-Path $publishWorktree) {
+    Remove-Item -Recurse -Force $publishWorktree -ErrorAction SilentlyContinue
+  }
+}
+
+if (-not $pushed) {
+  throw "GitHub was not updated."
 }
 
 Write-Host ""
 Write-Host "Togetherly runtime API is now: $url" -ForegroundColor Green
-Write-Host "Phones will discover it from GitHub on launch."
+Write-Host "Only runtime-config.json was published to GitHub main."
+Write-Host "Your current branch, staged files and local code were not committed or pushed."
+Write-Host "Phones will discover the URL from GitHub on launch."
 Write-Host "Keep this PowerShell window open. Ctrl+C stops the tunnel."
 Write-Host ""
 
