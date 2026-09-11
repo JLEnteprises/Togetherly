@@ -90,7 +90,7 @@ function StorySummaryCard({
       onPress={() => router.push(href as never)}
     >
       {({ pressed }) => (
-        <Card participantColor="both" style={{ padding: theme.spacing.lg, opacity: pressed ? 0.78 : 1 }}>
+        <Card style={{ padding: theme.spacing.md, opacity: pressed ? 0.78 : 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
             <View
               style={{
@@ -106,11 +106,10 @@ function StorySummaryCard({
             </View>
 
             <View style={{ flex: 1, gap: 3 }}>
-              <AppText variant="section">{title}</AppText>
+              <AppText variant="cardTitle">{title}</AppText>
               <AppText variant="bodySmall" tone="secondary" numberOfLines={2}>{summary}</AppText>
             </View>
 
-            {status ? <AppText variant="caption" tone="muted" numberOfLines={1}>{status}</AppText> : null}
             <AppIcon name="chevron" size={16} color={theme.colors.textMuted} />
           </View>
         </Card>
@@ -222,7 +221,7 @@ export function UsStoryDashboard() {
     : aroundNow
       ? `Around this time: ${aroundNow.title} · your latest chapter`
       : memories.length
-        ? 'Your latest chapter · Memory Jar · old moments will resurface around their dates'
+        ? 'Revisit past moments and your Memory Jar'
         : 'Rediscovery tools will grow with your story';
 
   return (
@@ -230,7 +229,7 @@ export function UsStoryDashboard() {
       <SyncStatus resources={['memories', 'photos', 'timeline']} retry={refreshAll} />
       {latest ? <Pressable accessibilityRole="button" accessibilityLabel={`Open memory: ${latest.title}`} onPress={() => router.push(`/features/memories?focus=${latest.id}` as never)}>
         <Card style={{ gap: 10 }}>
-          {(latest.photo_url || latest.photos?.[0]?.media_url) ? <Image source={{ uri: latest.photo_url || latest.photos?.[0]?.media_url || '' }} accessibilityLabel={latest.title} style={{ width: '100%', height: 240, borderRadius: 16 }} contentFit="cover" cachePolicy="memory-disk" transition={0} /> : null}
+          {(latest.photo_url || latest.photos?.[0]?.media_url) ? <Image source={{ uri: latest.photo_url || latest.photos?.[0]?.media_url || '' }} accessibilityLabel={latest.title} style={{ width: '100%', aspectRatio: 1.6, borderRadius: 16 }} contentFit="cover" cachePolicy="memory-disk" transition={0} /> : null}
           <AppText variant="caption" tone="secondary">OUR LATEST MOMENT</AppText>
           <AppText variant="section">{latest.emoji} {latest.title}</AppText>
           {latest.description ? <AppText tone="secondary" numberOfLines={3}>{latest.description}</AppText> : null}

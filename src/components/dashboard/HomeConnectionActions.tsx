@@ -3,7 +3,6 @@ import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppIcon, type AppIconName } from '@/components/art/AppIcon';
 import { AppText } from '@/components/common/AppText';
-import { ParticipantIdentityBadge } from '@/components/common/ParticipantIdentityBadge';
 import { useInteractionFeedback } from '@/hooks/useInteractionFeedback';
 import { useWorkspace } from '@/providers/WorkspaceProvider';
 import { createRelationshipPing } from '@/services/backend/mvpFeatures';
@@ -40,7 +39,7 @@ function QuickAction({
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        minWidth: '30%',
+        minWidth: 140,
         minHeight: 66,
         borderRadius: theme.radii.md,
         borderWidth: 1,
@@ -57,8 +56,8 @@ function QuickAction({
         {identity ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: identity.accent }} /> : null}
       </View>
       <View style={{ gap: 1 }}>
-        <AppText variant="bodySmall" style={{ fontWeight: '700' }} numberOfLines={1}>{label}</AppText>
-        <AppText variant="caption" tone="muted" numberOfLines={1}>{detail}</AppText>
+        <AppText variant="bodySmall" style={{ fontWeight: '700' }}>{label}</AppText>
+        <AppText variant="caption" tone="muted">{detail}</AppText>
       </View>
     </Pressable>
   );
@@ -100,13 +99,12 @@ export function HomeConnectionActions({ context = 'home' }: HomeConnectionAction
   return (
     <View style={{ gap: theme.spacing.sm }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing.md }}>
-        <View style={{ gap: 2 }}>
+        <View style={{ flex: 1, gap: 2 }}>
           <AppText variant="section">Between you</AppText>
           <AppText variant="bodySmall" tone="muted">
-            {together ? `Tiny ways to reach ${partnerName} or check in right now.` : 'Send a little love.'}
+            {`A little love for ${partnerName}.`}
           </AppText>
         </View>
-        <ParticipantIdentityBadge userId={partnerProfile.id} compact />
       </View>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
@@ -129,8 +127,8 @@ export function HomeConnectionActions({ context = 'home' }: HomeConnectionAction
         {together ? (
           <QuickAction
             icon="mood"
-            label="How I’m feeling"
-            detail="Open your check-in"
+            label="Check in"
+            detail="How are you feeling?"
             participantColor={profile.preferred_participant_color ?? undefined}
             onPress={() => {
               feedback();

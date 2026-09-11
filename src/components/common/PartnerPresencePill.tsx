@@ -6,7 +6,8 @@ import { useAppTheme } from '@/theme/useAppTheme';
 export function PartnerPresencePill({ scope }: { scope: string }) {
   const theme = useAppTheme();
   const { hasPartner, partnerName, isHere } = usePartnerPresence(scope);
-  if (!hasPartner) return null;
+  // Absence from this screen does not establish offline status.
+  if (!hasPartner || !isHere) return null;
 
   return (
     <View style={{
@@ -16,15 +17,15 @@ export function PartnerPresencePill({ scope }: { scope: string }) {
       gap: 7,
       paddingHorizontal: 11,
       paddingVertical: 7,
-      marginBottom: theme.spacing.lg,
+      marginBottom: 0,
       borderRadius: theme.radii.pill,
       borderWidth: 1,
       borderColor: isHere ? theme.colors.accent : theme.colors.border,
       backgroundColor: isHere ? theme.colors.accentSoft : theme.colors.elevatedBackground,
     }}>
       <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: isHere ? theme.colors.accentStrong : theme.colors.textMuted }} />
-      <AppText variant="bodySmall" tone={isHere ? 'accent' : 'muted'}>
-        {isHere ? `${partnerName} is here ♥` : `Waiting for ${partnerName}…`}
+      <AppText style={{ flexShrink: 1 }} variant="bodySmall" tone={isHere ? 'accent' : 'muted'}>
+        {`${partnerName} is here with you`}
       </AppText>
     </View>
   );

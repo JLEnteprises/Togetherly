@@ -1,24 +1,22 @@
-import { ChapterArt, type Chapter } from '@/components/art/ChapterArt';
+import { type Chapter } from '@/components/art/ChapterArt';
 import { View } from 'react-native';
 import { AppText } from './AppText';
-import { EyebrowText } from './EyebrowText';
+import { ScreenTitle } from './ScreenTitle';
 import { CoupleAvatar } from './Avatar';
 import { useAppTheme } from '@/theme/useAppTheme';
 
-// E4_FINAL_VISUAL_CONSISTENCY: page headers use the same eyebrow treatment and internal title rhythm.
-export function PageHeader({ eyebrow, title, subtitle, chapter }: { eyebrow?: string; title: string; subtitle?: string; chapter?: Chapter }) {
+// Hub titles match detail breadcrumbs; keep legacy props compatible without extra banners.
+export function PageHeader({ title, subtitle }: { eyebrow?: string; title: string; subtitle?: string; chapter?: Chapter }) {
   const theme = useAppTheme();
   return (
-    <View style={{ gap: theme.spacing.md, marginBottom: theme.spacing.xxl }}>
+    <View style={{ gap: theme.spacing.xs, marginBottom: theme.spacing.lg }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flex: 1, paddingRight: theme.spacing.md, gap: 3 }}>
-          {eyebrow ? <EyebrowText>{eyebrow}</EyebrowText> : null}
-          <AppText variant="hero" accessibilityRole="header">{title}</AppText>
+          <ScreenTitle title={title} />
         </View>
         <CoupleAvatar />
       </View>
-      {subtitle ? <AppText tone="secondary">{subtitle}</AppText> : null}
-      {chapter ? <View style={{ borderRadius: theme.radii.xl, backgroundColor: theme.colors.elevatedBackground, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' }}><ChapterArt chapter={chapter} /></View> : null}
+      {subtitle ? <AppText variant="bodySmall" tone="secondary">{subtitle}</AppText> : null}
     </View>
   );
 }

@@ -31,7 +31,6 @@ export function HomeQuickActions() {
     <View style={{ gap: theme.spacing.sm }}>
       <View style={{ gap: 2 }}>
         <AppText variant="section">In progress</AppText>
-        <AppText variant="bodySmall" tone="muted">Something you’re already doing together.</AppText>
       </View>
 
       <Pressable
@@ -55,8 +54,8 @@ export function HomeQuickActions() {
                 <AppIcon name="game" size={19} color={theme.colors.textSecondary} />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                <AppText variant="cardTitle" numberOfLines={1}>Continue {activeGame.title}</AppText>
-                <AppText variant="caption" tone="muted">Your shared game is waiting.</AppText>
+                <AppText variant="cardTitle">{activeGame.title}</AppText>
+                <AppText variant="caption" tone="muted">Continue playing</AppText>
               </View>
               <AppIcon name="chevron" size={16} color={theme.colors.textMuted} />
             </View>

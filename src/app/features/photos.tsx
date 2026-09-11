@@ -5,6 +5,7 @@ import { AppIcon } from '@/components/art/AppIcon';
 import { AppButton } from '@/components/common/AppButton';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
+import { SectionHeader } from '@/components/common/SectionHeader';
 import { BackHeader } from '@/components/common/BackHeader';
 import { Card } from '@/components/common/Card';
 import { ChoiceChips } from '@/components/common/ChoiceChips';
@@ -247,7 +248,7 @@ export default function PhotosScreen() {
     return (
       <AppScreen>
         <BackHeader
-          eyebrow="Photos · Album"
+          eyebrow="Photos"
           title={selected.title}
           subtitle={selected.description || `${albumPhotos.length} ${albumPhotos.length === 1 ? 'photo' : 'photos'}`}
           onBack={() => {
@@ -341,7 +342,7 @@ export default function PhotosScreen() {
           ) : null}
 
           {albumPhotos.map((photo, index) => (
-            <Card key={photo.id} participantColor={colorForUser(photo.creator_id)} style={{ width: '47%', padding: 0, overflow: 'hidden' }}>
+            <Card key={photo.id} participantColor={colorForUser(photo.creator_id)} style={{ flexBasis: '47%', flexGrow: 1, maxWidth: '50%', padding: 0, overflow: 'hidden' }}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={photo.caption ? `Open photo. ${photo.caption}` : 'Open photo'}
@@ -350,7 +351,7 @@ export default function PhotosScreen() {
               >
                 <Image source={{ uri: photo.media_url }} resizeMode="cover" style={{ width: '100%', aspectRatio: 1, backgroundColor: theme.colors.elevatedBackground }} />
                 <View style={{ padding: theme.spacing.md, gap: 4 }}>
-                  <AppText variant="bodySmall" numberOfLines={2}>{photo.caption || 'Photo'}</AppText>
+                  {photo.caption ? <AppText variant="bodySmall" numberOfLines={2}>{photo.caption}</AppText> : null}
                   <AppText variant="caption" tone="muted">{displayPhotoDate(photo)}</AppText>
                   {photo.linked_memory_title ? <AppText variant="caption" tone="secondary" numberOfLines={1}>Linked to: {photo.linked_memory_title}</AppText> : null}
                 </View>
@@ -369,14 +370,23 @@ export default function PhotosScreen() {
 
   return (
     <AppScreen>
-      <BackHeader eyebrow="Our story" title="Photos" subtitle="A shared gallery that doesn’t require a Memory." />
+      <BackHeader eyebrow="Our story" title="Photos" />
       <View style={{ marginBottom: theme.spacing.lg }}>
         <ChoiceChips value={view} onChange={setView} options={[{ value: 'all', label: 'All photos' }, { value: 'albums', label: 'Albums' }]} />
+      </View>
+
+      <View style={{ marginBottom: theme.spacing.md }}>
+        <SectionHeader
+          title={view === 'all' ? `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}` : `${albums.length} ${albums.length === 1 ? 'album' : 'albums'}`}
+          action={view === 'all' ? 'Add photos' : 'New album'}
+          onAction={() => view === 'all' ? setUploadOpen(true) : setAlbumComposerOpen(true)}
+        />
       </View>
 
       {view === 'all' ? (
         <>
           <ComposerSheet
+            showLauncher={false}
             title="Add photos"
             subtitle={`${photos.length} ${photos.length === 1 ? 'photo' : 'photos'} in your shared gallery`}
             open={uploadOpen}
@@ -429,7 +439,7 @@ export default function PhotosScreen() {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.md }}>
             {photos.map((photo, index) => (
-              <Card key={photo.id} participantColor={colorForUser(photo.creator_id)} style={{ width: '47%', padding: 0, overflow: 'hidden' }}>
+              <Card key={photo.id} participantColor={colorForUser(photo.creator_id)} style={{ flexBasis: '47%', flexGrow: 1, maxWidth: '50%', padding: 0, overflow: 'hidden' }}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={photo.caption ? `Open photo. ${photo.caption}` : 'Open photo'}
@@ -438,9 +448,8 @@ export default function PhotosScreen() {
                 >
                   <Image source={{ uri: photo.media_url }} resizeMode="cover" style={{ width: '100%', aspectRatio: 1, backgroundColor: theme.colors.elevatedBackground }} />
                   <View style={{ padding: theme.spacing.md, gap: 4 }}>
-                    <AppText variant="bodySmall" numberOfLines={2}>{photo.caption || 'Photo'}</AppText>
+                    {photo.caption ? <AppText variant="bodySmall" numberOfLines={2}>{photo.caption}</AppText> : null}
                     <AppText variant="caption" tone="muted">{displayPhotoDate(photo)}</AppText>
-                    {photo.linked_memory_title ? <AppText variant="caption" tone="secondary" numberOfLines={1}>Linked to: {photo.linked_memory_title}</AppText> : null}
                   </View>
                 </Pressable>
                 <View style={{ position: 'absolute', top: 8, right: 8 }}>
@@ -464,6 +473,7 @@ export default function PhotosScreen() {
       ) : (
         <>
           <ComposerSheet
+            showLauncher={false}
             title="Albums"
             subtitle={`${albums.length} ${albums.length === 1 ? 'album' : 'albums'}`}
             open={albumComposerOpen}
