@@ -14,7 +14,10 @@ import {
 } from './helpers.js';
 
 function uuidValue(value: unknown, label: string) {
-  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+  // Migration 019 imports photos/albums using md5(...)::uuid. Those stored
+  // identifiers have no guaranteed version/variant bits; validate their shape.
+  // Every lookup still checks couple ownership before reading or changing data.
+  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
     throw new ApiError(400, `${label} is invalid.`);
   }
   return value;
