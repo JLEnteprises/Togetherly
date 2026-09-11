@@ -30,7 +30,7 @@ function messageFrom(error: unknown) { return error instanceof Error ? error.mes
 function formatEvent(occurrence: EventOccurrence | null) {
   if (!occurrence) return 'Nothing scheduled';
   const event = occurrence.event;
-  const when = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: event.all_day ? undefined : 'numeric', minute: event.all_day ? undefined : '2-digit' }).format(occurrence.start);
+  const when = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', weekday: 'short', hour: event.all_day ? undefined : 'numeric', minute: event.all_day ? undefined : '2-digit' }).format(occurrence.start);
   return `${event.title} · ${when}`;
 }
 function localDateKey(date = new Date()) { const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
@@ -165,7 +165,7 @@ export function HomeTodayCard() {
   }
 
   const regularRows: Array<{ icon: AppIconName; title: string; value: string; tone?: StatusTone; href: string }> = [
-    { icon: 'calendar', title: 'Calendar', value: formatEvent(event), href: event ? `/features/calendar?focus=${event.event.id}` : '/features/calendar' },
+    { icon: 'calendar', title: 'Next event', value: formatEvent(event), href: event ? `/features/calendar?focus=${event.event.id}` : '/features/calendar' },
     { icon: 'task', title: 'Tasks', value: taskSummary.text, tone: taskSummary.tone, href: '/features/tasks' },
   ];
   if (!priority) {
@@ -269,8 +269,7 @@ export function HomeTodayCard() {
 
       <View style={{ gap: theme.spacing.sm }}>
         <View style={{ gap: 2 }}>
-          <AppText variant="section">Life today</AppText>
-          <AppText variant="bodySmall" tone="muted">Your next commitments.</AppText>
+          <AppText variant="section">At a glance</AppText>
         </View>
         <View style={{ paddingHorizontal: theme.spacing.sm }}>
           {regularRows.map((row, index) => <StatusRow key={row.title} icon={row.icon} title={row.title} value={loading ? 'Loading…' : row.value} valueTone={row.tone} href={row.href} topBorder={index > 0} />)}

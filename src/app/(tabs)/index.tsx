@@ -34,9 +34,9 @@ export default function HomeScreen() {
         <InvitePartnerCard />
         <FirstTimeGuideCard />
 
+        {couple && partnerProfile ? <HomeConnectionActions /> : null}
         {orderedVisible.map((item) => renderSection(item.key))}
         <RecentMemoryCard />
-        {couple && partnerProfile ? <HomeConnectionActions /> : null}
       </View>
     </AppScreen>
   );

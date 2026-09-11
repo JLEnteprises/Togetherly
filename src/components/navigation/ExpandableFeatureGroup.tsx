@@ -5,7 +5,6 @@ import type { ParticipantColor } from '@/types/database';
 import { AppIcon, isAppIconName } from '@/components/art/AppIcon';
 import { AppText } from '@/components/common/AppText';
 import { Card } from '@/components/common/Card';
-import { EyebrowText } from '@/components/common/EyebrowText';
 import { useInteractionFeedback } from '@/hooks/useInteractionFeedback';
 import { useAppTheme } from '@/theme/useAppTheme';
 
@@ -74,7 +73,6 @@ export function ExpandableFeatureGroup({
   return (
     <Card
       tone={accent ? 'accent' : 'default'}
-      participantColor={participantColor}
       style={{ padding: 0, overflow: 'hidden' }}
     >
       <Pressable
@@ -84,12 +82,12 @@ export function ExpandableFeatureGroup({
         accessibilityHint={items.length === 1 && !children ? `Open ${items[0]?.title}` : accessibilityHint ?? (open ? 'Collapse this section' : 'Expand this section')}
         onPress={toggle}
         style={({ pressed }) => ({
-          minHeight: 100,
+          minHeight: 76,
           flexDirection: 'row',
           alignItems: 'center',
           gap: theme.spacing.md,
           paddingHorizontal: theme.spacing.lg,
-          paddingVertical: theme.spacing.xl,
+          paddingVertical: theme.spacing.md,
           backgroundColor: pressed ? theme.colors.elevatedBackground : 'transparent',
           opacity: pressed ? 0.82 : 1,
         })}
@@ -97,9 +95,9 @@ export function ExpandableFeatureGroup({
         {icon ? (
           <View
             style={{
-              width: 46,
-              height: 46,
-              borderRadius: 16,
+              width: 34,
+              height: 34,
+              borderRadius: 11,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: accent ? theme.colors.elevatedBackground : theme.colors.accentSoft,
@@ -112,24 +110,11 @@ export function ExpandableFeatureGroup({
         ) : null}
 
         <View style={{ flex: 1, gap: 3 }}>
-          {eyebrow ? <EyebrowText tone={accent ? 'accent' : 'secondary'}>{eyebrow}</EyebrowText> : null}
-          <AppText variant="section">{title}</AppText>
-          <AppText variant="bodySmall" tone="secondary">{summary}</AppText>
-        </View>
 
-        {status ? (
-          <View
-            style={{
-              maxWidth: 120,
-              paddingHorizontal: 9,
-              paddingVertical: 5,
-              borderRadius: 999,
-              backgroundColor: theme.colors.elevatedBackground,
-            }}
-          >
-            <AppText variant="caption" tone="secondary" numberOfLines={1}>{status}</AppText>
-          </View>
-        ) : null}
+          <AppText variant="cardTitle">{title}</AppText>
+          <AppText variant="bodySmall" tone="secondary">{summary}</AppText>
+          {status && !summary.toLowerCase().includes(status.toLowerCase()) ? <AppText variant="caption" tone="muted">{status}</AppText> : null}
+        </View>
 
         <AppIcon name={items.length === 1 && !children ? 'chevron' : open ? 'chevronUp' : 'chevronDown'} size={16} color={theme.colors.textMuted} />
       </Pressable>

@@ -14,15 +14,14 @@ export function RightNowActivityCard() {
       onPress={() => router.push('/features/activity-now' as never)}
     >
       {({ pressed }) => (
-        <Card participantColor="both" tone="accent" style={{ padding: theme.spacing.lg, opacity: pressed ? 0.78 : 1 }}>
+        <Card tone="accent" style={{ padding: theme.spacing.lg, opacity: pressed ? 0.78 : 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
             <View style={{ width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.accentSoft }}>
               <AppIcon name="spark" size={21} color={theme.colors.accentStrong} />
             </View>
             <View style={{ flex: 1, gap: 3 }}>
-              <AppText variant="caption" tone="accent">LET TOGETHERLY CONNECT THE DOTS</AppText>
               <AppText variant="cardTitle">What fits right now?</AppText>
-              <AppText variant="bodySmall" tone="secondary">Use your time, shared availability, distance setup and recent check-ins to pick for you.</AppText>
+              <AppText variant="bodySmall" tone="secondary">Find an idea that fits your time and mood.</AppText>
             </View>
             <AppIcon name="chevron" size={16} color={theme.colors.textMuted} />
           </View>
