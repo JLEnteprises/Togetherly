@@ -40,7 +40,7 @@ function dueLabel(task: CoupleTask) {
   if (!value) return 'No due date';
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(value));
 }
-function recurrenceLabel(value: TaskRecurrence) { return value === 'none' ? '' : value === 'fortnightly' ? 'Every 2 weeks' : `Every ${value.replace('ly', '')}`; }
+function recurrenceLabel(value: TaskRecurrence) { return ({ none: '', daily: 'Every day', weekly: 'Every week', fortnightly: 'Every 2 weeks', monthly: 'Every month', yearly: 'Every year' })[value]; }
 
 type DurationUnit = 'minutes' | 'hours' | 'days' | 'weeks';
 type DraftStep = { id: string; title: string; dueDate: string | null; estimatedMinutes: number | null };
@@ -213,6 +213,8 @@ export default function TasksScreen() {
     } catch (error) { Alert.alert(editingId ? 'Couldn’t update task' : 'Couldn’t add task', messageFrom(error)); }
     finally { setBusy(false); }
   }
+  useEffect(() => { setViewTarget(current => current ? tasks.find(task => task.id === current.id) ?? null : null); }, [tasks]);
+
   async function setStatus(task: CoupleTask, status: CoupleTask['status']) {
     const previous = task.status;
     setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status } : item));
@@ -347,7 +349,7 @@ export default function TasksScreen() {
                   {task.description ? <AppText variant="bodySmall" tone="secondary">{task.description}</AppText> : null}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}><ParticipantIdentityBadge both={task.assign_to_both} userId={task.assignee_id} compact /><TagChip subtle label={dueLabel(task).toUpperCase()} />{task.start_date ? <TagChip subtle label={`START ${shortDate(task.start_date).toUpperCase()}`} /> : null}{task.estimated_minutes ? <TagChip subtle label={`~${durationLabel(task.estimated_minutes).toUpperCase()}`} /> : null}{task.recurrence !== 'none' ? <TagChip subtle label={`↻ ${recurrenceLabel(task.recurrence).toUpperCase()}`} /> : null}{task.priority !== 'normal' ? <TagChip subtle label={`${task.priority.toUpperCase()} PRIORITY`} /> : null}{(task.tags ?? []).map((tag) => <TagChip key={tag.id} subtle icon={tag.icon} iconDrawing={tag.icon_drawing} label={tag.name.toUpperCase()} />)}</View>
                   {(task.subtasks ?? []).length ? <View style={{ gap: 5, marginTop: 2 }}>{(task.subtasks ?? []).map((step) => <Pressable accessibilityRole="button" key={step.id} onPress={() => toggleStep(step)} style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}><AppIcon name={step.completed ? 'squareCheck' : 'square'} size={17} color={step.completed ? theme.colors.textMuted : theme.colors.textSecondary} /><View style={{ flex: 1 }}><AppText variant="bodySmall" tone={step.completed ? 'muted' : 'secondary'} style={step.completed ? { textDecorationLine: 'line-through' } : undefined}>{step.title}</AppText>{step.due_date || step.estimated_minutes ? <AppText variant="caption" tone="muted">{step.due_date ? `Due ${shortDate(step.due_date)}` : ''}{step.due_date && step.estimated_minutes ? ' · ' : ''}{step.estimated_minutes ? `~${durationLabel(step.estimated_minutes)}` : ''}</AppText> : null}</View></Pressable>)}<AppText variant="caption" tone="muted">{(task.subtasks ?? []).filter((step) => step.completed).length}/{(task.subtasks ?? []).length} steps complete</AppText></View> : null}
-                  {!done ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>{task.status !== 'in_progress' ? <AppButton compact variant="secondary" label="Start" onPress={() => setStatus(task, 'in_progress')} /> : null}<AppButton compact variant="ghost" label="Skip" onPress={() => setStatus(task, 'skipped')} /></View> : null}
+                  {!done ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 }}><AppButton compact label="Done" onPress={() => setStatus(task, 'completed')} />{(task.subtasks ?? []).length > 0 && task.status !== 'in_progress' ? <AppButton compact variant="secondary" label="Start" onPress={() => setStatus(task, 'in_progress')} /> : null}<AppButton compact variant="ghost" label="Skip" onPress={() => setStatus(task, 'skipped')} /></View> : null}
                 </Pressable>
                 <IconButton icon="overflow" label={`More actions for ${task.title}`} onPress={() => openTaskMenu(task)} />
               </View>
@@ -357,6 +359,7 @@ export default function TasksScreen() {
       </View>
       <RecordViewSheet visible={!!viewTarget} onClose={() => setViewTarget(null)} eyebrow="Task" title={viewTarget?.title ?? ''} subtitle={viewTarget ? dueLabel(viewTarget) : undefined}>
         {viewTarget ? <View style={{ gap: theme.spacing.md }}>
+          {viewTarget.status !== 'completed' ? <AppButton label="Done" icon="check" onPress={() => { void setStatus(viewTarget, 'completed'); }} /> : <AppButton variant="secondary" label="Reopen task" onPress={() => { void setStatus(viewTarget, 'not_started'); }} />}
           <ParticipantIdentityBadge both={viewTarget.assign_to_both} userId={viewTarget.assignee_id} compact />
           <ParticipantAttribution userId={viewTarget.creator_id} />
           {viewTarget.description ? <AppText tone="secondary">{viewTarget.description}</AppText> : <AppText tone="muted">No extra details.</AppText>}
@@ -370,7 +373,7 @@ export default function TasksScreen() {
           </View>
           {(viewTarget.subtasks ?? []).length ? <View style={{ gap: 8 }}>
             <AppText variant="cardTitle">Steps</AppText>
-            {(viewTarget.subtasks ?? []).map((step) => <View key={step.id} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}><AppIcon name={step.completed ? 'squareCheck' : 'square'} size={17} color={step.completed ? theme.colors.textMuted : theme.colors.textSecondary} /><View style={{ flex: 1 }}><AppText variant="bodySmall" tone={step.completed ? 'muted' : 'secondary'} style={step.completed ? { textDecorationLine: 'line-through' } : undefined}>{step.title}</AppText>{step.due_date ? <AppText variant="caption" tone="muted">Due {shortDate(step.due_date)}</AppText> : null}</View></View>)}
+            {(viewTarget.subtasks ?? []).map((step) => <Pressable accessibilityRole="checkbox" accessibilityLabel={step.title} accessibilityState={{ checked: step.completed }} onPress={() => void toggleStep(step)} key={step.id} style={{ minHeight: 44, flexDirection: 'row', gap: 8, alignItems: 'center' }}><AppIcon name={step.completed ? 'squareCheck' : 'square'} size={17} color={step.completed ? theme.colors.textMuted : theme.colors.textSecondary} /><View style={{ flex: 1 }}><AppText variant="bodySmall" tone={step.completed ? 'muted' : 'secondary'} style={step.completed ? { textDecorationLine: 'line-through' } : undefined}>{step.title}</AppText>{step.due_date ? <AppText variant="caption" tone="muted">Due {shortDate(step.due_date)}</AppText> : null}</View></Pressable>)}
           </View> : null}
         </View> : null}
       </RecordViewSheet>

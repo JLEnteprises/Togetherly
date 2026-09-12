@@ -1,3 +1,4 @@
+import { Outbox, kindFor, type Row } from '../offline/outbox';
 import { reportFreshness, clearFreshness } from './freshness';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -48,6 +49,7 @@ type RequestOptions = {
   authenticated?: boolean;
   retryAfterRefresh?: boolean;
   retryAfterConfig?: boolean;
+  retryNetwork?: boolean;
 };
 
 export class ApiClientError extends Error {
@@ -88,6 +90,7 @@ async function clearCachedResponsesForUser(userId: string) {
 async function persist(next: AuthSession | null) {
   const previousUserId = session?.user?.id ?? null;
   session = next;
+  if (previousUserId !== next?.user.id) { currentOutbox = null; emitOffline(); }
   clearFreshness();
   if (next) {
     const storedSession = Platform.OS === 'web' ? next : sessionForStorage(next);
@@ -125,6 +128,10 @@ async function cacheResponse(path: string, value: unknown) {
 }
 
 async function rawRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  if (connectionOffline && (options.method ?? 'GET') === 'GET' && options.cache !== false && options.authenticated !== false) {
+    const cached = await readCachedResponse<T>(path);
+    if (cached !== null) { reportFreshness(path, false); return cached; }
+  }
   await initializeBackendConfig();
   if (!backendConfig.isConfigured) throw new ApiClientError(0, 'Togetherly API is not configured.');
   const authenticated = options.authenticated !== false;
@@ -134,20 +141,29 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
 
   const method = options.method ?? 'GET';
   const requestApiUrl = apiUrl;
+  const requestUser = session?.user.id;
   let response: Response;
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    try {
     response = await fetch(`${apiUrl}${path}`, {
       method,
+      signal: controller.signal,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
+    } finally { clearTimeout(timer); }
   } catch {
+    if (authenticated && requestUser !== session?.user.id) throw new ApiClientError(409, 'Account changed during this request.');
+    connectionOffline = true; emitOffline();
     if (options.retryAfterConfig !== false) {
       await initializeBackendConfig(true).catch(() => undefined);
       if (backendConfig.isConfigured && apiUrl !== requestApiUrl) {
         return rawRequest<T>(path, { ...options, retryAfterConfig: false });
       }
     }
+    if (method === 'GET' && options.retryNetwork !== false) return rawRequest<T>(path, { ...options, retryNetwork: false, retryAfterConfig: false });
     if (authenticated && method === 'GET') reportFreshness(path, false);
     if (authenticated && method === 'GET' && options.cache !== false) {
       const cached = await readCachedResponse<T>(path);
@@ -156,6 +172,17 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
     throw new ApiClientError(0, 'Togetherly could not connect. Check your internet connection and try again.');
   }
 
+  if (authenticated && requestUser !== session?.user.id) throw new ApiClientError(409, 'Account changed during this request.');
+  if ([502,503,504,530].includes(response.status)) {
+    connectionOffline = true; emitOffline();
+    if (options.retryAfterConfig !== false) {
+      await initializeBackendConfig(true).catch(() => undefined);
+      if (apiUrl !== requestApiUrl) return rawRequest<T>(path, { ...options, retryAfterConfig: false });
+    }
+    if (method === 'GET' && options.cache !== false) { const cached = await readCachedResponse<T>(path); if (cached !== null) { reportFreshness(path, false); return cached; } }
+    throw new ApiClientError(response.status, 'The server is unavailable. Saved changes will retry when it returns.');
+  }
+  connectionOffline = false; emitOffline();
   if (response.status === 401 && authenticated && options.retryAfterRefresh !== false && session?.refreshToken) {
     const refreshed = await refreshSession();
     if (refreshed) return rawRequest<T>(path, { ...options, retryAfterRefresh: false });
@@ -168,6 +195,7 @@ async function rawRequest<T>(path: string, options: RequestOptions = {}): Promis
   }
   if (response.status === 204) return undefined as T;
   const payload = await response.json() as T;
+  if (authenticated && requestUser !== session?.user.id) throw new ApiClientError(409, 'Account changed during this request.');
   if (authenticated && method === 'GET') { reportFreshness(path, true); if (options.cache !== false) await cacheResponse(path, payload); }
   return payload;
 }
@@ -220,9 +248,10 @@ export async function refreshSession(): Promise<AuthSession | null> {
       const next: AuthSession = { ...result, user: result.user };
       await persist(next);
       return next;
-    } catch {
-      await persist(null);
-      return null;
+    } catch (error) {
+      // An unreachable refresh endpoint must not erase an offline sign-in.
+      if (error instanceof ApiClientError && [400,401,403].includes(error.status)) { await persist(null); return null; }
+      throw error;
     } finally {
       refreshPromise = null;
     }
@@ -240,6 +269,65 @@ export async function getUsableAccessToken(): Promise<string | null> {
   return session.accessToken;
 }
 
-export function apiRequest<T>(path: string, options?: RequestOptions) {
-  return rawRequest<T>(path, options);
+let connectionOffline = false;
+const offlineListeners = new Set<() => void>();
+const syncListeners = new Set<() => void>();
+export function subscribeOfflineSynced(fn: () => void) { syncListeners.add(fn); return () => { syncListeners.delete(fn); }; }
+const outboxes = new Map<string, Outbox>();
+let currentOutbox: Outbox | null = null;
+function emitOffline() { for (const fn of offlineListeners) fn(); }
+export function subscribeOffline(fn: () => void) { offlineListeners.add(fn); return () => { offlineListeners.delete(fn); }; }
+export function offlineStatus() { return { offline: connectionOffline, pending: currentOutbox?.pending ?? 0, problem: currentOutbox?.problem, operations: currentOutbox?.operations ?? [] }; }
+async function getOutbox() {
+  const userId = session?.user.id;
+  if (!userId) { currentOutbox = null; return null; }
+  const workspace = await readCachedResponse<Row>('/workspace');
+  const coupleId = workspace?.couple?.id;
+  if (!coupleId) return null;
+  const key = `togetherly.outbox.v1.${userId}.${coupleId}`;
+  let box = outboxes.get(key);
+  if (!box) { box = new Outbox(AsyncStorage, key, userId, coupleId, emitOffline); outboxes.set(key, box); }
+  await box.ready; currentOutbox = box; return box;
+}
+export async function retryOfflineChanges() {
+  const box = await getOutbox();
+  if (!box?.pending) {
+    if (connectionOffline && session) {
+      await initializeBackendConfig(true);
+      await rawRequest('/workspace', { cache: false, retryNetwork: false });
+      for (const fn of syncListeners) fn();
+    }
+    return;
+  }
+  await initializeBackendConfig(true);
+  const before = box.pending;
+  try { await box.flush(payload => rawRequest('/sync/mutation', { method: 'POST', body: payload }), () => session?.user.id === box.userId && currentOutbox === box); }
+  finally { if (before > box.pending && currentOutbox === box) for (const fn of syncListeners) fn(); emitOffline(); }
+}
+export async function discardOfflineChanges() { await currentOutbox?.discardAll(); emitOffline(); }
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const method = options.method ?? 'GET';
+  const box = options.authenticated === false ? null : await getOutbox();
+  if (box && kindFor(path, method)) {
+    const workspace = await readCachedResponse<Row>('/workspace');
+    const op = await box.enqueue(path, method, (options.body ?? {}) as Row, workspace?.partnerProfile?.id);
+    // Always persist before sending: a lost response is replayed using the same ID.
+    void retryOfflineChanges().catch(() => undefined);
+    return (method === 'DELETE' ? undefined : { [op.kind]: box.record(op) }) as T;
+  }
+  if (box?.pending && method === 'GET' && ['/tasks','/notes','/moods/latest'].includes(path)) return box.project(path) as T;
+  try {
+    const result = await rawRequest<T>(path, options);
+    if (method === 'GET' && box) {
+      if (connectionOffline && box.hasSnapshot(path)) return box.project(path) as T;
+      return await box.snapshot(path, result) as T;
+    }
+    return result;
+  } catch (error) {
+    if (method === 'GET' && box && (error instanceof ApiClientError && (error.status === 0 || error.status >= 500))) {
+      const local = box.project(path);
+      if (local.tasks || local.notes || path === '/moods/latest') return local as T;
+    }
+    throw error;
+  }
 }
