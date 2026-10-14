@@ -1,3 +1,5 @@
+import { AppState } from 'react-native';
+import { retryOfflineChanges } from '@/services/backend/api';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import type { AuthSession, Profile } from '@/types/database';
 import { restoreAuthSession, signInWithEmail, signOut as signOutRequest, signUpWithEmail } from '@/services/backend/auth';
@@ -47,6 +49,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    let stopped = false;
+    let delay = 5000;
+    let running = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const retry = async () => {
+      if (running || stopped) return;
+      running = true;
+      if (AppState.currentState === 'active' || AppState.currentState == null) {
+        try { await retryOfflineChanges(); delay = 5000; } catch { delay = Math.min(delay * 2, 60000); }
+      }
+      running = false;
+      if (!stopped) timer = setTimeout(retry, delay);
+    };
+    timer = setTimeout(retry, delay);
+    const foreground = AppState.addEventListener('change', state => {
+      if (state === 'active') { clearTimeout(timer); void retry(); }
+    });
+    return () => { stopped = true; clearTimeout(timer); foreground.remove(); };
+  }, [session?.user.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const data = await signInWithEmail(email, password);

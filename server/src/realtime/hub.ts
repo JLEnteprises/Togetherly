@@ -1,3 +1,4 @@
+import { afterCommit } from '../db/requestTransaction.js';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { Server } from 'node:http';
 import { pool } from '../db/pool.js';
@@ -102,10 +103,12 @@ export class RealtimeHub {
   }
 
   broadcastCouple(coupleId: string, event: RealtimeEvent) {
+    afterCommit(() => {
     const payload = JSON.stringify(event);
     for (const client of this.wss.clients) {
       const state = this.states.get(client);
       if (state?.coupleId === coupleId && client.readyState === WebSocket.OPEN) client.send(payload);
     }
+    });
   }
 }

@@ -11,6 +11,7 @@
     "migrate": "tsx src/db/migrate.ts",
     "smoke": "tsx src/smoke.ts",
     "logic": "node --import tsx ../src/utils/logicSmoke.ts && node --import tsx ../src/utils/draftSmoke.ts",
+    "test:offline": "node --import tsx src/offlineSmoke.ts && node --import tsx ../tests/offlineOutbox.ts",
     "test:experience": "node --import tsx src/experienceSmoke.ts"
   },
   "dependencies": {

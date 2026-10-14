@@ -1,3 +1,4 @@
+import { OfflineStatus } from './OfflineStatus';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +22,7 @@ export function AppScreen({ children, scroll = true, contentStyle }: Props) {
   const theme = useAppTheme();
   const [scrollLocked, setScrollLocked] = useState(false);
   const setDrawingScrollLock = useCallback((locked: boolean) => setScrollLocked(locked), []);
-  const content = <FadeSlideIn distance={8}><View style={[styles.content, { paddingHorizontal: theme.spacing.xl }, contentStyle]}>{children}</View></FadeSlideIn>;
+  const content = <FadeSlideIn distance={8}><View style={[styles.content, { paddingHorizontal: theme.spacing.xl }, contentStyle]}><OfflineStatus />{children}</View></FadeSlideIn>;
 
   return (
     <ScreenScrollLockContext.Provider value={setDrawingScrollLock}>

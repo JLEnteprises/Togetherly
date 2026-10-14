@@ -23,7 +23,7 @@ export async function restoreAuthSession(): Promise<AuthSession | null> {
     await storeSession(next);
     return next;
   } catch (error) {
-    if (error instanceof ApiClientError && error.status === 0) return existing;
+    if (error instanceof ApiClientError && (error.status === 0 || error.status >= 500 || error.status === 429)) return existing;
     await storeSession(null);
     return null;
   }

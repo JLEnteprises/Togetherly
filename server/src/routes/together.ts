@@ -542,8 +542,11 @@ export async function registerTogetherRoutes(app: FastifyInstance, realtime: Rea
       const context = optionalText(body.context, 300);
       const hours = body.validForHours ?? 12;
       if (typeof hours !== 'number' || ![1,4,12,24].includes(hours)) throw new ApiError(400, 'Choose how long this check-in applies.');
-      const result = await pool.query('INSERT INTO moods(id,user_id,couple_id,mood,need,visibility,context,valid_until) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *', [randomUUID(), request.userId, coupleId, mood, need, visibility, context, new Date(Date.now() + hours * 3600000).toISOString()]);
-      if (visibility === 'shared') {
+      const recordedAt = body.recordedAt === undefined ? Date.now() : Date.parse(String(body.recordedAt));
+      if (!Number.isFinite(recordedAt) || recordedAt > Date.now() + 300000) throw new ApiError(400, 'Check-in time is invalid.');
+      const validUntil = new Date(recordedAt + hours * 3600000).toISOString();
+      const result = await pool.query('INSERT INTO moods(id,user_id,couple_id,mood,need,visibility,context,valid_until,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *', [randomUUID(), request.userId, coupleId, mood, need, visibility, context, validUntil, new Date(recordedAt).toISOString()]);
+      if (visibility === 'shared' && Date.parse(validUntil) > Date.now()) {
         await notifyPartner({ coupleId, actorUserId: request.userId, kind: 'mood', preference: 'notification_partner_mood', entityType: 'mood', entityId: result.rows[0].id, title: 'Partner check-in', body: `${mood} · ${need}` });
         broadcast(realtime, coupleId, 'moods', 'created', result.rows[0].id);
       }

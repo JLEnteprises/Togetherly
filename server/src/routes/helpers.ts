@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { pool } from '../db/pool.js';
 import { ApiError } from '../utils/http.js';
 import type { RealtimeHub } from '../realtime/hub.js';
+import { afterCommit } from '../db/requestTransaction.js';
 import { dispatchPush } from '../push/expo.js';
 
 export async function requireCoupleId(userId: string) {
@@ -184,6 +185,6 @@ export async function notifyPartner(input: {
      RETURNING id,recipient_user_id,kind,entity_type,entity_id,title,body`,
     [input.coupleId, input.actorUserId, input.kind, input.entityType ?? null, input.entityId ?? null, input.title, input.body ?? '', randomUUID()],
   );
-  for (const row of result.rows) dispatchPush(row);
+  for (const row of result.rows) afterCommit(() => { void dispatchPush(row); });
   return result.rows;
 }
