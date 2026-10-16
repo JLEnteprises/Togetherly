@@ -6,7 +6,7 @@ import { pool } from './pool.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDirectory = join(here, '../../migrations');
 
-async function migrate() {
+export async function runMigrations() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name text PRIMARY KEY,
@@ -36,7 +36,9 @@ async function migrate() {
   }
 }
 
-migrate()
+// Keep the CLI useful while also allowing the API to run a safe dev preflight.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  runMigrations()
   .then(async () => {
     console.log('Database migrations are up to date.');
     await pool.end();
@@ -46,3 +48,4 @@ migrate()
     await pool.end();
     process.exitCode = 1;
   });
+}

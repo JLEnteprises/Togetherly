@@ -48,7 +48,12 @@ npm run backend:dev
 npm start
 ```
 
-Latest migration: `020_connected_experience.sql`.
+Latest migrations: `020_connected_experience.sql` and `021_experience_followthrough.sql`.
+
+The API automatically applies pending additive migrations in development. For a
+production deployment, run `npm run backend:migrate` during release (or set
+`AUTO_MIGRATE=true` before starting a single-server deployment). `/health` now
+reports `schema: "out_of_date"` when the API/database versions do not match.
 
 Detailed implementation notes: `V1_14_EVERYWHERE_NOTES.md`.
 

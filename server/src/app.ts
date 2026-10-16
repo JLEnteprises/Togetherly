@@ -17,6 +17,7 @@ import { registerLocationRoutes } from './routes/location.js';
 import { registerWatchRoutes } from './routes/watch.js';
 import { RealtimeHub } from './realtime/hub.js';
 import { config } from './config.js';
+import { pool } from './db/pool.js';
 
 
 type RateBucket = { count: number; resetAt: number };
@@ -71,7 +72,20 @@ export async function buildApp() {
   });
   const realtime = new RealtimeHub(app.server);
 
-  app.get('/health', async () => ({ ok: true }));
+  app.get('/health', async () => {
+    try {
+      const result = await pool.query(`
+        SELECT
+          to_regclass('public.date_proposals') IS NOT NULL AS date_plans,
+          EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='moods' AND column_name='context') AS mood_context
+      `);
+      const schema = result.rows[0] as { date_plans: boolean; mood_context: boolean };
+      const ready = schema.date_plans && schema.mood_context;
+      return { ok: ready, database: true, schema: ready ? 'current' : 'out_of_date', checks: schema };
+    } catch {
+      return { ok: false, database: false, schema: 'unavailable' };
+    }
+  });
   await registerAuthRoutes(app, realtime);
   await registerWorkspaceRoutes(app, realtime);
   await registerSharedItemRoutes(app, realtime);
